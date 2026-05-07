@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import ircManager from './ircManager.js';
 import { findSession } from '../db/sessions.js';
 import { findUserById } from '../db/users.js';
+import { listMessages } from '../db/messages.js';
 import { SESSION_COOKIE } from '../middleware/auth.js';
 
 export function attachWsHub(httpServer, sessionSecret) {
@@ -92,7 +93,7 @@ export function attachWsHub(httpServer, sessionSecret) {
     send(ws, { kind: 'snapshot', networks });
     for (const conn of ircManager.listConnections(userId)) {
       for (const ch of conn.channels.values()) {
-        const events = conn.getBacklog(ch.name);
+        const events = listMessages(conn.network.id, ch.name, { limit: 50 });
         if (events.length) {
           send(ws, {
             kind: 'backlog',
@@ -129,6 +130,27 @@ export function attachWsHub(httpServer, sessionSecret) {
       case 'typing':
         ircManager.typing(userId, msg.networkId, msg.target, msg.state);
         break;
+      case 'history': {
+        const conn = ircManager.getConnection(userId, msg.networkId);
+        if (!conn) {
+          send(ws, { kind: 'error', text: 'network not connected' });
+          break;
+        }
+        const limit = Math.min(Math.max(Number(msg.limit) || 100, 1), 500);
+        const events = listMessages(msg.networkId, msg.target, {
+          before: msg.before ? Number(msg.before) : undefined,
+          limit,
+        });
+        send(ws, {
+          kind: 'history',
+          networkId: msg.networkId,
+          target: msg.target,
+          before: msg.before || null,
+          events,
+          hasMore: events.length === limit,
+        });
+        break;
+      }
       default:
         send(ws, { kind: 'error', text: `unknown message type: ${msg.type}` });
     }

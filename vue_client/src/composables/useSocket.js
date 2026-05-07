@@ -26,8 +26,7 @@ function applyEvent(event) {
     case 'notice':
       buffers.pushMessage(event);
       if (!event.self && networks.activeKey !== `${event.networkId}::${event.target}`) {
-        const isMention = me && typeof event.text === 'string' && event.text.toLowerCase().includes(me.toLowerCase());
-        buffers.markUnread(event.networkId, event.target, isMention);
+        buffers.markUnread(event.networkId, event.target, !!event.mention);
       }
       break;
     case 'join':
@@ -97,6 +96,11 @@ function handleMessage(raw) {
   }
   if (payload.kind === 'backlog') {
     applyBacklog(payload);
+    return;
+  }
+  if (payload.kind === 'history') {
+    const buffers = useBuffersStore();
+    buffers.prependHistory(payload.networkId, payload.target, payload.events, payload.hasMore);
     return;
   }
   if (payload.kind === 'irc') {

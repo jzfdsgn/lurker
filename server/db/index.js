@@ -61,6 +61,22 @@ function migrate() {
       FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_channels_network ON channels(network_id);
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      network_id INTEGER NOT NULL,
+      target TEXT NOT NULL,
+      time TEXT NOT NULL,
+      type TEXT NOT NULL,
+      nick TEXT,
+      text TEXT,
+      kind TEXT,
+      self INTEGER NOT NULL DEFAULT 0,
+      mention INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_buffer ON messages(network_id, target, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_messages_mention ON messages(network_id, mention, id DESC);
   `);
 }
 

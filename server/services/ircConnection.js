@@ -1,6 +1,25 @@
 import IRC from 'irc-framework';
+import { insertMessage } from '../db/messages.js';
 
-const BACKLOG_PER_TARGET = 200;
+const PERSIST_TYPES = new Set(['message', 'action', 'notice', 'topic']);
+
+function isWordChar(c) {
+  return c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c === '_';
+}
+
+function nickMentioned(text, nick) {
+  if (!text || !nick) return false;
+  const t = text.toLowerCase();
+  const n = nick.toLowerCase();
+  let i = 0;
+  while ((i = t.indexOf(n, i)) !== -1) {
+    const before = i === 0 ? '' : t[i - 1];
+    const after = i + n.length >= t.length ? '' : t[i + n.length];
+    if (!isWordChar(before) && !isWordChar(after)) return true;
+    i += n.length;
+  }
+  return false;
+}
 
 export class IrcConnection {
   constructor({ network, onEvent }) {
@@ -10,23 +29,43 @@ export class IrcConnection {
     this.client.requestCap('message-tags');
     this.state = 'disconnected';
     this.channels = new Map();
-    this.backlog = new Map();
     this.bind();
   }
 
+  shouldPersist(event) {
+    if (!event.target) return false;
+    if (event.target.startsWith(':server:')) return false;
+    return PERSIST_TYPES.has(event.type);
+  }
+
   publish(event) {
-    if (event.target) {
-      const log = this.backlog.get(event.target) || [];
-      log.push(event);
-      if (log.length > BACKLOG_PER_TARGET) log.shift();
-      this.backlog.set(event.target, log);
-    }
-    this.onEvent({
+    const time = event.time || new Date().toISOString();
+    const enriched = {
       ...event,
       userId: this.network.user_id,
       networkId: this.network.id,
-      time: event.time || new Date().toISOString(),
-    });
+      time,
+    };
+
+    if (this.shouldPersist(event)) {
+      const me = this.client.user?.nick;
+      const mention = !event.self && nickMentioned(event.text, me);
+      const id = insertMessage({
+        networkId: this.network.id,
+        target: event.target,
+        time,
+        type: event.type,
+        nick: event.nick,
+        text: event.text,
+        kind: event.kind,
+        self: event.self,
+        mention,
+      });
+      enriched.id = id;
+      enriched.mention = mention;
+    }
+
+    this.onEvent(enriched);
   }
 
   publishEphemeral(event) {
@@ -202,10 +241,6 @@ export class IrcConnection {
 
   disconnect(reason = 'caint shutting down') {
     this.client.quit(reason);
-  }
-
-  getBacklog(target) {
-    return this.backlog.get(target) || [];
   }
 
   snapshot() {

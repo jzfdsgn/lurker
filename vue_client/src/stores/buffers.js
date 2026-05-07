@@ -34,6 +34,9 @@ function ensureBuffer(state, networkId, target) {
       unread: 0,
       mention: false,
       typing: {},
+      oldestId: null,
+      hasMore: true,
+      loadingHistory: false,
     };
   }
   if (!state.buffers[k].typing) state.buffers[k].typing = {};
@@ -58,6 +61,7 @@ export const useBuffersStore = defineStore('buffers', {
       const buf = ensureBuffer(this, event.networkId, event.target);
       buf.messages.push(event);
       if (buf.messages.length > MAX_PER_BUFFER) buf.messages.splice(0, buf.messages.length - MAX_PER_BUFFER);
+      if (buf.oldestId == null && event.id != null) buf.oldestId = event.id;
       if (event.nick && buf.typing[event.nick]) {
         clearTypingTimer(event.networkId, event.target, event.nick);
         delete buf.typing[event.nick];
@@ -66,6 +70,21 @@ export const useBuffersStore = defineStore('buffers', {
     replaceBacklog(networkId, target, events) {
       const buf = ensureBuffer(this, networkId, target);
       buf.messages = events.slice(-MAX_PER_BUFFER);
+      const first = buf.messages[0];
+      buf.oldestId = first?.id ?? null;
+      buf.hasMore = events.length >= 50;
+    },
+    prependHistory(networkId, target, events, hasMore) {
+      const buf = ensureBuffer(this, networkId, target);
+      buf.messages = [...events, ...buf.messages];
+      const first = buf.messages[0];
+      buf.oldestId = first?.id ?? buf.oldestId;
+      buf.hasMore = !!hasMore;
+      buf.loadingHistory = false;
+    },
+    setLoadingHistory(networkId, target, loading) {
+      const buf = ensureBuffer(this, networkId, target);
+      buf.loadingHistory = loading;
     },
     setMembers(networkId, target, members) {
       const buf = ensureBuffer(this, networkId, target);
