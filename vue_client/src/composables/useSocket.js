@@ -135,7 +135,12 @@ function applySnapshot(snapshot) {
 
 function applyBacklog(payload) {
   const buffers = useBuffersStore();
-  buffers.replaceBacklog(payload.networkId, payload.target, payload.events, payload.speakers);
+  buffers.replaceBacklog(payload.networkId, payload.target, payload.events, payload.speakers, {
+    lastReadId: payload.lastReadId,
+    unread: payload.unread,
+    highlights: payload.highlights,
+    highlightsCapped: payload.highlightsCapped,
+  });
 }
 
 function handleMessage(raw) {
@@ -167,6 +172,16 @@ function handleMessage(raw) {
   if (payload.kind === 'highlight-rules-changed') {
     const rules = useHighlightRulesStore();
     if (rules.loaded) rules.applyServerChanged();
+    return;
+  }
+  if (payload.kind === 'read-state') {
+    const buffers = useBuffersStore();
+    buffers.applyReadState(payload.networkId, payload.target, {
+      lastReadId: payload.lastReadId,
+      unread: payload.unread,
+      highlights: payload.highlights,
+      highlightsCapped: payload.highlightsCapped,
+    });
     return;
   }
 }

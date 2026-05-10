@@ -81,6 +81,25 @@ export function countOlder(networkId, target, beforeId) {
   ).get(networkId, target, beforeId).n;
 }
 
+export function countNewer(networkId, target, afterId) {
+  return db.prepare(
+    `SELECT COUNT(*) AS n FROM messages WHERE network_id = ? AND target = ? AND id > ?`
+  ).get(networkId, target, afterId || 0).n;
+}
+
+// Returns events newer than `afterId`, oldest-first, capped at `limit`. Used
+// for unread highlight counting — we need the row content (nick/text) to run
+// the highlight engine, so a bare COUNT won't do.
+export function listNewer(networkId, target, afterId, limit = 500) {
+  const rows = db.prepare(
+    `SELECT * FROM messages
+     WHERE network_id = ? AND target = ? AND id > ?
+     ORDER BY id ASC
+     LIMIT ?`
+  ).all(networkId, target, afterId || 0, limit);
+  return rows.map(rowToEvent);
+}
+
 const listSpeakersStmt = db.prepare(`
   SELECT nick, MAX(time) AS last_time
   FROM messages

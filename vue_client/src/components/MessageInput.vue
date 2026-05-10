@@ -355,7 +355,7 @@ function handleCommand(line, networkId, target) {
       if (!who) return;
       const body = msgParts.join(' ');
       if (body) socketSend({ type: 'send', networkId, target: who, text: body });
-      networks.setActive(networkId, who);
+      buffers.activate(networkId, who);
       break;
     }
     case 'join':

@@ -6,9 +6,10 @@
          leaving scrollTop near the top so maybeRequestHistory cascades. -->
     <div v-if="!buffer?.hasMore && messages.length" class="notice">— start of history —</div>
     <p v-if="!messages.length" class="notice empty">No messages yet.</p>
+    <template v-for="row in renderRows" :key="row.key">
+    <div v-if="row.divider" class="notice unread-divider">— unread —</div>
     <div
-      v-for="row in renderRows"
-      :key="row.key"
+      v-else
       class="line"
       :class="rowClass(row)"
       :data-msg-id="row.m.id ?? null"
@@ -42,6 +43,7 @@
         <template v-else-if="row.m.type === 'away' || row.m.type === 'back'"><LinkedText :text="row.m.text" /></template>
       </span>
     </div>
+    </template>
   </div>
 </template>
 
@@ -135,6 +137,12 @@ const renderRows = computed(() => {
   const fQuit = smartFilterQuit.value;
   const fNick = smartFilterNick.value;
 
+  const dividerAfterId = buf?.dividerAfterId || 0;
+  // Skip divider insertion entirely when there's nothing to mark (no pointer
+  // yet, or pointer at 0 = brand-new buffer where every message is "first
+  // time you're seeing this").
+  let dividerInserted = dividerAfterId === 0;
+
   for (let i = 0; i < list.length; i++) {
     const m = list[i];
     const key = m.id ?? `live:${i}`;
@@ -161,6 +169,13 @@ const renderRows = computed(() => {
     }
 
     if (hidden) continue;
+    // Insert the unread divider before the first visible row with id past
+    // the snapshot. Tolerates the exact-id row being filtered out: we just
+    // pick the next surviving row past the boundary.
+    if (!dividerInserted && m.id != null && m.id > dividerAfterId) {
+      out.push({ divider: true, key: 'unread-divider' });
+      dividerInserted = true;
+    }
     out.push({ m, alt: parity === 1, key });
     parity ^= 1;
   }
@@ -486,5 +501,28 @@ watch(() => props.pendingScrollId, async (id) => {
   font-style: italic;
   padding: 6px 0;
   margin: 0;
+}
+
+/* Boundary between read and unread messages. Pinned to the lastReadId
+   snapshot taken on buffer activation; advances only after switch-away.
+   Dashed border on either side of the label, warn-colored to differentiate
+   from the muted "start of history" notice. */
+.unread-divider {
+  color: var(--warn);
+  font-style: normal;
+  font-size: 0.85em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.unread-divider::before,
+.unread-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dashed var(--warn);
+  opacity: 0.6;
 }
 </style>

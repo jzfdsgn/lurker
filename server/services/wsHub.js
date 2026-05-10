@@ -8,7 +8,8 @@ import { matchEvent } from './highlightEngine.js';
 import * as pushService from './pushService.js';
 import { findSession } from '../db/sessions.js';
 import { findUserById } from '../db/users.js';
-import { listMessages, listBufferTargets, listSpeakers } from '../db/messages.js';
+import { listMessages, listBufferTargets, listSpeakers, countNewer, listNewer } from '../db/messages.js';
+import { listReadStateForUser, setReadState } from '../db/bufferReads.js';
 import { getUserSettings } from '../db/settings.js';
 import { defaultsAsObject } from './settingsRegistry.js';
 import { SESSION_COOKIE } from '../middleware/auth.js';
@@ -57,6 +58,30 @@ function decorateMessage(userId, event) {
   const { matched, ruleId } = matchEvent(event, compiled);
   const dm = isDirect(event) && !event.self;
   return { ...event, matched, matchedRuleId: ruleId, dm };
+}
+
+// Cap the highlight scan: a buffer with thousands of unread shouldn't grind
+// snapshot. Anything past the cap is reported via `highlightsCapped: true`
+// so the client can decorate (e.g. show "99+") rather than silently undercount.
+const HIGHLIGHT_SCAN_CAP = 500;
+
+function computeUnreadFor(userId, networkId, target, lastReadId) {
+  const unread = countNewer(networkId, target, lastReadId);
+  if (unread === 0) {
+    return { lastReadId: lastReadId || 0, unread: 0, highlights: 0, highlightsCapped: false };
+  }
+  const newer = listNewer(networkId, target, lastReadId, HIGHLIGHT_SCAN_CAP);
+  let highlights = 0;
+  for (const e of newer) {
+    const dec = decorateMessage(userId, e);
+    if (dec.matched) highlights += 1;
+  }
+  return {
+    lastReadId: lastReadId || 0,
+    unread,
+    highlights,
+    highlightsCapped: unread > HIGHLIGHT_SCAN_CAP,
+  };
 }
 
 export function attachWsHub(httpServer, sessionSecret) {
@@ -226,6 +251,7 @@ export function attachWsHub(httpServer, sessionSecret) {
   function sendSnapshot(ws, userId) {
     const networks = ircManager.snapshotForUser(userId);
     send(ws, { kind: 'snapshot', networks });
+    const readState = listReadStateForUser(userId);
     for (const conn of ircManager.listConnections(userId)) {
       const targets = new Set(listBufferTargets(conn.network.id));
       targets.add(`:server:${conn.network.id}`);
@@ -234,12 +260,18 @@ export function attachWsHub(httpServer, sessionSecret) {
         const events = listMessages(conn.network.id, target, { limit: 50 })
           .map((e) => decorateMessage(userId, e));
         const speakers = listSpeakers(conn.network.id, target);
+        const lastReadId = readState[`${conn.network.id}::${target}`] || 0;
+        const counts = computeUnreadFor(userId, conn.network.id, target, lastReadId);
         send(ws, {
           kind: 'backlog',
           networkId: conn.network.id,
           target,
           events,
           speakers,
+          lastReadId: counts.lastReadId,
+          unread: counts.unread,
+          highlights: counts.highlights,
+          highlightsCapped: counts.highlightsCapped,
         });
       }
     }
@@ -282,6 +314,28 @@ export function attachWsHub(httpServer, sessionSecret) {
       case 'typing':
         ircManager.typing(userId, msg.networkId, msg.target, msg.state);
         break;
+      case 'mark-read': {
+        const networkId = Number(msg.networkId);
+        const target = msg.target;
+        const requested = Number(msg.messageId);
+        if (!networkId || !target || !Number.isFinite(requested) || requested <= 0) break;
+        const lastReadId = setReadState(userId, networkId, target, requested);
+        // Counts are guaranteed 0/0 here (we just advanced the pointer to the
+        // requested id, and the requested id is the client's view of the
+        // current max), but recompute to handle the race where a new message
+        // arrived between client send and server apply.
+        const counts = computeUnreadFor(userId, networkId, target, lastReadId);
+        fanOut(userId, {
+          kind: 'read-state',
+          networkId,
+          target,
+          lastReadId: counts.lastReadId,
+          unread: counts.unread,
+          highlights: counts.highlights,
+          highlightsCapped: counts.highlightsCapped,
+        });
+        break;
+      }
       case 'history': {
         const conn = ircManager.getConnection(userId, msg.networkId);
         if (!conn) {

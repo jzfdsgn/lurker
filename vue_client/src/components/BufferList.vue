@@ -108,8 +108,7 @@ function netBuffers(networkId) {
 }
 
 function select(networkId, target) {
-  networks.setActive(networkId, target);
-  buffers.markRead(networkId, target);
+  buffers.activate(networkId, target);
 }
 
 function isActive(networkId, target) {

@@ -74,8 +74,7 @@ const pendingScrollId = ref(null);
 const { activeKey } = storeToRefs(networks);
 
 function onJumpToMessage({ networkId, target, messageId }) {
-  networks.setActive(networkId, target);
-  buffers.markRead(networkId, target);
+  buffers.activate(networkId, target);
   pendingScrollId.value = messageId;
 }
 

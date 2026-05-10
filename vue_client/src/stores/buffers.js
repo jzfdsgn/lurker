@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia';
+import { useNetworksStore } from './networks.js';
+import { socketSend } from '../composables/useSocket.js';
 
 const MAX_PER_BUFFER = 500;
 const MAX_SPEAKERS = 128;
@@ -34,6 +36,15 @@ function ensureBuffer(state, networkId, target) {
       topic: null,
       unread: 0,
       highlighted: 0,
+      highlightsCapped: false,
+      // Server-owned "have I seen this" pointer. Drives unread counts and
+      // survives across devices/sessions.
+      lastReadId: 0,
+      // Local snapshot of lastReadId taken when the user activates this
+      // buffer. The unread divider in MessageList renders after the message
+      // with this id; it stays pinned until switch-away (matching WeeChat),
+      // not advanced live as new messages arrive in the focused buffer.
+      dividerAfterId: null,
       typing: {},
       oldestId: null,
       hasMore: true,
@@ -70,13 +81,14 @@ export const useBuffersStore = defineStore('buffers', {
         delete buf.typing[event.nick];
       }
     },
-    replaceBacklog(networkId, target, events, speakers) {
+    replaceBacklog(networkId, target, events, speakers, readState) {
       const buf = ensureBuffer(this, networkId, target);
       buf.messages = events.slice(-MAX_PER_BUFFER);
       const first = buf.messages[0];
       buf.oldestId = first?.id ?? null;
       buf.hasMore = events.length >= 50;
       if (speakers !== undefined) this.seedSpeakers(networkId, target, speakers);
+      if (readState) this.applyReadState(networkId, target, readState);
     },
     prependHistory(networkId, target, events, hasMore, speakers) {
       const buf = ensureBuffer(this, networkId, target);
@@ -158,12 +170,27 @@ export const useBuffersStore = defineStore('buffers', {
     drop(networkId, target) {
       delete this.buffers[key(networkId, target)];
     },
-    markRead(networkId, target) {
-      const buf = this.buffers[key(networkId, target)];
-      if (buf) {
-        buf.unread = 0;
-        buf.highlighted = 0;
-      }
+    // Server is the source of truth for lastReadId / unread / highlights.
+    // Apply on backlog (initial snapshot) and on every read-state broadcast
+    // (mark-read from this or another device).
+    applyReadState(networkId, target, payload) {
+      const buf = ensureBuffer(this, networkId, target);
+      const lastReadId = Number(payload?.lastReadId) || 0;
+      const networks = useNetworksStore();
+      const isActive = networks.activeKey === `${networkId}::${target}`;
+      // Suppress the unread badge for the buffer the user is sitting in. We
+      // intentionally don't fire mark-read until switch-away, so the server's
+      // count for the active buffer can be > 0 right after a reconnect (new
+      // messages arrived while disconnected). The badge would otherwise
+      // appear on a buffer they're actively viewing.
+      buf.unread = isActive ? 0 : (Number(payload?.unread) || 0);
+      buf.highlighted = isActive ? 0 : (Number(payload?.highlights) || 0);
+      buf.highlightsCapped = isActive ? false : !!payload?.highlightsCapped;
+      // Don't slide the divider out from under a user who's currently in the
+      // buffer. dividerAfterId is set on activate and only cleared on
+      // deactivate; the count refreshes live, the divider stays pinned.
+      if (buf.dividerAfterId == null) buf.lastReadId = lastReadId;
+      else buf.lastReadId = Math.max(buf.lastReadId, lastReadId);
     },
     markUnread(networkId, target) {
       const buf = this.buffers[key(networkId, target)];
@@ -174,6 +201,49 @@ export const useBuffersStore = defineStore('buffers', {
       const buf = this.buffers[key(networkId, target)];
       if (!buf) return;
       buf.highlighted += 1;
+    },
+    // Switch to a buffer: send mark-read for the one we're leaving, snapshot
+    // the divider position on the one we're entering, and clear its local
+    // unread/highlighted counts. Single entry point so the BufferList click
+    // and the highlights-modal jump go through the same flow.
+    activate(networkId, target) {
+      const networks = useNetworksStore();
+      const newKey = `${networkId}::${target}`;
+      const prevKey = networks.activeKey;
+      if (prevKey && prevKey !== newKey) {
+        const prev = this.buffers[prevKey];
+        if (prev) {
+          const lastMsg = prev.messages[prev.messages.length - 1];
+          const lastId = lastMsg?.id ?? 0;
+          if (lastId > prev.lastReadId) {
+            // Optimistically advance local pointer so a fast re-activate
+            // doesn't re-show the just-read divider before the server's
+            // read-state broadcast lands. Server clamps with MAX().
+            prev.lastReadId = lastId;
+            socketSend({
+              type: 'mark-read',
+              networkId: prev.networkId,
+              target: prev.target,
+              messageId: lastId,
+            });
+          }
+          prev.dividerAfterId = null;
+          // Local clear is also optimistic; the server's read-state broadcast
+          // will overwrite with authoritative values shortly.
+          prev.unread = 0;
+          prev.highlighted = 0;
+          prev.highlightsCapped = false;
+        }
+      }
+      networks.setActive(networkId, target);
+      const buf = ensureBuffer(this, networkId, target);
+      // Snapshot the divider on first activation. Re-activating without
+      // having left (shouldn't happen given prevKey check above, but defensive)
+      // leaves the existing snapshot alone.
+      if (buf.dividerAfterId == null) buf.dividerAfterId = buf.lastReadId || 0;
+      buf.unread = 0;
+      buf.highlighted = 0;
+      buf.highlightsCapped = false;
     },
     setTyping(networkId, target, nick, state) {
       if (!nick) return;
