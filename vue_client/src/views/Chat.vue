@@ -21,7 +21,6 @@
         title="Edit network"
         @click="editActiveNetwork"
       ><i class="fa-solid fa-gear"></i></button>
-      <span v-if="memberCount != null" class="count">{{ memberCount }}</span>
       <template v-if="topic">
         <span class="sep">│</span>
         <span class="topic-text"><LinkedText :text="topic" /></span>
@@ -118,12 +117,6 @@ const bufferLabel = computed(() => {
   if (!t) return '';
   if (isServerBuffer.value) return active.value?.network?.name || 'server';
   return t;
-});
-
-const memberCount = computed(() => {
-  const t = active.value?.target;
-  if (!t || !t.startsWith('#')) return null;
-  return activeBuf.value?.members?.length ?? null;
 });
 
 function editActiveNetwork() {
@@ -229,7 +222,6 @@ onMounted(async () => {
   height: 1px;
 }
 .topic .buffer { color: var(--accent); }
-.topic .count  { color: var(--fg-muted); }
 .topic .sep    { color: var(--border); }
 .topic .topic-text {
   color: var(--fg-muted);
