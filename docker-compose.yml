@@ -1,0 +1,27 @@
+services:
+  caint:
+    build: .
+    container_name: caint-server
+    ports:
+      - "8015:8015"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=8015
+      - DATABASE_PATH=/app/data/caint.db
+      # Set in .env next to this compose file (gitignored).
+      - SESSION_SECRET=${SESSION_SECRET}
+      # Public hostname served via your reverse proxy. Set all of these in .env.
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID}
+      - WEBAUTHN_RP_NAME=${WEBAUTHN_RP_NAME}
+      - WEBAUTHN_ORIGIN=${WEBAUTHN_ORIGIN}
+      - VAPID_SUBJECT=${VAPID_SUBJECT}
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    external: true
