@@ -390,13 +390,18 @@ watch(
   },
 );
 
+// immediate: true handles the mobile case where MessageList is v-if'd out
+// until the user taps a buffer — by the time we mount, activeKey is already
+// set, so a plain (lazy) watcher would never see it change. The first
+// nextTick after setup resolves after the initial render, so scroller.value
+// is populated by the time scrollToBottom runs.
 watch(() => networks.activeKey, async () => {
   stickToBottom.value = true;
   resetScrollState();
   await nextTick();
   scrollToBottom();
   ensureViewportFilled();
-});
+}, { immediate: true });
 
 // StatusBar's "[N new ↓]" click increments scrollToBottomToken. Watching the
 // token (rather than wiring a callback) keeps the composable stateless and

@@ -1,10 +1,10 @@
 <template>
-  <div v-if="active" class="status-bar">
+  <div v-if="active" class="status-bar" :class="{ compact }">
     <span class="seg clock">{{ clock }}</span>
-    <span class="seg buffer"><template v-if="targetLabel"><span v-if="networkLabel" class="net">{{ networkLabel }}/</span><span class="name">{{ targetLabel }}</span></template><span v-else class="name">{{ networkLabel }}</span><span v-if="modeSuffix" class="modes">{{ modeSuffix }}</span></span>
-    <span v-if="memberCount != null" class="seg count"><span class="num">{{ memberCount }}</span> {{ memberCount === 1 ? 'user' : 'users' }}</span>
-    <span v-if="lagLabel" class="seg lag">{{ lagLabel }}</span>
-    <button v-if="newBelow > 0" class="seg jump" type="button" @click="onJumpToBottom">{{ newBelow }} new ↓</button>
+    <span class="seg buffer"><template v-if="targetLabel"><span v-if="networkLabel && !compact" class="net">{{ networkLabel }}/</span><span class="name">{{ targetLabel }}</span></template><span v-else class="name">{{ networkLabel }}</span><span v-if="modeSuffix && !compact" class="modes">{{ modeSuffix }}</span></span>
+    <span v-if="memberCount != null && !compact" class="seg count"><span class="num">{{ memberCount }}</span> {{ memberCount === 1 ? 'user' : 'users' }}</span>
+    <span v-if="lagLabel && !compact" class="seg lag">{{ lagLabel }}</span>
+    <button v-if="newBelow > 0 && !compact" class="seg jump" type="button" @click="onJumpToBottom">{{ newBelow }} new ↓</button>
     <span v-if="typingSegments.length" class="seg typing">Typing: <template v-for="(seg, i) in typingSegments" :key="i"><span :style="seg.color ? { color: seg.color } : null">{{ seg.text }}</span></template></span>
   </div>
 </template>
@@ -17,6 +17,13 @@ import { useSettingsStore } from '../stores/settings.js';
 import { useNickColors } from '../composables/useNickColors.js';
 import { useScrollState, requestScrollToBottom } from '../composables/useScrollState.js';
 import { formatTimestamp } from '../utils/timestamp.js';
+
+defineProps({
+  // Mobile/petite mode: hide the network prefix, mode suffix, member count,
+  // lag, and "new ↓" jump button. Leaves clock | buffer | typing — what fits
+  // legibly on a phone width.
+  compact: { type: Boolean, default: false },
+});
 
 const networks = useNetworksStore();
 const buffers = useBuffersStore();
