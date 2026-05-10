@@ -32,6 +32,7 @@
         <template v-else-if="row.m.type === 'topic'">topic set by <NickRef :nick="row.m.nick" /><template v-if="row.m.text">: {{ row.m.text }}</template></template>
         <template v-else-if="row.m.type === 'motd'">{{ row.m.text }}</template>
         <template v-else-if="row.m.type === 'error'">{{ row.m.text }}</template>
+        <template v-else-if="row.m.type === 'away' || row.m.type === 'back'">{{ row.m.text }}</template>
       </span>
     </div>
   </div>
@@ -172,7 +173,9 @@ function prefixText(m) {
     case 'nick':
     case 'mode':
     case 'topic':
-    case 'motd':    return '--';
+    case 'motd':
+    case 'away':
+    case 'back':    return '--';
     case 'error':   return '!!';
     default:        return '';
   }
@@ -441,7 +444,9 @@ watch(() => props.pendingScrollId, async (id) => {
 .prefix.p-nick,
 .prefix.p-mode,
 .prefix.p-topic,
-.prefix.p-motd  { color: var(--fg-muted); }
+.prefix.p-motd,
+.prefix.p-away,
+.prefix.p-back  { color: var(--fg-muted); }
 
 .body {
   position: relative;

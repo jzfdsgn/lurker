@@ -67,5 +67,12 @@ export const useNetworksStore = defineStore('networks', {
         userModes: typeof event.modes === 'string' ? event.modes : '',
       };
     },
+    applyAwayState(event) {
+      const existing = this.states[event.networkId] || { networkId: event.networkId, channels: [] };
+      this.states[event.networkId] = {
+        ...existing,
+        away: event.away || null,
+      };
+    },
   },
 });

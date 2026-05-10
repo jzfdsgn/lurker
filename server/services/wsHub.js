@@ -9,7 +9,34 @@ import * as pushService from './pushService.js';
 import { findSession } from '../db/sessions.js';
 import { findUserById } from '../db/users.js';
 import { listMessages, listBufferTargets, listSpeakers } from '../db/messages.js';
+import { getUserSettings } from '../db/settings.js';
+import { defaultsAsObject } from './settingsRegistry.js';
 import { SESSION_COOKIE } from '../middleware/auth.js';
+
+function effectiveSetting(userId, key) {
+  const overrides = getUserSettings(userId);
+  if (key in overrides) return overrides[key];
+  return defaultsAsObject()[key];
+}
+
+// "afk since 2026-05-09 15:30:00-0500" — mirrors screen_away.py's default
+// time_format. Local time + numeric tz offset.
+function fmtAwayTimestamp(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const off = -date.getTimezoneOffset();
+  const sign = off >= 0 ? '+' : '-';
+  const aoff = Math.abs(off);
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` +
+    `${sign}${pad(Math.floor(aoff / 60))}${pad(aoff % 60)}`
+  );
+}
+
+function buildAutoAwayMessage(userId) {
+  const base = (effectiveSetting(userId, 'away.auto.message') || 'afk').trim() || 'afk';
+  return `${base} since ${fmtAwayTimestamp(new Date())}`;
+}
 
 const DM_ELIGIBLE_TYPES = new Set(['message', 'action', 'notice']);
 
@@ -35,6 +62,34 @@ function decorateMessage(userId, event) {
 export function attachWsHub(httpServer, sessionSecret) {
   const wss = new WebSocketServer({ noServer: true });
   const socketsByUser = new Map();
+  // Per-user pending auto-away timers. Set when a user goes from 1→0 sockets;
+  // cleared on 0→1 or when the timer fires.
+  const autoAwayTimers = new Map();
+
+  function clearAutoAwayTimer(userId) {
+    const t = autoAwayTimers.get(userId);
+    if (t) {
+      clearTimeout(t);
+      autoAwayTimers.delete(userId);
+    }
+  }
+
+  function scheduleAutoAway(userId) {
+    if (autoAwayTimers.has(userId)) return;
+    const enabled = !!effectiveSetting(userId, 'away.auto.enabled');
+    if (!enabled) return;
+    const rawDelay = Number(effectiveSetting(userId, 'away.auto.delay_seconds'));
+    const delaySec = Number.isFinite(rawDelay) && rawDelay > 0 ? rawDelay : 30;
+    const t = setTimeout(() => {
+      autoAwayTimers.delete(userId);
+      // Re-check: a socket may have reconnected during the delay.
+      if (socketsByUser.get(userId)?.size > 0) return;
+      const message = buildAutoAwayMessage(userId);
+      ircManager.setAwayAll(userId, message, { autoSet: true });
+    }, delaySec * 1000);
+    t.unref?.();
+    autoAwayTimers.set(userId, t);
+  }
 
   function addSocket(userId, ws) {
     let set = socketsByUser.get(userId);
@@ -42,14 +97,24 @@ export function attachWsHub(httpServer, sessionSecret) {
       set = new Set();
       socketsByUser.set(userId, set);
     }
+    const wasEmpty = set.size === 0;
     set.add(ws);
+    if (wasEmpty) {
+      // First client back: cancel any pending auto-away and clear an
+      // already-set auto-away across networks. Manual /away is preserved.
+      clearAutoAwayTimer(userId);
+      ircManager.clearAwayAll(userId, { autoSet: true });
+    }
   }
 
   function removeSocket(userId, ws) {
     const set = socketsByUser.get(userId);
     if (!set) return;
     set.delete(ws);
-    if (set.size === 0) socketsByUser.delete(userId);
+    if (set.size === 0) {
+      socketsByUser.delete(userId);
+      scheduleAutoAway(userId);
+    }
   }
 
   function send(ws, payload) {
@@ -97,6 +162,14 @@ export function attachWsHub(httpServer, sessionSecret) {
 
   settingsService.on('event', ({ userId, changes, resetAll }) => {
     fanOut(userId, { kind: 'settings', changes: changes || {}, resetAll: !!resetAll });
+    // If the user toggled / shortened auto-away while disconnected, re-evaluate
+    // the pending timer with the new value.
+    const touchedAway = resetAll
+      || (changes && ('away.auto.enabled' in changes || 'away.auto.delay_seconds' in changes));
+    if (touchedAway && (socketsByUser.get(userId)?.size || 0) === 0) {
+      clearAutoAwayTimer(userId);
+      scheduleAutoAway(userId);
+    }
   });
 
   highlightRulesService.on('change', ({ userId }) => {
@@ -195,6 +268,16 @@ export function attachWsHub(httpServer, sessionSecret) {
         break;
       case 'raw':
         ircManager.getConnection(userId, msg.networkId)?.raw(msg.line);
+        break;
+      case 'away': {
+        // Empty/whitespace-only message → treat as /back (idiomatic IRC).
+        const message = (msg.message || '').trim();
+        if (!message) ircManager.clearAwayAll(userId, { autoSet: false });
+        else ircManager.setAwayAll(userId, message, { autoSet: false });
+        break;
+      }
+      case 'back':
+        ircManager.clearAwayAll(userId, { autoSet: false });
         break;
       case 'typing':
         ircManager.typing(userId, msg.networkId, msg.target, msg.state);

@@ -130,6 +130,25 @@ class IrcManager extends EventEmitter {
     return true;
   }
 
+  // Set AWAY across every connected network for this user. Returns the count
+  // of connections actually flipped (so the caller can decide whether to
+  // surface a "no networks" error).
+  setAwayAll(userId, message, { autoSet = false } = {}) {
+    let n = 0;
+    for (const conn of this.listConnections(userId)) {
+      if (conn.setAway({ message, autoSet })) n += 1;
+    }
+    return n;
+  }
+
+  clearAwayAll(userId, { autoSet = false } = {}) {
+    let n = 0;
+    for (const conn of this.listConnections(userId)) {
+      if (conn.clearAway({ autoSet })) n += 1;
+    }
+    return n;
+  }
+
   shutdown() {
     for (const userMap of this.byUser.values()) {
       for (const conn of userMap.values()) {

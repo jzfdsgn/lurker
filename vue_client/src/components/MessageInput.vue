@@ -1,7 +1,7 @@
 <template>
   <form ref="formEl" class="input" @submit.prevent="submit">
     <span class="clock">[{{ clock }}]</span>
-    <span class="prompt">{{ promptLabel }}&nbsp;&gt;</span>
+    <span class="prompt">{{ promptLabel }}<span v-if="awayLabel" class="away">&nbsp;{{ awayLabel }}</span>&nbsp;&gt;</span>
     <input
       ref="inputEl"
       v-model="text"
@@ -69,6 +69,12 @@ const promptLabel = computed(() => {
   if (!nick) return '[—]';
   const modes = state?.userModes || '';
   return modes ? `[${nick}(${modes})]` : `[${nick}]`;
+});
+
+const awayLabel = computed(() => {
+  if (!active.value) return '';
+  const msg = networks.states[active.value.networkId]?.away?.message;
+  return msg ? `(${msg})` : '';
 });
 
 const tsFormat = computed(() => settings.effective('look.bar.time_format') || 'HH:mm');
@@ -366,8 +372,15 @@ function handleCommand(line, networkId, target) {
     case 'quote':
       socketSend({ type: 'raw', networkId, line: argLine });
       break;
+    case 'away':
+      // Empty arg → clear away. Server treats it the same as /back.
+      socketSend({ type: 'away', message: argLine });
+      break;
+    case 'back':
+      socketSend({ type: 'back' });
+      break;
     case 'help':
-      alert('Commands: /me, /msg <nick> <text>, /join #chan, /part [#chan] [reason], /raw <line>');
+      alert('Commands: /me, /msg <nick> <text>, /join #chan, /part [#chan] [reason], /away [message], /back, /raw <line>');
       break;
     default:
       socketSend({ type: 'raw', networkId, line: line.slice(1) });
@@ -389,6 +402,7 @@ function handleCommand(line, networkId, target) {
   white-space: pre;
   user-select: none;
 }
+.prompt .away { color: var(--warn); }
 input {
   flex: 1;
   min-width: 0;

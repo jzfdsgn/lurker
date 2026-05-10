@@ -250,6 +250,36 @@ export const REGISTRY = Object.freeze([
       'If a smart-filtered nick speaks within this many minutes after their JOIN, ' +
       'the JOIN line is revealed. 0 disables unmasking.',
   },
+
+  // ─── Auto-away (sets you AWAY when no client is connected) ────────────
+  {
+    key: 'away.auto.enabled',
+    type: 'bool',
+    default: true,
+    description:
+      'Automatically set you AWAY on every connected network when no caint client ' +
+      'is attached, and clear AWAY when a client reconnects. Modeled on the WeeChat ' +
+      'screen_away.py script.',
+  },
+  {
+    key: 'away.auto.delay_seconds',
+    type: 'int',
+    min: 5,
+    max: 3600,
+    default: 30,
+    description:
+      'How long to wait after the last client disconnects before setting AWAY. ' +
+      'Avoids flapping on browser refreshes or brief network blips.',
+  },
+  {
+    key: 'away.auto.message',
+    type: 'string',
+    default: 'afk',
+    description:
+      'Auto-away message body. The current local timestamp is appended as ' +
+      '" since YYYY-MM-DD HH:MM:SS±ZZZZ", so the default produces ' +
+      '"afk since 2026-05-09 15:30:00-0500".',
+  },
 ]);
 
 const BY_KEY = new Map(REGISTRY.map((opt) => [opt.key, opt]));

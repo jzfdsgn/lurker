@@ -1,9 +1,9 @@
 import IRC from 'irc-framework';
-import { insertMessage } from '../db/messages.js';
+import { insertMessage, listRecentBufferTargets } from '../db/messages.js';
 import highlightRulesService from './highlightRulesService.js';
 
 const NON_PERSISTED_TYPES = new Set([
-  'state', 'names', 'channel-joined', 'channel-parted', 'typing',
+  'state', 'names', 'channel-joined', 'channel-parted', 'typing', 'away-state',
 ]);
 
 function extractExtras(event) {
@@ -11,8 +11,19 @@ function extractExtras(event) {
     case 'kick': return { kicked: event.kicked };
     case 'nick': return { newNick: event.newNick };
     case 'mode': return { modes: event.modes };
+    case 'away': return { autoSet: !!event.autoSet, awayMessage: event.awayMessage || null };
+    case 'back': return { autoSet: !!event.autoSet, durationMs: event.durationMs || 0 };
     default: return null;
   }
+}
+
+function fmtDuration(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
 export class IrcConnection {
@@ -24,6 +35,7 @@ export class IrcConnection {
     this.state = 'disconnected';
     this.channels = new Map();
     this.userModes = new Set();
+    this.awayState = { active: false, message: null, since: null, autoSet: false };
     this.disposed = false;
     this.bind();
   }
@@ -33,6 +45,15 @@ export class IrcConnection {
       type: 'usermode',
       target: this.serverTarget(),
       modes: [...this.userModes].join(''),
+    });
+  }
+
+  publishAwayState() {
+    const a = this.awayState;
+    this.publish({
+      type: 'away-state',
+      target: this.serverTarget(),
+      away: a.active ? { message: a.message, since: a.since, autoSet: a.autoSet } : null,
     });
   }
 
@@ -94,6 +115,12 @@ export class IrcConnection {
         highlightRulesService.upsertAutoNickRule(this.network.user_id, this.network.id, c.user.nick);
       } catch (e) {
         console.warn('[highlight] failed to upsert auto nick rule:', e?.message || e);
+      }
+      // Re-assert manual /away on reconnect so the network keeps showing us as
+      // away. Auto-away on reconnect is handled by the away manager (which will
+      // typically clear it once a client is back).
+      if (this.awayState.active && !this.awayState.autoSet && this.awayState.message) {
+        try { this.client.raw('AWAY :' + this.awayState.message); } catch (_) { /* ignore */ }
       }
     });
     c.on('close', () => {
@@ -344,6 +371,96 @@ export class IrcConnection {
     this.client.tagmsg(target, { '+typing': state });
   }
 
+  // Buffers that should receive a /away marker line: every joined channel,
+  // plus every private/query target with at least one message in the last
+  // week. The 7-day window keeps long-cold DMs from getting marker spam every
+  // time the user goes away. Server pseudo-buffer is excluded.
+  openBufferTargets() {
+    const set = new Set();
+    for (const ch of this.channels.values()) set.add(ch.name);
+    try {
+      for (const t of listRecentBufferTargets(this.network.id, 7)) {
+        if (!t || t.startsWith(':server:')) continue;
+        set.add(t);
+      }
+    } catch (_) { /* ignore */ }
+    return [...set];
+  }
+
+  // Mark the user away on this network. `message` is the full text that goes
+  // to the server (including any " since …" suffix the caller chose to add).
+  // `autoSet=true` flags this as an auto-away set so it can be cleared
+  // automatically and not trample a manual /away.
+  setAway({ message, autoSet = false }) {
+    if (this.state !== 'connected') return false;
+    const trimmed = (message || '').trim();
+    if (!trimmed) return false;
+    // If a manual away is already in place, don't let an auto pass overwrite it.
+    if (this.awayState.active && !this.awayState.autoSet && autoSet) return false;
+    try { this.client.raw('AWAY :' + trimmed); } catch (_) { return false; }
+    const now = new Date();
+    this.awayState = {
+      active: true,
+      message: trimmed,
+      since: now.toISOString(),
+      autoSet: !!autoSet,
+    };
+    const nick = this.client.user?.nick || this.network.nick;
+    const text = `[${nick} away: ${trimmed}]`;
+    const time = now.toISOString();
+    for (const target of this.openBufferTargets()) {
+      this.publish({
+        type: 'away',
+        target,
+        time,
+        nick,
+        text,
+        self: true,
+        autoSet: !!autoSet,
+        awayMessage: trimmed,
+      });
+    }
+    this.publishAwayState();
+    return true;
+  }
+
+  // Clear away. `autoSet=true` means "the away manager is trying to clear an
+  // auto-set away" — only act if the current away really was auto-set, so we
+  // never clear a manual /away on the user's behalf. autoSet=false (user
+  // /back) clears unconditionally.
+  clearAway({ autoSet = false } = {}) {
+    if (!this.awayState.active) return false;
+    if (autoSet && !this.awayState.autoSet) return false;
+    if (this.state !== 'connected') {
+      // Reset local state anyway so we don't keep claiming away on a dead conn.
+      this.awayState = { active: false, message: null, since: null, autoSet: false };
+      return false;
+    }
+    try { this.client.raw('AWAY'); } catch (_) { /* ignore */ }
+    const now = new Date();
+    const sinceMs = this.awayState.since ? Date.parse(this.awayState.since) : now.getTime();
+    const durationMs = Math.max(0, now.getTime() - sinceMs);
+    const wasAuto = this.awayState.autoSet;
+    this.awayState = { active: false, message: null, since: null, autoSet: false };
+    const nick = this.client.user?.nick || this.network.nick;
+    const text = `[${nick} back: gone ${fmtDuration(durationMs)}]`;
+    const time = now.toISOString();
+    for (const target of this.openBufferTargets()) {
+      this.publish({
+        type: 'back',
+        target,
+        time,
+        nick,
+        text,
+        self: true,
+        autoSet: !!wasAuto,
+        durationMs,
+      });
+    }
+    this.publishAwayState();
+    return true;
+  }
+
   disconnect(reason = 'caint shutting down') {
     this.client.quit(reason);
   }
@@ -354,11 +471,13 @@ export class IrcConnection {
   }
 
   snapshot() {
+    const a = this.awayState;
     return {
       networkId: this.network.id,
       state: this.state,
       nick: this.client.user?.nick || this.network.nick,
       userModes: [...this.userModes].join(''),
+      away: a.active ? { message: a.message, since: a.since, autoSet: a.autoSet } : null,
       channels: Array.from(this.channels.values()).map((ch) => ({
         name: ch.name,
         topic: ch.topic,
