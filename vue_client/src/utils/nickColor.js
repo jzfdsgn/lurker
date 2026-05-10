@@ -159,18 +159,125 @@ function colorNicksInText(text, nickSet, selfLower, colorFn) {
   return out;
 }
 
-// Split `text` into renderable segments. URL pass runs first so the nick pass
-// never sees text inside a URL — without that, "alice" inside
-// "mailto:alice@example.com" would get colored as a nick.
-//
-// Returned segment shapes (callers branch on these in order):
-//   { url, text }                       — clickable link
-//   { text, color?, self? }             — nick or plain text
-export function splitTextByTokens(text, nickSet, selfLower, colorFn) {
-  if (!text) return [{ text: '' }];
+// mIRC's classic 16-colour foreground palette. Indices 16-98 (extended) and
+// the \x04 hex variant aren't widely used and clash badly with custom themes,
+// so we don't render those — we just consume the escape so the digits don't
+// leak into the output.
+const MIRC_PALETTE = {
+  0: '#ffffff', 1: '#000000', 2: '#00007f', 3: '#009300',
+  4: '#ff0000', 5: '#7f0000', 6: '#9c009c', 7: '#fc7f00',
+  8: '#ffff00', 9: '#00fc00', 10: '#009393', 11: '#00ffff',
+  12: '#0000fc', 13: '#ff00ff', 14: '#7f7f7f', 15: '#d2d2d2',
+};
+
+// Walk the IRC formatting state machine and emit runs of text, each tagged
+// with the formatting attrs in effect when that text was emitted. Codes:
+//   \x02 bold, \x1D italic, \x1F underline, \x1E strike  — toggles
+//   \x16 reverse                                         — consumed (no-op)
+//   \x11 monospace                                       — consumed (no-op,
+//                                                          we're already mono)
+//   \x0F                                                 — reset all
+//   \x03[FG[,BG]] mIRC colour                            — FG kept, BG dropped
+//   \x04[hex6[,hex6]] truecolour                         — consumed, dropped
+function parseIrcFormatting(text) {
+  const runs = [];
+  let bold = false, italic = false, underline = false, strike = false;
+  let fg = null;
+  let buf = '';
+  const flush = () => {
+    if (!buf) return;
+    runs.push({ text: buf, bold, italic, underline, strike, fg });
+    buf = '';
+  };
+  let i = 0;
+  while (i < text.length) {
+    const code = text.charCodeAt(i);
+    if (code === 0x02) { flush(); bold = !bold; i++; continue; }
+    if (code === 0x1D) { flush(); italic = !italic; i++; continue; }
+    if (code === 0x1F) { flush(); underline = !underline; i++; continue; }
+    if (code === 0x1E) { flush(); strike = !strike; i++; continue; }
+    if (code === 0x11 || code === 0x16) { flush(); i++; continue; }
+    if (code === 0x0F) {
+      flush();
+      bold = italic = underline = strike = false;
+      fg = null;
+      i++;
+      continue;
+    }
+    if (code === 0x03) {
+      flush();
+      i++;
+      let digits = '';
+      while (digits.length < 2 && i < text.length && text[i] >= '0' && text[i] <= '9') {
+        digits += text[i++];
+      }
+      if (digits === '') {
+        fg = null;
+      } else {
+        fg = parseInt(digits, 10);
+        if (text[i] === ',' && text[i + 1] >= '0' && text[i + 1] <= '9') {
+          // Consume background but don't render it.
+          i++;
+          let bgDigits = '';
+          while (bgDigits.length < 2 && i < text.length && text[i] >= '0' && text[i] <= '9') {
+            bgDigits += text[i++];
+          }
+        }
+      }
+      continue;
+    }
+    if (code === 0x04) {
+      flush();
+      i++;
+      const hex = /^[0-9A-Fa-f]{6}/.exec(text.slice(i));
+      if (hex) {
+        i += 6;
+        if (text[i] === ',' && /^[0-9A-Fa-f]{6}/.test(text.slice(i + 1))) {
+          i += 7;
+        }
+      } else {
+        fg = null;
+      }
+      continue;
+    }
+    buf += text[i++];
+  }
+  flush();
+  return runs;
+}
+
+// Build a Vue inline-style object for a segment. Colour precedence: an
+// explicit IRC fg wins over nick coloring, which wins over the self-color.
+// Pass selfColor=null when rendering outside the message context (topic bar,
+// motd, etc.) — those callers never produce nick / self segments anyway.
+export function segmentInlineStyle(seg, selfColor) {
+  const style = {};
+  if (seg.fg != null && MIRC_PALETTE[seg.fg]) {
+    style.color = MIRC_PALETTE[seg.fg];
+  } else if (seg.color) {
+    style.color = seg.color;
+  } else if (seg.self && selfColor) {
+    style.color = selfColor;
+  }
+  if (seg.bold) style.fontWeight = 'bold';
+  if (seg.italic) style.fontStyle = 'italic';
+  const decos = [];
+  if (seg.underline) decos.push('underline');
+  if (seg.strike) decos.push('line-through');
+  if (decos.length) style.textDecoration = decos.join(' ');
+  return style;
+}
+
+export function segmentHasStyle(seg) {
+  return !!(seg.color || seg.self || seg.fg != null
+    || seg.bold || seg.italic || seg.underline || seg.strike);
+}
+
+function splitRunIntoSegments(text, nickSet, selfLower, colorFn) {
+  if (!text) return [];
   const urlSegments = splitTextByUrls(text);
   if (urlSegments.length === 0) {
-    return colorNicksInText(text, nickSet, selfLower, colorFn);
+    return colorNicksInText(text, nickSet, selfLower, colorFn).filter((s) => s.text);
   }
   const out = [];
   for (const seg of urlSegments) {
@@ -184,5 +291,33 @@ export function splitTextByTokens(text, nickSet, selfLower, colorFn) {
       if (ns.text) out.push(ns);
     }
   }
+  return out;
+}
+
+// Split `text` into renderable segments. Formatting codes are parsed first so
+// each downstream segment carries its IRC formatting attrs; URL splitting then
+// nick splitting run on the cleaned text inside each formatting run.
+//
+// Returned segment shapes (callers branch on these in order):
+//   { url, text, ...fmt }               — clickable link (with formatting)
+//   { text, color?, self?, ...fmt }     — nick / plain text (with formatting)
+// where fmt is { bold?, italic?, underline?, strike?, fg? }.
+export function splitTextByTokens(text, nickSet, selfLower, colorFn) {
+  if (!text) return [{ text: '' }];
+  const runs = parseIrcFormatting(text);
+  const out = [];
+  for (const run of runs) {
+    if (!run.text) continue;
+    const fmt = {};
+    if (run.bold) fmt.bold = true;
+    if (run.italic) fmt.italic = true;
+    if (run.underline) fmt.underline = true;
+    if (run.strike) fmt.strike = true;
+    if (run.fg != null) fmt.fg = run.fg;
+    for (const seg of splitRunIntoSegments(run.text, nickSet, selfLower, colorFn)) {
+      out.push({ ...seg, ...fmt });
+    }
+  }
   return out.length ? out : [{ text: '' }];
 }
+

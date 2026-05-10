@@ -25,9 +25,9 @@
               :href="seg.url"
               target="_blank"
               rel="noreferrer noopener"
+              :style="segStyle(seg)"
             >{{ seg.text }}</a>
-            <span v-else-if="seg.color" :style="{ color: seg.color }">{{ seg.text }}</span>
-            <span v-else-if="seg.self" :style="{ color: selfColor }">{{ seg.text }}</span>
+            <span v-else-if="segHasStyle(seg)" :style="segStyle(seg)">{{ seg.text }}</span>
             <template v-else>{{ seg.text }}</template>
           </template>
         </template>
@@ -54,6 +54,7 @@ import { useBuffersStore } from '../stores/buffers.js';
 import { useSettingsStore } from '../stores/settings.js';
 import { socketSend } from '../composables/useSocket.js';
 import { useNickColors } from '../composables/useNickColors.js';
+import { segmentInlineStyle, segmentHasStyle } from '../utils/nickColor.js';
 import { formatTimestamp } from '../utils/timestamp.js';
 import NickRef from './NickRef.vue';
 import LinkedText from './LinkedText.vue';
@@ -244,6 +245,9 @@ function textSegments(m) {
   }
   return nicks.splitText(m.text || '', nickSet.value, selfLower.value);
 }
+
+function segStyle(seg) { return segmentInlineStyle(seg, selfColor.value); }
+function segHasStyle(seg) { return segmentHasStyle(seg); }
 
 function requestMoreHistory() {
   const buf = buffer.value;
