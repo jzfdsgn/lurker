@@ -10,6 +10,7 @@ import { findSession } from '../db/sessions.js';
 import { findUserById } from '../db/users.js';
 import { listMessages, listBufferTargets, listSpeakers, countNewer, listNewer } from '../db/messages.js';
 import { listReadStateForUser, setReadState } from '../db/bufferReads.js';
+import { addEntry as addInputHistory, listRecent as listRecentInputHistory } from '../db/inputHistory.js';
 import {
   closeBuffer,
   reopenBuffer,
@@ -153,11 +154,14 @@ export function attachWsHub(httpServer, sessionSecret) {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload));
   }
 
-  function fanOut(userId, payload) {
+  function fanOut(userId, payload, opts = {}) {
     const set = socketsByUser.get(userId);
     if (!set) return;
     const json = JSON.stringify(payload);
-    for (const ws of set) if (ws.readyState === ws.OPEN) ws.send(json);
+    for (const ws of set) {
+      if (opts.exceptWs && ws === opts.exceptWs) continue;
+      if (ws.readyState === ws.OPEN) ws.send(json);
+    }
   }
 
   function userHasVisibleClient(userId) {
@@ -309,6 +313,10 @@ export function attachWsHub(httpServer, sessionSecret) {
         const speakers = listSpeakers(conn.network.id, target);
         const lastReadId = readState[`${conn.network.id}::${target}`] || 0;
         const counts = computeUnreadFor(userId, conn.network.id, target, lastReadId);
+        // Per-buffer input history is unbounded on disk; ship a recent slice
+        // for up-arrow recall. Older entries stay in the DB and could be
+        // paginated in later if the slice ever proves too small.
+        const inputHistory = listRecentInputHistory(userId, conn.network.id, target, 200);
         send(ws, {
           kind: 'backlog',
           networkId: conn.network.id,
@@ -323,6 +331,7 @@ export function attachWsHub(httpServer, sessionSecret) {
           unread: counts.unread,
           highlights: counts.highlights,
           highlightsCapped: counts.highlightsCapped,
+          inputHistory,
         });
       }
     }
@@ -403,6 +412,18 @@ export function attachWsHub(httpServer, sessionSecret) {
           highlights: counts.highlights,
           highlightsCapped: counts.highlightsCapped,
         });
+        break;
+      }
+      case 'input-history-add': {
+        const networkId = Number(msg.networkId);
+        const target = typeof msg.target === 'string' ? msg.target : '';
+        const text = typeof msg.text === 'string' ? msg.text : '';
+        if (!networkId || !target || !text) break;
+        addInputHistory(userId, networkId, target, text);
+        // Other tabs/devices need this for cross-client up-arrow consistency.
+        // The originating socket already added it optimistically, so skip it
+        // to avoid a duplicate append.
+        fanOut(userId, { kind: 'input-history-added', networkId, target, text }, { exceptWs: ws });
         break;
       }
       case 'history': {

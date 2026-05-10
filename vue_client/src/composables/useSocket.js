@@ -4,6 +4,7 @@ import { useBuffersStore } from '../stores/buffers.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useSettingsStore } from '../stores/settings.js';
 import { useHighlightRulesStore } from '../stores/highlightRules.js';
+import { useInputHistoryStore } from '../stores/inputHistory.js';
 
 let socket = null;
 const connected = ref(false);
@@ -155,6 +156,10 @@ function applyBacklog(payload) {
     highlights: payload.highlights,
     highlightsCapped: payload.highlightsCapped,
   }, payload.joined);
+  if (payload.inputHistory) {
+    const inputHistory = useInputHistoryStore();
+    inputHistory.seed(payload.networkId, payload.target, payload.inputHistory);
+  }
 }
 
 function handleMessage(raw) {
@@ -201,9 +206,18 @@ function handleMessage(raw) {
   if (payload.kind === 'buffer-closed') {
     const networks = useNetworksStore();
     const buffers = useBuffersStore();
+    const inputHistory = useInputHistoryStore();
     const closedKey = `${payload.networkId}::${payload.target}`;
     if (networks.activeKey === closedKey) networks.activeKey = null;
     buffers.drop(payload.networkId, payload.target);
+    // History rows survive on the server (re-seeded if the buffer reopens);
+    // we just drop the in-memory mirror so it doesn't go stale.
+    inputHistory.drop(payload.networkId, payload.target);
+    return;
+  }
+  if (payload.kind === 'input-history-added') {
+    const inputHistory = useInputHistoryStore();
+    inputHistory.add(payload.networkId, payload.target, payload.text);
     return;
   }
   if (payload.kind === 'buffer-reopened') {

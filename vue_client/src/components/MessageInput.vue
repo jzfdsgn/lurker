@@ -27,11 +27,13 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useNetworksStore } from '../stores/networks.js';
 import { useBuffersStore } from '../stores/buffers.js';
+import { useInputHistoryStore } from '../stores/inputHistory.js';
 import { socketSend } from '../composables/useSocket.js';
 import NickPicker from './NickPicker.vue';
 
 const networks = useNetworksStore();
 const buffers = useBuffersStore();
+const inputHistory = useInputHistoryStore();
 const text = ref('');
 const inputEl = ref(null);
 const formEl = ref(null);
@@ -124,6 +126,67 @@ function endTypingTo(target) {
 let completion = null;
 let cycling = false;  // true while we're programmatically rewriting `text`
 
+// Input history walking state. `historyIndex` is null when we're not in a
+// recall walk; otherwise it points into the per-buffer history slice.
+// `historyDraft` preserves whatever the user had typed before they hit Up,
+// so Down past the newest restores the in-progress draft.
+let historyIndex = null;
+let historyDraft = '';
+
+function resetHistoryNav() {
+  historyIndex = null;
+  historyDraft = '';
+}
+
+function setInputAndCaretEnd(value) {
+  cycling = true;
+  text.value = value;
+  // Hold `cycling` across the watcher microtask so `onInput` sees it set and
+  // skips the history-walk reset. Clearing it synchronously loses the walk
+  // state on the very next Up/Down because Vue's `watch` runs after we return.
+  Promise.resolve().then(() => {
+    cycling = false;
+    const el = inputEl.value;
+    if (!el) return;
+    const pos = text.value.length;
+    el.setSelectionRange(pos, pos);
+  });
+}
+
+function handleHistoryNav(e) {
+  if (!active.value) return;
+  const { networkId, target } = active.value;
+  const list = inputHistory.forBuffer(networkId, target);
+  if (!list.length) return;
+  e.preventDefault();
+  resetCompletion();
+  closePicker();
+
+  if (e.key === 'ArrowUp') {
+    if (historyIndex === null) {
+      historyDraft = text.value;
+      historyIndex = list.length - 1;
+    } else if (historyIndex > 0) {
+      historyIndex -= 1;
+    } else {
+      return;
+    }
+    setInputAndCaretEnd(list[historyIndex]);
+    return;
+  }
+
+  // ArrowDown
+  if (historyIndex === null) return;
+  if (historyIndex < list.length - 1) {
+    historyIndex += 1;
+    setInputAndCaretEnd(list[historyIndex]);
+  } else {
+    const draft = historyDraft;
+    resetHistoryNav();
+    setInputAndCaretEnd(draft);
+  }
+}
+
 function tokenAtCursor(value, cursor) {
   let start = cursor;
   while (start > 0 && !/\s/.test(value[start - 1])) start--;
@@ -196,6 +259,10 @@ function resetCompletion() {
 }
 
 function onKeydown(e) {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    handleHistoryNav(e);
+    return;
+  }
   if (e.key !== 'Tab') {
     if (completion) resetCompletion();
     return;
@@ -280,8 +347,12 @@ function onPickerSelect(nick) {
 }
 
 function onInput() {
-  if (!sendable.value) return;
   if (cycling) return;
+  // User edited the recalled line — exit walk mode but keep what they typed.
+  // Done before the sendable gate so this still fires on :server: buffers
+  // where `/raw` history is just as relevant.
+  if (historyIndex !== null) resetHistoryNav();
+  if (!sendable.value) return;
   if (completion) resetCompletion();
   refreshPicker();
   const { networkId, target } = active.value;
@@ -322,6 +393,7 @@ watch(text, onInput);
 watch(active, (newActive, oldActive) => {
   resetCompletion();
   closePicker();
+  resetHistoryNav();
   if (oldActive && (!newActive || oldActive.target !== newActive.target || oldActive.networkId !== newActive.networkId)) {
     endTypingTo(oldActive);
   }
@@ -352,7 +424,13 @@ function submit() {
   } else {
     return;
   }
+  // Record after the early-return so we don't log plain text typed into a
+  // :server: buffer that we refused to send. The optimistic local add keeps
+  // up-arrow immediate; the server fans out to other tabs only (exceptWs).
+  inputHistory.add(networkId, target, raw);
+  socketSend({ type: 'input-history-add', networkId, target, text: raw });
   text.value = '';
+  resetHistoryNav();
 }
 
 function handleCommand(line, networkId, target) {

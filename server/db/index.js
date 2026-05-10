@@ -143,6 +143,19 @@ function migrate() {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS input_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      network_id INTEGER NOT NULL,
+      target TEXT NOT NULL,
+      text TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_input_history_buffer
+      ON input_history(user_id, network_id, target, id DESC);
+
     CREATE TABLE IF NOT EXISTS webauthn_credentials (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
