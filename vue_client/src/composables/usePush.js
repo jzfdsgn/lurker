@@ -97,15 +97,17 @@ export async function disable() {
   currentSubscription = null;
 }
 
-export async function syncWithSetting(enabled) {
-  if (!isSupported()) return;
-  if (enabled) {
-    try {
-      await enable();
-    } catch (e) {
-      console.warn('[push] enable failed:', e?.message || e);
-    }
-  } else {
-    await disable();
+// Returns this client's current push endpoint, or null if not subscribed.
+// Used by the Settings UI to identify which row in the subscriptions list
+// represents "this device" vs other registered devices.
+export async function getCurrentEndpoint() {
+  if (!isSupported()) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) return null;
+  try {
+    const sub = await reg.pushManager.getSubscription();
+    return sub?.endpoint || null;
+  } catch {
+    return null;
   }
 }

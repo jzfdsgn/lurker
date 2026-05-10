@@ -42,7 +42,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useAuthStore } from '../stores/auth.js';
@@ -51,7 +51,7 @@ import { useBuffersStore } from '../stores/buffers.js';
 import { useSettingsStore } from '../stores/settings.js';
 import { useSocket } from '../composables/useSocket.js';
 import { startPresenceReporter, reportNow } from '../composables/usePresence.js';
-import { registerSW, syncWithSetting, onSWPushMessage } from '../composables/usePush.js';
+import { registerSW, onSWPushMessage } from '../composables/usePush.js';
 import BufferList from '../components/BufferList.vue';
 import MessageList from '../components/MessageList.vue';
 import MessageInput from '../components/MessageInput.vue';
@@ -113,18 +113,14 @@ onMounted(async () => {
   await networks.fetchAll();
   startPresenceReporter();
   reportNow();
+  // Register the SW unconditionally so a previously-subscribed device can
+  // still receive push events without the user re-opening Settings. Push
+  // subscription itself is now per-client, gated by an explicit Settings
+  // button — see usePush.enable().
   registerSW().catch(() => { /* ignore */ });
   onSWPushMessage((data) => {
     if (data?.kind === 'jump') onJumpToMessage(data);
   });
-  if (settings.effective('notifications.enabled')) {
-    syncWithSetting(true);
-  }
-});
-
-watch(() => settings.effective('notifications.enabled'), (enabled, prev) => {
-  if (enabled === prev) return;
-  syncWithSetting(!!enabled);
 });
 
 async function signOut() {

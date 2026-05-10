@@ -13,6 +13,46 @@
 
     <p v-if="error" class="error">{{ error }}</p>
 
+    <section class="rules-section push-section">
+      <h2>push notifications</h2>
+      <p class="rules-desc">
+        Each browser/device subscribes independently. Enable here to receive system
+        notifications on this device when a highlight or DM arrives and no other
+        client of yours is currently visible.
+      </p>
+      <p v-if="pushError" class="error inline">{{ pushError }}</p>
+
+      <div class="this-client">
+        <span class="this-label">this client</span>
+        <button
+          v-if="!pushSupported"
+          class="link"
+          disabled
+        >push not supported in this browser</button>
+        <button
+          v-else-if="thisClientEnabled"
+          class="link danger"
+          :disabled="pushBusy"
+          @click="onDisableThisClient"
+        >disable for this client</button>
+        <button
+          v-else
+          class="link"
+          :disabled="pushBusy"
+          @click="onEnableThisClient"
+        >enable for this client</button>
+      </div>
+
+      <ul v-if="otherSubscriptions.length" class="device-list">
+        <li v-for="sub in otherSubscriptions" :key="sub.id" class="device">
+          <span class="ua">{{ formatUA(sub.user_agent) }}</span>
+          <span class="last-seen" :title="sub.last_seen_at">last seen {{ formatRelative(sub.last_seen_at) }}</span>
+          <button class="link danger" @click="onRemoveOther(sub)" :disabled="pushBusy">remove</button>
+        </li>
+      </ul>
+      <p v-else-if="pushSubsStore.loaded && thisClientEnabled" class="muted small">No other devices registered.</p>
+    </section>
+
     <section class="rules-section">
       <h2>highlight rules</h2>
       <p class="rules-desc">
@@ -158,26 +198,135 @@
 import { ref, computed, onMounted } from 'vue';
 import { useSettingsStore } from '../stores/settings.js';
 import { useHighlightRulesStore } from '../stores/highlightRules.js';
+import { usePushSubscriptionsStore } from '../stores/pushSubscriptions.js';
 import { useSocket } from '../composables/useSocket.js';
+import {
+  isSupported as isPushSupported,
+  registerSW,
+  enable as enablePush,
+  disable as disablePush,
+  getCurrentEndpoint,
+} from '../composables/usePush.js';
 
 useSocket();
 
 const settings = useSettingsStore();
 const rulesStore = useHighlightRulesStore();
+const pushSubsStore = usePushSubscriptionsStore();
 const search = ref('');
 const modifiedOnly = ref(false);
 const error = ref('');
 const rulesError = ref('');
+const pushError = ref('');
+const pushBusy = ref(false);
+const pushSupported = isPushSupported();
+const currentEndpoint = ref(null);
 const working = ref(false);
 
 const newPattern = ref('');
 const newKind = ref('plain');
 const newCaseSensitive = ref(false);
 
-onMounted(() => {
+const thisClientEnabled = computed(() => {
+  if (!currentEndpoint.value) return false;
+  return pushSubsStore.subscriptions.some((s) => s.endpoint === currentEndpoint.value);
+});
+
+const otherSubscriptions = computed(() =>
+  pushSubsStore.subscriptions.filter((s) => s.endpoint !== currentEndpoint.value)
+);
+
+async function refreshPushState() {
+  if (!pushSupported) return;
+  try {
+    currentEndpoint.value = await getCurrentEndpoint();
+  } catch { currentEndpoint.value = null; }
+  try {
+    await pushSubsStore.fetchAll();
+  } catch (e) {
+    pushError.value = e.message || 'failed to load devices';
+  }
+}
+
+onMounted(async () => {
   if (!settings.loaded) settings.fetchAll().catch((e) => { error.value = e.message; });
   if (!rulesStore.loaded) rulesStore.fetchAll().catch((e) => { rulesError.value = e.message; });
+  if (pushSupported) {
+    registerSW().catch(() => { /* registration is best-effort here */ });
+    refreshPushState();
+  }
 });
+
+async function onEnableThisClient() {
+  pushError.value = '';
+  pushBusy.value = true;
+  try {
+    await enablePush();
+    await refreshPushState();
+  } catch (e) {
+    pushError.value = e.message || 'failed to enable';
+  } finally {
+    pushBusy.value = false;
+  }
+}
+
+async function onDisableThisClient() {
+  pushError.value = '';
+  pushBusy.value = true;
+  try {
+    await disablePush();
+    await refreshPushState();
+  } catch (e) {
+    pushError.value = e.message || 'failed to disable';
+  } finally {
+    pushBusy.value = false;
+  }
+}
+
+async function onRemoveOther(sub) {
+  pushError.value = '';
+  pushBusy.value = true;
+  try {
+    await pushSubsStore.removeByEndpoint(sub.endpoint);
+  } catch (e) {
+    pushError.value = e.message || 'failed to remove';
+  } finally {
+    pushBusy.value = false;
+  }
+}
+
+function formatUA(ua) {
+  if (!ua) return 'unknown device';
+  // Cheap parser: extract a recognizable browser + OS pair from a UA string.
+  // Avoids pulling in a heavy UA-parsing dep for what's basically a label.
+  let browser = 'browser';
+  if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/Chrome\//.test(ua)) browser = 'Chrome';
+  else if (/Safari\//.test(ua)) browser = 'Safari';
+  let os = '';
+  if (/iPhone|iPad/.test(ua)) os = 'iOS';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/Mac OS X/.test(ua)) os = 'macOS';
+  else if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Linux/.test(ua)) os = 'Linux';
+  return os ? `${browser} on ${os}` : browser;
+}
+
+function formatRelative(iso) {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (!t) return iso;
+  const diff = Date.now() - t;
+  const sec = Math.round(diff / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  return `${day}d ago`;
+}
 
 async function onRuleField(rule, field, value) {
   rulesError.value = '';
@@ -413,4 +562,27 @@ async function onResetAll() {
   margin-top: 4px;
 }
 .rule-add input[type="text"] { flex: 1; min-width: 200px; }
+
+.push-section .this-client {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+.push-section .this-label {
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+.device-list { list-style: none; margin: 0; padding: 0; }
+.device {
+  display: grid;
+  grid-template-columns: 1fr max-content max-content;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+.device .ua { color: var(--fg); }
+.device .last-seen { color: var(--fg-muted); font-size: 0.95em; }
+.muted.small { font-size: 0.95em; padding: 4px 0; }
 </style>
