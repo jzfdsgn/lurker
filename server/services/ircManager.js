@@ -116,11 +116,11 @@ class IrcManager extends EventEmitter {
     const conn = this.getConnection(userId, networkId);
     if (!conn) return false;
     upsertChannel(networkId, name, false);
-    // /part keeps the buffer visible (it just dims). Clear any stale closed
-    // flag so the snapshot/backlog flow doesn't filter the buffer out — a
-    // prior /close (or pre-revert /part-as-close) would otherwise leave the
-    // buffer hidden until the user explicitly /joined again.
-    reopenBuffer(userId, networkId, name);
+    // Don't touch closed_buffers here. The /close flow runs closeBuffer +
+    // partChannel back to back, so reopening the buffer inside partChannel
+    // would silently undo the close. Stale closed entries from the old
+    // /part-as-close-buffer code path can still be cleared by /join (which
+    // calls reopenBuffer explicitly).
     conn.part(name, reason);
     return true;
   }
