@@ -62,7 +62,15 @@ export const REGISTRY = Object.freeze([
     key: 'look.color.accent',
     type: 'color',
     default: '#a99dec',
-    description: 'Primary accent (links, logo, active-buffer indicator, focused borders).',
+    description: 'Primary accent (logo, active-buffer indicator, focused borders).',
+  },
+  {
+    key: 'look.color.link',
+    type: 'color',
+    default: 'var(--accent)',
+    description:
+      'Color of clickable URL links inside chat messages. ' +
+      'Any CSS color value; defaults to the accent color.',
   },
   {
     key: 'look.color.good',

@@ -19,7 +19,7 @@
       <span v-if="memberCount != null" class="count">{{ '{' + memberCount + '}' }}</span>
       <template v-if="topic">
         <span class="sep">│</span>
-        <span class="topic-text">{{ topic }}</span>
+        <span class="topic-text"><LinkedText :text="topic" /></span>
       </template>
     </header>
     <div v-if="active" class="topic-divider"></div>
@@ -58,6 +58,7 @@ import MessageInput from '../components/MessageInput.vue';
 import MemberList from '../components/MemberList.vue';
 import NetworkForm from '../components/NetworkForm.vue';
 import HighlightsModal from '../components/HighlightsModal.vue';
+import LinkedText from '../components/LinkedText.vue';
 
 const auth = useAuthStore();
 const networks = useNetworksStore();

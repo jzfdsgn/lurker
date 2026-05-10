@@ -10,6 +10,7 @@ const COLOR_VARS = {
   'look.color.fg':            '--fg',
   'look.color.fg_muted':      '--fg-muted',
   'look.color.accent':        '--accent',
+  'look.color.link':          '--link',
   'look.color.good':          '--good',
   'look.color.warn':          '--warn',
   'look.color.bad':           '--bad',

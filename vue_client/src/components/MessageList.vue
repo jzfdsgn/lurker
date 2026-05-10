@@ -18,21 +18,28 @@
       <span class="body" :class="bodyClass(row.m)">
         <template v-if="hasInlineText(row.m)">
           <template v-for="(seg, j) in textSegments(row.m)" :key="j">
-            <span v-if="seg.color" :style="{ color: seg.color }">{{ seg.text }}</span>
+            <a
+              v-if="seg.url"
+              class="msg-link"
+              :href="seg.url"
+              target="_blank"
+              rel="noreferrer noopener"
+            >{{ seg.text }}</a>
+            <span v-else-if="seg.color" :style="{ color: seg.color }">{{ seg.text }}</span>
             <span v-else-if="seg.self" :style="{ color: selfColor }">{{ seg.text }}</span>
             <template v-else>{{ seg.text }}</template>
           </template>
         </template>
         <template v-else-if="row.m.type === 'join'"><NickRef :nick="row.m.nick" /> joined</template>
-        <template v-else-if="row.m.type === 'part'"><NickRef :nick="row.m.nick" /> left<template v-if="row.m.text"> ({{ row.m.text }})</template></template>
-        <template v-else-if="row.m.type === 'quit'"><NickRef :nick="row.m.nick" /> quit<template v-if="row.m.text"> ({{ row.m.text }})</template></template>
-        <template v-else-if="row.m.type === 'kick'"><NickRef :nick="row.m.kicked" /> kicked by <NickRef :nick="row.m.nick" /><template v-if="row.m.text"> ({{ row.m.text }})</template></template>
+        <template v-else-if="row.m.type === 'part'"><NickRef :nick="row.m.nick" /> left<template v-if="row.m.text"> (<LinkedText :text="row.m.text" />)</template></template>
+        <template v-else-if="row.m.type === 'quit'"><NickRef :nick="row.m.nick" /> quit<template v-if="row.m.text"> (<LinkedText :text="row.m.text" />)</template></template>
+        <template v-else-if="row.m.type === 'kick'"><NickRef :nick="row.m.kicked" /> kicked by <NickRef :nick="row.m.nick" /><template v-if="row.m.text"> (<LinkedText :text="row.m.text" />)</template></template>
         <template v-else-if="row.m.type === 'nick'"><NickRef :nick="row.m.nick" /> is now <NickRef :nick="row.m.newNick" /></template>
-        <template v-else-if="row.m.type === 'mode'">mode by <NickRef :nick="row.m.nick" />{{ row.m.text ? ': ' + row.m.text : '' }}</template>
-        <template v-else-if="row.m.type === 'topic'">topic set by <NickRef :nick="row.m.nick" /><template v-if="row.m.text">: {{ row.m.text }}</template></template>
-        <template v-else-if="row.m.type === 'motd'">{{ row.m.text }}</template>
-        <template v-else-if="row.m.type === 'error'">{{ row.m.text }}</template>
-        <template v-else-if="row.m.type === 'away' || row.m.type === 'back'">{{ row.m.text }}</template>
+        <template v-else-if="row.m.type === 'mode'">mode by <NickRef :nick="row.m.nick" /><template v-if="row.m.text">: <LinkedText :text="row.m.text" /></template></template>
+        <template v-else-if="row.m.type === 'topic'">topic set by <NickRef :nick="row.m.nick" /><template v-if="row.m.text">: <LinkedText :text="row.m.text" /></template></template>
+        <template v-else-if="row.m.type === 'motd'"><LinkedText :text="row.m.text" /></template>
+        <template v-else-if="row.m.type === 'error'"><LinkedText :text="row.m.text" /></template>
+        <template v-else-if="row.m.type === 'away' || row.m.type === 'back'"><LinkedText :text="row.m.text" /></template>
       </span>
     </div>
   </div>
@@ -47,6 +54,7 @@ import { socketSend } from '../composables/useSocket.js';
 import { useNickColors } from '../composables/useNickColors.js';
 import { formatTimestamp } from '../utils/timestamp.js';
 import NickRef from './NickRef.vue';
+import LinkedText from './LinkedText.vue';
 
 const props = defineProps({
   pendingScrollId: { type: [Number, String, null], default: null },
@@ -469,6 +477,7 @@ watch(() => props.pendingScrollId, async (id) => {
 }
 .body.meta-body { color: var(--fg-muted); font-style: italic; }
 .body.italic { font-style: italic; }
+/* .msg-link styling lives in src/assets/main.css (shared with the topic bar). */
 
 .notice {
   grid-column: 1 / -1;
