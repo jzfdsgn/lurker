@@ -10,9 +10,10 @@ import {
   findUserById,
   findUserByUsername,
   countUsers,
-  listUsers,
   createUser,
+  deleteUser,
 } from '../db/users.js';
+import { inviteStatus, consumeInvite } from '../db/invites.js';
 import {
   listForUser as listCredentialsForUser,
   findByCredentialId,
@@ -72,57 +73,34 @@ const router = Router();
 
 // ---------- setup status ----------
 
-// "Needs setup" means there is no way for anyone to log in. Either there are
-// zero users, or users exist but have no passkeys yet (e.g. fresh install
-// after the password→passkey migration).
+// "Needs setup" means the system has no users yet — i.e. the very first run
+// before the operator bootstraps their admin account. Once a user exists,
+// further accounts come in through the invite flow, not this endpoint.
 router.get('/setup-status', (req, res) => {
-  const userCount = countUsers();
-  const credCount = countAllCredentials();
-  if (credCount > 0) {
-    return res.json({ needsSetup: false });
-  }
-  if (userCount === 0) {
+  if (countUsers() === 0) {
     return res.json({ needsSetup: true, mode: 'create-user' });
   }
-  // Single-user assumption: take the only existing user. If there are
-  // somehow multiple users with no credentials, refuse setup — surface as a
-  // server error to avoid silently picking the wrong account.
-  if (userCount > 1) {
-    return res.status(500).json({ error: 'multiple users without passkeys; manual recovery needed' });
-  }
-  const [user] = listUsers();
-  return res.json({ needsSetup: true, mode: 'add-passkey', username: user.username });
+  return res.json({ needsSetup: false });
 });
 
-// ---------- setup / first-passkey ----------
+// ---------- setup / first-admin bootstrap ----------
 
-// Bootstrap registration flow. Open to anyone *only* while the system has
-// zero passkeys; once one passkey exists, additional ones must go through the
-// authenticated /passkeys flow below.
+// Open registration only while there are zero users. The first account
+// created here is promoted to admin and gets exclusive control over invites
+// and user management.
 router.post('/setup/options', async (req, res) => {
-  if (countAllCredentials() > 0) {
+  if (countUsers() > 0) {
     return res.status(409).json({ error: 'setup already complete' });
   }
-  const { rpID, rpName } = rpConfig();
-  const userCount = countUsers();
-  let user;
-  let mode;
-  if (userCount === 0) {
-    const requested = (req.body?.username || '').trim();
-    if (!isValidUsername(requested)) {
-      return res.status(400).json({ error: 'invalid username' });
-    }
-    if (findUserByUsername(requested)) {
-      return res.status(409).json({ error: 'username already taken' });
-    }
-    user = createUser(requested);
-    mode = 'create-user';
-  } else {
-    if (userCount > 1) return res.status(500).json({ error: 'multiple users; manual recovery needed' });
-    [user] = listUsers();
-    mode = 'add-passkey';
+  const requested = (req.body?.username || '').trim();
+  if (!isValidUsername(requested)) {
+    return res.status(400).json({ error: 'invalid username' });
   }
-
+  if (findUserByUsername(requested)) {
+    return res.status(409).json({ error: 'username already taken' });
+  }
+  const user = createUser(requested, { role: 'admin' });
+  const { rpID, rpName } = rpConfig();
   const options = await generateRegistrationOptions({
     rpName,
     rpID,
@@ -141,10 +119,9 @@ router.post('/setup/options', async (req, res) => {
     purpose: 'setup',
     challenge: options.challenge,
     userId: user.id,
-    mode,
   });
   setChallengeCookie(res, token);
-  res.json({ options, mode, username: user.username });
+  res.json({ options, mode: 'create-user', username: user.username });
 });
 
 router.post('/setup/verify', async (req, res) => {
@@ -154,6 +131,9 @@ router.post('/setup/verify', async (req, res) => {
   if (!entry || entry.purpose !== 'setup') {
     return res.status(400).json({ error: 'no pending setup' });
   }
+  // Race guard: if another tab finished setup between options and verify,
+  // back out. We can't safely create credentials against the now-existing
+  // admin from an anonymous request.
   if (countAllCredentials() > 0) {
     return res.status(409).json({ error: 'setup already complete' });
   }
@@ -192,7 +172,119 @@ router.post('/setup/verify', async (req, res) => {
 
   const { token: sessionToken } = createSession(user.id);
   res.cookie(SESSION_COOKIE, sessionToken, getCookieOptions());
-  res.json({ user: { id: user.id, username: user.username } });
+  res.json({ user: { id: user.id, username: user.username, role: user.role } });
+});
+
+// ---------- invite redemption ----------
+
+// Public status probe. Returns the bare minimum the UI needs to render the
+// landing page — no info about who created the invite or for whom.
+router.get('/invite/:token', (req, res) => {
+  const result = inviteStatus(req.params.token);
+  if (result.status === 'valid') return res.json({ valid: true });
+  if (result.status === 'expired') return res.json({ valid: false, expired: true });
+  return res.json({ valid: false });
+});
+
+router.post('/invite/:token/options', async (req, res) => {
+  const result = inviteStatus(req.params.token);
+  if (result.status !== 'valid') {
+    return res.status(404).json({ error: 'invalid or used invite' });
+  }
+  const requested = (req.body?.username || '').trim();
+  if (!isValidUsername(requested)) {
+    return res.status(400).json({ error: 'invalid username' });
+  }
+  if (findUserByUsername(requested)) {
+    return res.status(409).json({ error: 'username already taken' });
+  }
+  // Create the user up-front so we have a stable webauthn user handle for the
+  // registration options. If the user abandons the flow we end up with a
+  // username-squatter the admin can remove, mirroring the existing setup
+  // flow's tradeoff.
+  const user = createUser(requested, { role: 'user' });
+  const { rpID, rpName } = rpConfig();
+  const options = await generateRegistrationOptions({
+    rpName,
+    rpID,
+    userName: user.username,
+    userID: userIdToHandle(user.id),
+    userDisplayName: user.username,
+    attestationType: 'none',
+    authenticatorSelection: {
+      residentKey: 'required',
+      userVerification: 'preferred',
+    },
+    excludeCredentials: [],
+  });
+  const token = saveChallenge({
+    purpose: 'invite',
+    challenge: options.challenge,
+    userId: user.id,
+    inviteToken: req.params.token,
+  });
+  setChallengeCookie(res, token);
+  res.json({ options, username: user.username });
+});
+
+router.post('/invite/:token/verify', async (req, res) => {
+  const challengeToken = req.signedCookies?.[CHALLENGE_COOKIE];
+  const entry = consumeChallenge(challengeToken);
+  clearChallengeCookie(res);
+  if (!entry || entry.purpose !== 'invite' || entry.inviteToken !== req.params.token) {
+    return res.status(400).json({ error: 'no pending invite' });
+  }
+  // Re-check the invite right before committing. Status may have changed
+  // between options and verify (admin revoke, parallel redemption).
+  if (inviteStatus(req.params.token).status !== 'valid') {
+    deleteUser(entry.userId);
+    return res.status(409).json({ error: 'invite is no longer valid' });
+  }
+  const { rpID, expectedOrigin } = rpConfig();
+  let verification;
+  try {
+    verification = await verifyRegistrationResponse({
+      response: req.body?.response,
+      expectedChallenge: entry.challenge,
+      expectedOrigin,
+      expectedRPID: rpID,
+      requireUserVerification: false,
+    });
+  } catch (err) {
+    deleteUser(entry.userId);
+    return res.status(400).json({ error: err.message || 'verification failed' });
+  }
+  if (!verification.verified || !verification.registrationInfo) {
+    deleteUser(entry.userId);
+    return res.status(400).json({ error: 'verification failed' });
+  }
+
+  const user = findUserById(entry.userId);
+  if (!user) return res.status(500).json({ error: 'user vanished mid-setup' });
+
+  // Atomic consume — only one parallel redemption can win. If we lose,
+  // tear down the user we created and surface the conflict.
+  if (!consumeInvite(req.params.token, user.id)) {
+    deleteUser(user.id);
+    return res.status(409).json({ error: 'invite is no longer valid' });
+  }
+
+  const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+  const label = (req.body?.label || '').toString().trim().slice(0, 64) || null;
+  insertCredential({
+    userId: user.id,
+    credentialId: credential.id,
+    publicKey: Buffer.from(credential.publicKey),
+    counter: credential.counter,
+    transports: credential.transports || [],
+    deviceType: credentialDeviceType,
+    backedUp: credentialBackedUp,
+    label,
+  });
+
+  const { token: sessionToken } = createSession(user.id);
+  res.cookie(SESSION_COOKIE, sessionToken, getCookieOptions());
+  res.json({ user: { id: user.id, username: user.username, role: user.role } });
 });
 
 // ---------- login ----------
@@ -259,7 +351,7 @@ router.post('/login/verify', async (req, res) => {
 
   const { token: sessionToken } = createSession(user.id);
   res.cookie(SESSION_COOKIE, sessionToken, getCookieOptions());
-  res.json({ user: { id: user.id, username: user.username } });
+  res.json({ user: { id: user.id, username: user.username, role: user.role } });
 });
 
 // ---------- session ----------
@@ -272,7 +364,7 @@ router.post('/logout', (req, res) => {
 });
 
 router.get('/me', requireAuth, (req, res) => {
-  res.json({ user: { id: req.user.id, username: req.user.username } });
+  res.json({ user: { id: req.user.id, username: req.user.username, role: req.user.role } });
 });
 
 // ---------- passkey management (authed) ----------

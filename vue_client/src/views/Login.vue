@@ -7,8 +7,8 @@
         <p class="subtitle">Checking setup…</p>
       </template>
 
-      <!-- First-passkey setup: no users, ask for username -->
-      <template v-else-if="setup?.needsSetup && setup.mode === 'create-user'">
+      <!-- First-run bootstrap: empty DB, ask for admin username -->
+      <template v-else-if="setup?.needsSetup">
         <p class="subtitle">First run — pick a username and create a passkey.</p>
         <form @submit.prevent="onCreateUser">
           <label>
@@ -19,16 +19,6 @@
             {{ working ? 'Creating passkey…' : 'Create account' }}
           </button>
         </form>
-      </template>
-
-      <!-- First-passkey setup: existing user (post-migration) -->
-      <template v-else-if="setup?.needsSetup && setup.mode === 'add-passkey'">
-        <p class="subtitle">
-          Add a passkey for <strong>{{ setup.username }}</strong> to finish setup.
-        </p>
-        <button class="primary" :disabled="working" @click="onAddFirstPasskey">
-          {{ working ? 'Creating passkey…' : 'Create passkey' }}
-        </button>
       </template>
 
       <!-- Normal login -->
@@ -86,18 +76,6 @@ async function onCreateUser() {
     router.replace(nextDestination());
   } catch (_) {
     // displayed via auth.error
-    setup.value = await auth.fetchSetupStatus();
-  } finally {
-    working.value = false;
-  }
-}
-
-async function onAddFirstPasskey() {
-  working.value = true;
-  try {
-    await auth.setupFirstPasskey({});
-    router.replace(nextDestination());
-  } catch (_) {
     setup.value = await auth.fetchSetupStatus();
   } finally {
     working.value = false;

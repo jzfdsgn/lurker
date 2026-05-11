@@ -164,6 +164,19 @@ function migrate() {
     CREATE INDEX IF NOT EXISTS idx_input_history_buffer
       ON input_history(user_id, network_id, target, id DESC);
 
+    CREATE TABLE IF NOT EXISTS invite_tokens (
+      token TEXT PRIMARY KEY,
+      created_by INTEGER NOT NULL,
+      expires_at TEXT,
+      used_by_user_id INTEGER,
+      used_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (used_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_invite_tokens_unused
+      ON invite_tokens(token) WHERE used_by_user_id IS NULL;
+
     CREATE TABLE IF NOT EXISTS webauthn_credentials (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -206,6 +219,18 @@ ensureColumn('messages', 'extra', 'TEXT');
 ensureColumn('networks', 'sasl_account', 'TEXT');
 ensureColumn('networks', 'sasl_password', 'TEXT');
 dropColumnIfExists('users', 'password_hash');
+
+// Roles: 'admin' can manage invites and other users; 'user' is everyone else.
+// On a fresh install the first user (created via /api/auth/setup) is promoted
+// to admin by routes/auth.js. On an existing single-user install pre-dating
+// this column, backfill that lone user to admin so they retain control.
+ensureColumn('users', 'role', `TEXT NOT NULL DEFAULT 'user'`);
+const adminCount = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin'`).get().n;
+if (adminCount === 0) {
+  // Promote the earliest-created user (id ASC) if any exist.
+  db.exec(`UPDATE users SET role = 'admin'
+           WHERE id = (SELECT id FROM users ORDER BY id LIMIT 1)`);
+}
 
 // Persist which rule matched each message so the highlights modal can read
 // from disk instead of scanning whatever happens to be loaded in client memory.

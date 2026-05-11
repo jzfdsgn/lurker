@@ -32,3 +32,12 @@ export function requireAuth(req, res, next) {
   req.session = ctx.session;
   next();
 }
+
+// Stack on top of requireAuth. Returns 403 (not 401) so the client knows the
+// session is fine but the user just lacks the role — different from a missing
+// or expired cookie, which the auth-store redirect handler reacts to.
+export function requireAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'unauthorized' });
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'forbidden' });
+  next();
+}

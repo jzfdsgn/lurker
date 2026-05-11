@@ -71,6 +71,37 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
+    async fetchInviteStatus(token) {
+      // Public endpoint, never throws on a missing/expired token — returns
+      // { valid: bool, expired?: bool } so the landing page can pick its copy.
+      const data = await api(`/api/auth/invite/${encodeURIComponent(token)}`);
+      return data;
+    },
+    async acceptInvite({ token, username, label } = {}) {
+      this.error = null;
+      try {
+        const { options } = await api(
+          `/api/auth/invite/${encodeURIComponent(token)}/options`,
+          { method: 'POST', body: { username } }
+        );
+        const response = await startRegistration({ optionsJSON: options });
+        const { user } = await api(
+          `/api/auth/invite/${encodeURIComponent(token)}/verify`,
+          { method: 'POST', body: { response, label } }
+        );
+        // If a prior user was logged into this browser, wipe their state
+        // before the new session takes over. Clear `user` first so the WS
+        // onclose reconnect arm sees no user (matches the logout pattern).
+        this.user = null;
+        resetSession();
+        this.user = user;
+        this.checked = true;
+        return user;
+      } catch (err) {
+        this.error = friendlyError(err, 'invite redemption failed');
+        throw err;
+      }
+    },
     async addPasskey({ label } = {}) {
       const { options } = await api('/api/auth/passkeys/options', { method: 'POST' });
       const response = await startRegistration({ optionsJSON: options });
