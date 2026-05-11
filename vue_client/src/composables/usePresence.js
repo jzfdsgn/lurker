@@ -34,3 +34,10 @@ export function reportNow() {
   lastVisible = null;
   report();
 }
+
+// Forget the cached "last reported visible" value so the first report after a
+// session reset always sends a fresh state. The DOM listeners stay wired —
+// they're idempotent and have nothing to do with which user is signed in.
+export function resetPresence() {
+  lastVisible = null;
+}

@@ -193,6 +193,14 @@ export const useBuffersStore = defineStore('buffers', {
     drop(networkId, target) {
       delete this.buffers[key(networkId, target)];
     },
+    // Called from useSessionReset before $reset(). The state reset will wipe
+    // every buffer (and therefore every typing indicator), but the
+    // module-level Map of pending setTimeouts isn't part of Pinia state —
+    // clear it explicitly so timers don't linger after logout.
+    _resetTimers() {
+      for (const id of typingTimers.values()) clearTimeout(id);
+      typingTimers.clear();
+    },
     setJoined(networkId, target, joined) {
       const buf = this.buffers[key(networkId, target)];
       if (!buf) return;

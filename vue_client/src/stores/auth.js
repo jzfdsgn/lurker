@@ -4,6 +4,7 @@ import {
   startAuthentication,
 } from '@simplewebauthn/browser';
 import { api } from '../api.js';
+import { resetSession } from '../composables/useSessionReset.js';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -93,7 +94,10 @@ export const useAuthStore = defineStore('auth', {
       try {
         await api('/api/auth/logout', { method: 'POST' });
       } finally {
+        // Clear user before resetSession so any late WS onclose handler
+        // sees a null user and skips its 2s reconnect arm.
         this.user = null;
+        resetSession();
       }
     },
   },

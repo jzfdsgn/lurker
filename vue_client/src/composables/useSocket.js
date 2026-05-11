@@ -261,6 +261,26 @@ function send(payload) {
   }
 }
 
+// Tear down the socket without triggering the auto-reconnect path. Used on
+// logout (and any other session reset). Strips handlers before closing so the
+// `onclose` reconnect arm can't fire even if `auth.user` is briefly truthy.
+export function resetSocket() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (socket) {
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onclose = null;
+    socket.onerror = null;
+    try { socket.close(); } catch (_) { /* ignore */ }
+    socket = null;
+  }
+  connected.value = false;
+  hiddenSince = null;
+}
+
 function refreshSnapshot() {
   if (socket && socket.readyState === WebSocket.OPEN) {
     send({ type: 'snapshot' });
