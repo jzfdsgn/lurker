@@ -198,6 +198,11 @@ function tokenAtCursor(value, cursor) {
 function buildNickMatches(buf, networkId, prefix) {
   const lower = prefix.toLowerCase();
   const seen = new Set();
+  // Pre-seed with our own nick so neither the speakers map (defense against
+  // pre-fix stale state) nor the members list (which always contains us)
+  // surfaces it. Tab-completing your own name is never useful.
+  const own = networks.states[networkId]?.nick;
+  if (own) seen.add(own.toLowerCase());
   const out = [];
   // Speakers first (reverse-chronological).
   const speakers = Object.values(buf.speakers || {})
@@ -219,11 +224,6 @@ function buildNickMatches(buf, networkId, prefix) {
     if (!lc.startsWith(lower)) continue;
     seen.add(lc);
     out.push(n);
-  }
-  // Own nick last (only if it matches the prefix).
-  const own = networks.states[networkId]?.nick;
-  if (own && own.toLowerCase().startsWith(lower) && !seen.has(own.toLowerCase())) {
-    out.push(own);
   }
   return out;
 }

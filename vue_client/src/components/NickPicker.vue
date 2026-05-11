@@ -40,6 +40,9 @@ const rows = computed(() => {
   if (!buf) return [];
   const lower = (props.query || '').toLowerCase();
   const seen = new Set();
+  // Pre-seed with our own nick so the speakers map (defense against pre-fix
+  // stale state) and the members list (which always contains us) skip it.
+  if (props.selfNick) seen.add(props.selfNick.toLowerCase());
   const out = [];
 
   const speakers = Object.values(buf.speakers || {})
@@ -62,13 +65,6 @@ const rows = computed(() => {
     if (!lc.startsWith(lower)) continue;
     seen.add(lc);
     out.push({ nick: n, lc, recent: false });
-  }
-
-  if (props.selfNick) {
-    const lc = props.selfNick.toLowerCase();
-    if (!seen.has(lc) && lc.startsWith(lower)) {
-      out.push({ nick: props.selfNick, lc, recent: false });
-    }
   }
 
   return out.slice(0, 50);

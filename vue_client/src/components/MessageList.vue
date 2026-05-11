@@ -48,7 +48,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useNetworksStore } from '../stores/networks.js';
 import { useBuffersStore } from '../stores/buffers.js';
 import { useSettingsStore } from '../stores/settings.js';
@@ -413,6 +413,31 @@ watch(scrollToBottomToken, async () => {
   scrollToBottom();
 });
 
+// When the iOS soft keyboard slides up, the .mchat shell shrinks via
+// --viewport-h, MessageList's clientHeight shrinks too, but scrollTop doesn't
+// move — so a user who was glued to the bottom ends up scrolled away from the
+// most recent message. A clientHeight change doesn't fire a scroll event, so
+// stickToBottom is still true from the last real scroll; rAF defers the snap
+// until after layout settles to the new viewport.
+function onVisualViewportResize() {
+  if (!stickToBottom.value) return;
+  requestAnimationFrame(() => {
+    if (stickToBottom.value) scrollToBottom();
+  });
+}
+
+onMounted(() => {
+  if (typeof window !== 'undefined' && window.visualViewport) {
+    window.visualViewport.addEventListener('resize', onVisualViewportResize);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined' && window.visualViewport) {
+    window.visualViewport.removeEventListener('resize', onVisualViewportResize);
+  }
+});
+
 watch(() => props.pendingScrollId, async (id) => {
   if (id == null) return;
   await nextTick();
@@ -468,12 +493,11 @@ watch(() => props.pendingScrollId, async (id) => {
 .line.alt { background: var(--alt-bg); color: var(--alt-fg); }
 .line:hover { background: var(--bg-soft); }
 
-/* Matched highlight (rule fired): left accent stripe and warm background
-   tint. Sits above .alt so striping doesn't drown it out. DMs are NOT
-   styled here — they get their own buffer + unread badge already. */
+/* Matched highlight (rule fired): warm background tint. Sits above .alt so
+   striping doesn't drown it out. DMs are NOT styled here — they get their
+   own buffer + unread badge already. */
 .line.highlight {
   background: color-mix(in srgb, var(--warn) 12%, transparent);
-  box-shadow: inset 3px 0 0 0 var(--warn);
 }
 .line.highlight.alt {
   background: color-mix(in srgb, var(--warn) 18%, transparent);

@@ -40,7 +40,10 @@ function applyEvent(event) {
     case 'message':
     case 'action':
       buffers.pushMessage(event);
-      if (event.nick) {
+      // Speakers feeds tab-complete and the nick-picker. Our own messages
+      // would just clutter our own suggestions, so they don't count as
+      // "people who recently spoke here."
+      if (event.nick && !event.self) {
         buffers.recordSpeaker(event.networkId, event.target, event.nick,
           Date.parse(event.time) || Date.now());
       }

@@ -145,6 +145,7 @@ const listSpeakersStmt = db.prepare(`
   WHERE network_id = ?
     AND target = ?
     AND type IN ('message', 'action')
+    AND self = 0
     AND nick IS NOT NULL
     AND nick <> ''
   GROUP BY LOWER(nick)
