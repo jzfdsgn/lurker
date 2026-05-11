@@ -56,8 +56,6 @@ function ensureBuffer(state, networkId, target) {
       speakers: {},
     };
   }
-  if (!state.buffers[k].speakers) state.buffers[k].speakers = {};
-  if (!state.buffers[k].typing) state.buffers[k].typing = {};
   return state.buffers[k];
 }
 

@@ -15,6 +15,12 @@ export default defineConfig(({ mode }) => {
     server: {
       host,
       port: 5173,
+      // Allow imports from the repo root (one level up from vue_client/),
+      // so client code can import the shared settings registry directly
+      // instead of maintaining a mirrored copy.
+      fs: {
+        allow: ['..'],
+      },
       proxy: {
         '/api': {
           target: apiBase,

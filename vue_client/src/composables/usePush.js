@@ -1,7 +1,6 @@
 import { api } from '../api.js';
 
 let registrationPromise = null;
-let currentSubscription = null;
 const messageListeners = new Set();
 
 export function isSupported() {
@@ -87,7 +86,6 @@ export async function enable() {
       userAgent: navigator.userAgent,
     },
   });
-  currentSubscription = sub;
   return sub;
 }
 
@@ -104,7 +102,6 @@ export async function disable() {
     });
   } catch (_) { /* ignore */ }
   await sub.unsubscribe();
-  currentSubscription = null;
 }
 
 // Returns this client's current push endpoint, or null if not subscribed.

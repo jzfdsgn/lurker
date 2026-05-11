@@ -44,10 +44,6 @@ class HighlightRulesService extends EventEmitter {
     return listRules(userId);
   }
 
-  get(id, userId) {
-    return getRule(id, userId);
-  }
-
   create(userId, fields) {
     const pattern = (fields.pattern || '').trim();
     const kind = fields.kind || 'plain';

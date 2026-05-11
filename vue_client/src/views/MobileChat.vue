@@ -61,15 +61,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
-import { storeToRefs } from 'pinia';
-import { useNetworksStore } from '../stores/networks.js';
+import { ref, watch } from 'vue';
 import { useBuffersStore } from '../stores/buffers.js';
-import { useSettingsStore } from '../stores/settings.js';
 import { useSocket } from '../composables/useSocket.js';
-import { startPresenceReporter, reportNow } from '../composables/usePresence.js';
-import { registerSW, onSWPushMessage } from '../composables/usePush.js';
 import { useVisualViewportHeight } from '../composables/useViewport.js';
+import { useChatBootstrap } from '../composables/useChatBootstrap.js';
+import { useActiveBuffer } from '../composables/useActiveBuffer.js';
 import BufferList from '../components/BufferList.vue';
 import MessageList from '../components/MessageList.vue';
 import MessageInput from '../components/MessageInput.vue';
@@ -77,11 +74,9 @@ import MemberList from '../components/MemberList.vue';
 import StatusBar from '../components/StatusBar.vue';
 import HighlightsModal from '../components/HighlightsModal.vue';
 
-const networks = useNetworksStore();
 const buffers = useBuffersStore();
-const settings = useSettingsStore();
 const { connected } = useSocket();
-const { activeKey } = storeToRefs(networks);
+const { activeKey, isChannel, bufferLabel } = useActiveBuffer();
 
 // Pin --viewport-h to the visualViewport height so the shell stays glued to
 // the visible region when the iOS soft keyboard pushes content up.
@@ -95,16 +90,6 @@ const screen = ref('list');
 const showHighlights = ref(false);
 const pendingScrollId = ref(null);
 const messageInputRef = ref(null);
-
-const active = computed(() => networks.activeBuffer);
-const isServerBuffer = computed(() => !!active.value?.target?.startsWith(':server:'));
-const isChannel = computed(() => !!active.value?.target?.startsWith('#'));
-const bufferLabel = computed(() => {
-  const t = active.value?.target;
-  if (!t) return '';
-  if (isServerBuffer.value) return active.value?.network?.name || 'server';
-  return t;
-});
 
 // BufferList calls buffers.activate() directly on click; we react to the
 // activeKey flip rather than intercepting the click so the same store state
@@ -135,20 +120,7 @@ function onJumpToMessage({ networkId, target, messageId }) {
   screen.value = 'buffer';
 }
 
-onMounted(async () => {
-  if (!settings.loaded) settings.fetchAll().catch(() => {});
-  await networks.fetchAll();
-  // Always land on the list. /settings is only reachable via the list
-  // header, so back-from-settings should return to the list — not drop the
-  // user into whatever buffer happened to be active.
-  startPresenceReporter();
-  reportNow();
-  registerSW().catch(() => { /* ignore */ });
-  onSWPushMessage((data) => {
-    if (data?.kind === 'jump') onJumpToMessage(data);
-  });
-});
-
+useChatBootstrap({ onJump: onJumpToMessage });
 </script>
 
 <style scoped>

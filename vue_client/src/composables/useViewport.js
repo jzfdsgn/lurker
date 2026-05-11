@@ -47,7 +47,6 @@ export function useViewport() {
 // Together with position: fixed on .mchat, these defeat the iOS quirk where
 // focusing an input pushes the whole app up and leaves a gray gutter below.
 export function useVisualViewportHeight() {
-  const installed = ref(false);
   function update() {
     const vv = window.visualViewport;
     const h = vv ? vv.height : window.innerHeight;
@@ -63,7 +62,6 @@ export function useVisualViewportHeight() {
       window.visualViewport.addEventListener('scroll', update);
     }
     window.addEventListener('resize', update);
-    installed.value = true;
   });
   onBeforeUnmount(() => {
     if (typeof window === 'undefined') return;
@@ -73,5 +71,4 @@ export function useVisualViewportHeight() {
     }
     window.removeEventListener('resize', update);
   });
-  return { installed };
 }

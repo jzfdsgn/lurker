@@ -50,7 +50,7 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
-    async setupFirstPasskey({ username, label } = {}) {
+    async setupFirstPasskey({ username } = {}) {
       this.error = null;
       try {
         const { options } = await api('/api/auth/setup/options', {
@@ -60,7 +60,7 @@ export const useAuthStore = defineStore('auth', {
         const response = await startRegistration({ optionsJSON: options });
         const { user } = await api('/api/auth/setup/verify', {
           method: 'POST',
-          body: { response, label },
+          body: { response },
         });
         this.user = user;
         this.checked = true;

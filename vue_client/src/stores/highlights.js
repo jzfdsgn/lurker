@@ -43,10 +43,5 @@ export const useHighlightsStore = defineStore('highlights', {
         this.loading = false;
       }
     },
-    reset() {
-      this.items = [];
-      this.nextBefore = null;
-      this.error = '';
-    },
   },
 });

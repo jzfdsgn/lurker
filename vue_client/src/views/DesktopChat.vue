@@ -47,14 +47,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { storeToRefs } from 'pinia';
-import { useNetworksStore } from '../stores/networks.js';
+import { ref } from 'vue';
 import { useBuffersStore } from '../stores/buffers.js';
-import { useSettingsStore } from '../stores/settings.js';
 import { useSocket } from '../composables/useSocket.js';
-import { startPresenceReporter, reportNow } from '../composables/usePresence.js';
-import { registerSW, onSWPushMessage } from '../composables/usePush.js';
+import { useChatBootstrap } from '../composables/useChatBootstrap.js';
+import { useActiveBuffer } from '../composables/useActiveBuffer.js';
 import BufferList from '../components/BufferList.vue';
 import MessageList from '../components/MessageList.vue';
 import MessageInput from '../components/MessageInput.vue';
@@ -64,17 +61,15 @@ import NetworkForm from '../components/NetworkForm.vue';
 import HighlightsModal from '../components/HighlightsModal.vue';
 import LinkedText from '../components/LinkedText.vue';
 
-const networks = useNetworksStore();
 const buffers = useBuffersStore();
-const settings = useSettingsStore();
 const { connected } = useSocket();
+const { active, topic, isServerBuffer, bufferLabel } = useActiveBuffer();
 
 const showNetworkForm = ref(false);
 const editingNetwork = ref(null);
 const showHighlights = ref(false);
 const pendingScrollId = ref(null);
 const messageInputRef = ref(null);
-const { activeKey } = storeToRefs(networks);
 
 // Forward stray clicks anywhere in the chat frame (topic bar, message list,
 // member list, sidebar gutter, etc.) into the message input. The selector
@@ -106,38 +101,12 @@ function closeNetworkForm() {
   editingNetwork.value = null;
 }
 
-const active = computed(() => networks.activeBuffer);
-const activeBuf = computed(() => (activeKey.value ? buffers.byKey(activeKey.value) : null));
-const topic = computed(() => activeBuf.value?.topic);
-
-const isServerBuffer = computed(() => !!active.value?.target?.startsWith(':server:'));
-
-const bufferLabel = computed(() => {
-  const t = active.value?.target;
-  if (!t) return '';
-  if (isServerBuffer.value) return active.value?.network?.name || 'server';
-  return t;
-});
-
 function editActiveNetwork() {
   const net = active.value?.network;
   if (net) openEditNetwork(net);
 }
 
-onMounted(async () => {
-  if (!settings.loaded) settings.fetchAll().catch(() => {});
-  await networks.fetchAll();
-  startPresenceReporter();
-  reportNow();
-  // Register the SW unconditionally so a previously-subscribed device can
-  // still receive push events without the user re-opening Settings. Push
-  // subscription itself is now per-client, gated by an explicit Settings
-  // button — see usePush.enable().
-  registerSW().catch(() => { /* ignore */ });
-  onSWPushMessage((data) => {
-    if (data?.kind === 'jump') onJumpToMessage(data);
-  });
-});
+useChatBootstrap({ onJump: onJumpToMessage });
 </script>
 
 <style scoped>
