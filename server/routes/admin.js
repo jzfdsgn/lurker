@@ -35,13 +35,17 @@ function publicInvite(row, { origin }) {
   };
 }
 
-// Use the originating request's host so the generated invite URL works
-// regardless of which hostname the admin happens to be using (dev hosts,
-// reverse proxy alias, etc.).
+// Prefer the browser-supplied Origin header so the link reflects the URL the
+// admin is actually using — through Vite's dev proxy that's
+// https://irc.local.bradroot.me:5173, and in prod it's whatever the public
+// origin is, regardless of how the reverse proxy forwards to Express.
+// req.protocol/req.get('host') would otherwise leak the upstream Express
+// scheme + host (http://localhost:8010). Falls back to scheme://host for the
+// rare request without an Origin header.
 function originFromRequest(req) {
-  const proto = req.protocol;
-  const host = req.get('host');
-  return `${proto}://${host}`;
+  const origin = req.get('origin');
+  if (origin) return origin;
+  return `${req.protocol}://${req.get('host')}`;
 }
 
 router.get('/users', (req, res) => {
