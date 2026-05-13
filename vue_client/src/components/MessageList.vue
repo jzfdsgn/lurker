@@ -142,6 +142,14 @@ const awayState = computed(() => {
   return networks.states[b.networkId]?.away || null;
 });
 
+// Away/back markers stop being useful once the user has been back a while —
+// in slow buffers they linger forever otherwise. We hide both 30 min after
+// backAt. The minute-ticking `now` ref drives the recompute so the markers
+// disappear without needing a new message to trigger renderRows.
+const PRESENCE_MARKER_TTL_MS = 30 * 60 * 1000;
+const now = ref(Date.now());
+let nowTimer = null;
+
 // One-pass walk over messages to (a) decide which rows the smart filter
 // should hide and (b) tag rows with alt-row striping. Striping is derived
 // from message id parity so it stays stable across smart-filter visibility
@@ -175,8 +183,9 @@ const renderRows = computed(() => {
   const aw = awayState.value;
   const awaySinceMs = aw?.since ? Date.parse(aw.since) : null;
   const backAtMs = aw?.backAt ? Date.parse(aw.backAt) : null;
-  let awayInserted = !awaySinceMs;
-  let backInserted = !backAtMs;
+  const presenceExpired = backAtMs != null && (now.value - backAtMs) > PRESENCE_MARKER_TTL_MS;
+  let awayInserted = !awaySinceMs || presenceExpired;
+  let backInserted = !backAtMs || presenceExpired;
   const pushAwayDivider = () => {
     out.push({ divider: 'away', awayMessage: aw.message, awayAt: aw.since, key: 'presence-away' });
   };
@@ -496,12 +505,14 @@ onMounted(() => {
   if (typeof window !== 'undefined' && window.visualViewport) {
     window.visualViewport.addEventListener('resize', onVisualViewportResize);
   }
+  nowTimer = setInterval(() => { now.value = Date.now(); }, 60_000);
 });
 
 onBeforeUnmount(() => {
   if (typeof window !== 'undefined' && window.visualViewport) {
     window.visualViewport.removeEventListener('resize', onVisualViewportResize);
   }
+  if (nowTimer) { clearInterval(nowTimer); nowTimer = null; }
 });
 
 watch(() => props.pendingScrollId, async (id) => {
