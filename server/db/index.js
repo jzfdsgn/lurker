@@ -256,6 +256,20 @@ function migrate() {
     );
     CREATE INDEX IF NOT EXISTS idx_upload_history_user
       ON upload_history(user_id, id DESC);
+
+    -- Per-(network, nick) presence state for DM peers. Single row per peer
+    -- holding only the most recent transition event (state) and when it
+    -- happened (state_at). state is one of: online, offline, away, back.
+    -- Marker rendering is singular — whichever transition fired last wins.
+    -- nick collates NOCASE so WHOIS case-flips dont fragment.
+    CREATE TABLE IF NOT EXISTS peer_presence_state (
+      network_id INTEGER NOT NULL,
+      nick TEXT NOT NULL COLLATE NOCASE,
+      state TEXT NOT NULL,
+      state_at TEXT NOT NULL,
+      PRIMARY KEY (network_id, nick),
+      FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+    );
   `);
 }
 
@@ -279,6 +293,30 @@ function columnExists(table, column) {
 }
 
 migrate();
+
+// One-shot rebuild for peer_presence_state schema change. Old layout had
+// four separate datetime columns (offline/online/away/back); replaced with
+// a single (state, state_at) pair so the client can render exactly one
+// marker per peer (the most recent transition). The table only holds
+// transient live state, so dropping it is safe — next IRC connect rebuilds
+// it from JOIN/WHOIS events.
+if (columnExists('peer_presence_state', 'offline_datetime')) {
+  db.exec(`DROP TABLE peer_presence_state`);
+  db.exec(`
+    CREATE TABLE peer_presence_state (
+      network_id INTEGER NOT NULL,
+      nick TEXT NOT NULL COLLATE NOCASE,
+      state TEXT NOT NULL,
+      state_at TEXT NOT NULL,
+      PRIMARY KEY (network_id, nick),
+      FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+    );
+  `);
+}
+// away_message column: the message the peer set with /away, surfaced in the
+// marker. Nullable; only meaningful when state='away'.
+ensureColumn('peer_presence_state', 'away_message', 'TEXT');
+
 ensureColumn('messages', 'extra', 'TEXT');
 ensureColumn('networks', 'sasl_account', 'TEXT');
 ensureColumn('networks', 'sasl_password', 'TEXT');

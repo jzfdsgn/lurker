@@ -138,6 +138,13 @@ function applyEvent(event) {
     case 'typing':
       buffers.setTyping(event.networkId, event.target, event.nick, event.state);
       break;
+    case 'peer-presence':
+      networks.applyPeerPresence(event.networkId, event.nick, {
+        state: event.state,
+        stateAt: event.stateAt,
+        awayMessage: event.awayMessage,
+      });
+      break;
     case 'motd':
     case 'error':
       buffers.pushMessage({ ...event, target: event.target || `:server:${event.networkId}` });

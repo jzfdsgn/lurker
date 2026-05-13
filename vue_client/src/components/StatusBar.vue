@@ -3,6 +3,7 @@
     <span class="seg clock">{{ clock }}</span>
     <span class="seg buffer"><template v-if="targetLabel"><span v-if="networkLabel && !compact" class="net">{{ networkLabel }}/</span><span class="name">{{ targetLabel }}</span></template><span v-else class="name">{{ networkLabel }}</span><span v-if="modeSuffix && !compact" class="modes">{{ modeSuffix }}</span></span>
     <span v-if="memberCount != null && !compact" class="seg count"><span class="num">{{ memberCount }}</span> {{ memberCount === 1 ? 'user' : 'users' }}</span>
+    <span v-if="peerStatusLabel" class="seg peer-status" :class="peerStatusClass">{{ peerStatusLabel }}</span>
     <span v-if="lagLabel && !compact" class="seg lag">{{ lagLabel }}</span>
     <span v-if="uploadLabel" class="seg upload" :class="{ failed: uploads.failedAt }">{{ uploadLabel }}</span>
     <button v-if="newBelow > 0 && !compact" class="seg jump" type="button" @click="onJumpToBottom">{{ newBelow }} new ↓</button>
@@ -19,6 +20,7 @@ import { useUploadsStore } from '../stores/uploads.js';
 import { useNickColors } from '../composables/useNickColors.js';
 import { useScrollState, requestScrollToBottom } from '../composables/useScrollState.js';
 import { formatTimestamp } from '../utils/timestamp.js';
+import { isPeerOffline, isPeerAway } from '../utils/peerPresence.js';
 
 defineProps({
   // Mobile/petite mode: hide the network prefix, mode suffix, member count,
@@ -71,6 +73,37 @@ const modeSuffix = computed(() => {
 const memberCount = computed(() => {
   if (!isChannel.value) return null;
   return buffer.value?.members?.length ?? null;
+});
+
+// DM-only persistent peer state. Surfaces "<nick> is offline" when the server
+// has flipped them offline (their reply won't be seen live), and an
+// "<nick> is away" sub-state when they're flagged AFK but still reachable.
+// Server pseudo-buffers and channels skip this entirely.
+const isDmBuffer = computed(() =>
+  !!active.value?.target
+  && !active.value.target.startsWith('#')
+  && !active.value.target.startsWith(':server:')
+);
+const peerForActive = computed(() => {
+  if (!isDmBuffer.value) return null;
+  const a = active.value;
+  return networks.states[a.networkId]?.peerPresence?.[a.target.toLowerCase()] || null;
+});
+const peerStatusLabel = computed(() => {
+  const peer = peerForActive.value;
+  if (!peer) return '';
+  if (isPeerOffline(peer)) return `${active.value.target} is offline`;
+  if (isPeerAway(peer)) {
+    return peer.awayMessage
+      ? `${active.value.target} is away: ${peer.awayMessage}`
+      : `${active.value.target} is away`;
+  }
+  return '';
+});
+const peerStatusClass = computed(() => {
+  const peer = peerForActive.value;
+  if (!peer) return '';
+  return isPeerOffline(peer) ? 'offline' : 'away';
 });
 
 const typingNicks = computed(() => {
@@ -161,6 +194,8 @@ function onJumpToBottom() {
 .seg.count { color: var(--fg-muted); }
 .seg.count .num { color: var(--accent); }
 .seg.lag { color: var(--fg-muted); }
+.seg.peer-status.offline { color: var(--warn); }
+.seg.peer-status.away { color: var(--fg-muted); }
 .seg.upload { color: var(--accent); }
 .seg.upload.failed { color: var(--bad); }
 .seg.jump {

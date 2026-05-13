@@ -25,10 +25,14 @@
             unread: buf.unread > 0,
             highlighted: buf.highlighted > 0,
             'not-joined': isUnjoined(buf, net.id),
+            'peer-away': isPeerAway(buf),
+            'peer-offline': isPeerOffline(buf),
           }"
+          :title="dmTitle(buf)"
           @click="select(net.id, buf.target)"
         >
           <span class="label" :style="labelStyle(buf)">{{ labelFor(buf) }}</span>
+          <span v-if="isPeerOffline(buf)" class="peer-mark" aria-hidden="true">*</span>
           <span
             v-if="buf.highlighted > 0"
             class="badge highlight"
@@ -46,6 +50,7 @@
 import { useNetworksStore } from '../stores/networks.js';
 import { useBuffersStore } from '../stores/buffers.js';
 import { useNickColors } from '../composables/useNickColors.js';
+import { isPeerOffline as derivePeerOffline, isPeerAway as derivePeerAway } from '../utils/peerPresence.js';
 
 const networks = useNetworksStore();
 const buffers = useBuffersStore();
@@ -134,6 +139,22 @@ function isUnjoined(buf, networkId) {
   if (buf.joined === false) return true;
   return networks.states[networkId]?.state !== 'connected';
 }
+
+function peerOf(buf) {
+  return networks.states[buf.networkId]?.peerPresence?.[buf.target.toLowerCase()] || null;
+}
+function isPeerOffline(buf) {
+  return isDmBuffer(buf) && derivePeerOffline(peerOf(buf));
+}
+function isPeerAway(buf) {
+  return isDmBuffer(buf) && derivePeerAway(peerOf(buf));
+}
+function dmTitle(buf) {
+  if (!isDmBuffer(buf)) return null;
+  if (isPeerOffline(buf)) return `${buf.target} is offline`;
+  if (isPeerAway(buf)) return `${buf.target} is away`;
+  return null;
+}
 </script>
 
 <style scoped>
@@ -218,6 +239,17 @@ function isUnjoined(buf, networkId) {
    buffer. Apply opacity to the whole row so badges, labels, and tree guides
    all dim together; unread/highlight colors still come through. */
 .channels li.not-joined { opacity: 0.5; }
+/* DM peer state. Away nicks lose their per-user color and render in the muted
+   gray used by away members in the channel nicklist; offline nicks also pick
+   up the asterisk marker (`.peer-mark`). Override the inline label color set
+   by labelStyle() since that's specified as a style attribute. */
+.channels li.peer-away .label,
+.channels li.peer-offline .label { color: var(--fg-muted) !important; }
+.peer-mark {
+  color: var(--fg-muted);
+  font-weight: 600;
+  margin-left: 2px;
+}
 .label {
   flex: 1;
   white-space: nowrap;

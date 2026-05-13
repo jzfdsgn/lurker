@@ -188,6 +188,13 @@ class IrcManager extends EventEmitter {
     return true;
   }
 
+  probePresence(userId, networkId, nick) {
+    const conn = this.getConnection(userId, networkId);
+    if (!conn) return false;
+    conn.probePresence(nick);
+    return true;
+  }
+
   // Canonical /away writer. Persists the user-level state in user_away_state,
   // then fans the new state out to every IrcConnection so each one issues
   // AWAY on its IRC server and publishes an away-state event. Auto-away

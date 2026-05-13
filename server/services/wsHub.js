@@ -439,6 +439,12 @@ export function attachWsHub(httpServer, sessionSecret) {
           if (!ircManager.partChannel(userId, networkId, target, msg.reason)) {
             upsertChannel(networkId, target, false);
           }
+        } else {
+          // Closing a DM means we stop tracking this peer. Drop them from
+          // the in-memory tracker and the DB row so a future reopen starts
+          // from a clean probe instead of inheriting stale state.
+          const conn = ircManager.getConnection(userId, networkId);
+          if (conn) conn.untrackDmPeer(target);
         }
         fanOut(userId, { kind: 'buffer-closed', networkId, target });
         break;
@@ -453,6 +459,17 @@ export function attachWsHub(httpServer, sessionSecret) {
       case 'raw':
         ircManager.getConnection(userId, msg.networkId)?.raw(msg.line);
         break;
+      case 'probe-presence': {
+        // Client just activated a DM — refresh its presence cache so the
+        // banner/sidebar dim reflect current state rather than whatever stale
+        // value was last broadcast. The whois reply is silent (no server-
+        // buffer dump); just the side effect of updating presence.
+        if (!msg.networkId) break;
+        const nick = typeof msg.nick === 'string' ? msg.nick : '';
+        if (!nick) break;
+        ircManager.probePresence(userId, msg.networkId, nick);
+        break;
+      }
       case 'list-channels': {
         // Kicks off a /LIST refresh on the given network. Results are written
         // to the chanlist DB cache by ircConnection; progress comes through

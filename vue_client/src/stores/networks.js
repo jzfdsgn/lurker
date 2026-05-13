@@ -77,6 +77,23 @@ export const useNetworksStore = defineStore('networks', {
         away: event.away || null,
       };
     },
+    // Per-(network, nick) peer presence. Single most-recent-event shape:
+    // { state, stateAt } where state ∈ {online, offline, away, back}.
+    // Stored under the network state bucket so the snapshot apply seeds it
+    // instantly; readers (MessageList marker, BufferList decoration,
+    // StatusBar segment) look up by lowercase nick.
+    applyPeerPresence(networkId, nick, payload) {
+      if (!networkId || !nick) return;
+      const existing = this.states[networkId] || { networkId, channels: [] };
+      const peerPresence = { ...(existing.peerPresence || {}) };
+      peerPresence[nick.toLowerCase()] = {
+        nick,
+        state: payload?.state || null,
+        stateAt: payload?.stateAt || null,
+        awayMessage: payload?.awayMessage || null,
+      };
+      this.states[networkId] = { ...existing, peerPresence };
+    },
     applyLag(event) {
       const existing = this.states[event.networkId] || { networkId: event.networkId, channels: [] };
       const v = event.lagMs;

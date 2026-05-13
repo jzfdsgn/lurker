@@ -184,6 +184,7 @@ const renderRows = computed(() => {
     out.push({ divider: 'back', awayAt: aw.since, backAt: aw.backAt, key: 'presence-back' });
   };
 
+
   for (let i = 0; i < list.length; i++) {
     const m = list[i];
     const key = m.id ?? `live:${i}`;

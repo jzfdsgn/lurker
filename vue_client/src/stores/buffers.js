@@ -314,6 +314,13 @@ export const useBuffersStore = defineStore('buffers', {
       buf.unread = 0;
       buf.highlighted = 0;
       buf.highlightsCapped = false;
+      // For DMs, ask the server to WHOIS-probe the peer so the banner/sidebar
+      // dim reflect current state rather than a possibly-stale cached value.
+      // The probe is silent (no /whois reply in the server buffer); only the
+      // resulting peer-presence event flows back to update local state.
+      if (target && !target.startsWith('#') && !target.startsWith(':server:')) {
+        socketSend({ type: 'probe-presence', networkId, nick: target });
+      }
     },
     setTyping(networkId, target, nick, state) {
       if (!nick) return;
