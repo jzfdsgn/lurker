@@ -574,12 +574,19 @@ const HELP_LINES = [
   '  /nick <newnick>        — change your nick',
   '  /quit [reason]         — disconnect from current network',
   '  /list                  — list channels on current network',
+  '  /jitsi                 — start a video call (alias: /talk)',
   '  /raw <line>            — send a raw IRC line (alias: /quote)',
   '  /help                  — this list',
 ];
 
 function isChannelTarget(t) {
   return typeof t === 'string' && t.startsWith('#');
+}
+
+function randomRoomId() {
+  const buf = new Uint8Array(6);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function handleCommand(line, networkId, target) {
@@ -695,6 +702,13 @@ function handleCommand(line, networkId, target) {
     case 'list':
       socketSend({ type: 'raw', networkId, line: argLine ? `LIST ${argLine}` : 'LIST' });
       break;
+    case 'jitsi':
+    case 'talk': {
+      if (isServer.value) { localInfo(networkId, target, 'usage: /jitsi — run inside a channel or DM'); return; }
+      const url = `https://meet.jit.si/lurker-${randomRoomId()}`;
+      socketSend({ type: 'send', networkId, target, text: url });
+      break;
+    }
     case 'help':
       for (const text of HELP_LINES) localInfo(networkId, target, text);
       break;
