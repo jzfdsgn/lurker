@@ -58,6 +58,7 @@
         ><LinkedText :text="topic" /></button>
       </template>
       <button
+        v-if="isChannel"
         class="link members-toggle"
         :title="showMembers ? 'Hide members' : 'Show members'"
         @click="toggleMembers"
@@ -66,7 +67,7 @@
     <div v-if="active" class="topic-divider"></div>
 
     <MessageList :pending-scroll-id="pendingScrollId" />
-    <MemberList v-if="active && showMembers" />
+    <MemberList v-if="showMembers" />
     <StatusBar />
     <MessageInput ref="messageInputRef" />
 
@@ -134,12 +135,14 @@ import QuickSwitcher from '../components/QuickSwitcher.vue';
 import SearchModal from '../components/SearchModal.vue';
 import KeyboardHelpModal from '../components/KeyboardHelpModal.vue';
 import { useKeyboardShortcuts } from '../composables/useKeyboardShortcuts.js';
+import { useNicklistCollapseStore } from '../stores/nicklistCollapse.js';
 
 const buffers = useBuffersStore();
 const { connected } = useSocket();
-const { active, topic, isServerBuffer, bufferLabel } = useActiveBuffer();
+const { active, topic, isServerBuffer, isChannel, bufferLabel } = useActiveBuffer();
 const settings = useSettingsStore();
 const toasts = useToastsStore();
+const nicklistCollapse = useNicklistCollapseStore();
 
 const showNetworkForm = ref(false);
 const editingNetwork = ref(null);
@@ -153,20 +156,45 @@ const showKbdHelp = ref(false);
 const pendingScrollId = ref(null);
 const messageInputRef = ref(null);
 
+// Any modal open? Type-ahead must not steal focus from a modal's own fields.
+const anyModalOpen = computed(() =>
+  showNetworkForm.value || showHighlights.value || showTopic.value ||
+  showChannelList.value || showUploads.value || showSwitcher.value ||
+  showSearch.value || showKbdHelp.value
+);
+
 useKeyboardShortcuts({
   onOpenSwitcher: () => { showSwitcher.value = true; },
   onOpenHelp: () => { showKbdHelp.value = true; },
   onOpenSearch: () => { showSearch.value = true; },
+  onTypeAhead: () => {
+    if (anyModalOpen.value || !active.value) return;
+    messageInputRef.value?.focus();
+  },
 });
 
 const showChannels = computed(() => settings.effective('look.layout.show_channel_list'));
-const showMembers = computed(() => settings.effective('look.layout.show_member_list'));
+
+// Per-channel nicklist visibility. A channel the user has explicitly toggled
+// carries an override (true = collapsed); otherwise the global
+// look.layout.show_member_list default applies. DMs and server buffers have no
+// member list at all, so the toggle and panel are hidden for them entirely.
+const showMembers = computed(() => {
+  if (!isChannel.value || !active.value) return false;
+  const { networkId, target } = active.value;
+  const override = nicklistCollapse.override(networkId, target);
+  if (override !== undefined) return !override;
+  return settings.effective('look.layout.show_member_list');
+});
 
 function toggleChannels() {
   settings.setValue('look.layout.show_channel_list', !showChannels.value);
 }
 function toggleMembers() {
-  settings.setValue('look.layout.show_member_list', !showMembers.value);
+  if (!isChannel.value || !active.value) return;
+  const { networkId, target } = active.value;
+  // Pass the current visibility through as the new collapsed flag — it flips.
+  nicklistCollapse.setCollapsed(networkId, target, showMembers.value);
 }
 
 // Forward stray clicks anywhere in the chat frame (topic bar, message list,

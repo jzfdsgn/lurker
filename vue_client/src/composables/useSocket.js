@@ -11,6 +11,7 @@ import { useInputHistoryStore } from '../stores/inputHistory.js';
 import { useChanlistStore } from '../stores/chanlist.js';
 import { useSearchStore } from '../stores/search.js';
 import { usePinsStore } from '../stores/pins.js';
+import { useNicklistCollapseStore } from '../stores/nicklistCollapse.js';
 import { notifyHighlight } from './useHighlightNotifier.js';
 
 let socket = null;
@@ -178,8 +179,10 @@ function applySnapshot(snapshot) {
   const networks = useNetworksStore();
   const buffers = useBuffersStore();
   const pins = usePinsStore();
+  const nicklistCollapse = useNicklistCollapseStore();
   networks.applySnapshot(snapshot);
   pins.applySnapshot(snapshot);
+  nicklistCollapse.applySnapshot(snapshot);
   for (const net of snapshot) {
     for (const ch of net.channels) {
       // Snapshot members are already { nick, modes } objects from the server.
@@ -292,6 +295,11 @@ function handleMessage(raw) {
   if (payload.kind === 'pins-changed') {
     const pins = usePinsStore();
     pins.setNetwork(payload.networkId, payload.pinned || []);
+    return;
+  }
+  if (payload.kind === 'nicklist-collapsed-changed') {
+    const nicklistCollapse = useNicklistCollapseStore();
+    nicklistCollapse.applyChange(payload.networkId, payload.target, !!payload.collapsed);
     return;
   }
   if (payload.kind === 'buffer-reopened') {

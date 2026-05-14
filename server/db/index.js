@@ -291,6 +291,20 @@ function migrate() {
     );
     CREATE INDEX IF NOT EXISTS idx_pinned_buffers_user_net
       ON pinned_buffers(user_id, network_id, position);
+
+    -- Per-(user, network, channel) override for the desktop nicklist's
+    -- collapsed state. Only channels the user has explicitly toggled get a
+    -- row; absent a row the global look.layout.show_member_list default
+    -- applies. collapsed is 1 (hidden) or 0 (shown).
+    CREATE TABLE IF NOT EXISTS nicklist_collapsed (
+      user_id INTEGER NOT NULL,
+      network_id INTEGER NOT NULL,
+      target TEXT NOT NULL,
+      collapsed INTEGER NOT NULL,
+      PRIMARY KEY (user_id, network_id, target),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+    );
   `);
 }
 

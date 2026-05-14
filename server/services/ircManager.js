@@ -7,6 +7,7 @@ import { listNetworksForUser, getNetwork, listChannels, upsertChannel, deleteCha
 import { reopenBuffer } from '../db/closedBuffers.js';
 import { getUserAwayState, writeAwayMarker, writeBackMarker } from '../db/userAwayState.js';
 import { listPinnedForUser } from '../db/pinnedBuffers.js';
+import { listCollapsedForUser } from '../db/nicklistCollapsed.js';
 import db from '../db/index.js';
 
 // Translate a user_away_state row into the in-memory shape IrcConnection
@@ -261,10 +262,12 @@ class IrcManager extends EventEmitter {
 
   snapshotForUser(userId) {
     const pinsByNetwork = listPinnedForUser(userId);
+    const collapsedByNetwork = listCollapsedForUser(userId);
     return this.listConnections(userId).map((conn) => {
       const snap = conn.snapshot();
       const pinned = pinsByNetwork.get(snap.networkId) || [];
-      return { ...snap, pinned };
+      const collapsedNicklists = collapsedByNetwork.get(snap.networkId) || {};
+      return { ...snap, pinned, collapsedNicklists };
     });
   }
 }

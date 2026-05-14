@@ -13,8 +13,10 @@ import { flattenBufferOrder, flattenUnreadOrder } from '../utils/bufferOrder.js'
 // also producing input-side effects (cursor by paragraph on Mac, etc.).
 //
 // Pass callbacks for the UI-driven shortcuts; the navigation/mark-read paths
-// are self-contained.
-export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp, onOpenSearch } = {}) {
+// are self-contained. onTypeAhead fires when the user starts typing a
+// printable character while focus is somewhere non-text — the consumer
+// decides whether to redirect focus into the message input.
+export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp, onOpenSearch, onTypeAhead } = {}) {
   const networks = useNetworksStore();
   const buffers = useBuffersStore();
   const pins = usePinsStore();
@@ -107,6 +109,16 @@ export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp, onOpenSearch 
       e.preventDefault();
       step(delta, scope);
       return;
+    }
+    // Type-ahead: a bare printable character pressed while focus is on some
+    // non-text element (a button, the body, the buffer list…) should land in
+    // the message input. We only detect-and-delegate here — no preventDefault,
+    // so once the consumer moves focus the character still types — and we skip
+    // when focus is already in a text field (the input itself, the
+    // switcher/search boxes, NickPicker filtering, etc.).
+    if (!isCmd(e) && !e.altKey && e.key.length === 1) {
+      if (e.target.closest('input, textarea, [contenteditable=true]')) return;
+      onTypeAhead?.();
     }
   }
 

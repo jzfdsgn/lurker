@@ -339,9 +339,9 @@ export const REGISTRY = Object.freeze([
     type: 'bool',
     default: true,
     description:
-      'Show the channel members list on the right of the desktop layout. ' +
-      'Turn off to reclaim horizontal space; a slim rail with a chevron ' +
-      'remains so you can re-open it. Has no effect on mobile.',
+      'Default for whether the channel members list shows on the right of the ' +
+      'desktop layout. The members toggle in each channel’s topic bar ' +
+      'overrides this per channel and is remembered. Has no effect on mobile.',
   },
 
   // ─── Join/part consolidation (IRCCloud-style summary line) ────────────

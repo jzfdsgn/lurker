@@ -25,6 +25,7 @@ import {
   reorderPins,
   listPinnedForUserNetwork,
 } from '../db/pinnedBuffers.js';
+import { setNicklistCollapsed } from '../db/nicklistCollapsed.js';
 import { upsertChannel, ownsNetwork } from '../db/networks.js';
 import * as chanlistDb from '../db/chanlist.js';
 import { getUserSettings } from '../db/settings.js';
@@ -664,6 +665,16 @@ export function attachWsHub(httpServer, sessionSecret) {
           break;
         }
         fanOut(userId, { kind: 'pins-changed', networkId, pinned: next });
+        break;
+      }
+      case 'set-nicklist-collapsed': {
+        const networkId = Number(msg.networkId);
+        const target = typeof msg.target === 'string' ? msg.target : '';
+        // Only channels have a nicklist; server/DM buffers are never tracked.
+        if (!networkId || !target.startsWith('#')) break;
+        const collapsed = !!msg.collapsed;
+        setNicklistCollapsed(userId, networkId, target, collapsed);
+        fanOut(userId, { kind: 'nicklist-collapsed-changed', networkId, target, collapsed });
         break;
       }
       case 'history': {
