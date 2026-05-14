@@ -450,6 +450,10 @@
             connected on the server, and every device picks up where you left off.
           </p>
           <p class="muted small">version {{ appVersion }}</p>
+          <p class="about-warning">
+            Lurker is free software. If you are being asked to pay for it, be sure
+            you understand why.
+          </p>
           <ul class="about-links">
             <li>
               <span class="about-label">source</span>
@@ -1284,6 +1288,13 @@ async function onResetAll() {
 }
 
 /* ── About ──────────────────────────────────────────────────────── */
+.about-warning {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--warn, var(--accent));
+  color: var(--warn, var(--accent));
+  background: transparent;
+}
 .about-links {
   list-style: none;
   margin: 8px 0 0;
