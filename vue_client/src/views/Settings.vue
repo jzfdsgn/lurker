@@ -451,8 +451,8 @@
           </p>
           <p class="muted small">version {{ appVersion }}</p>
           <p class="about-warning">
-            Lurker is free software. If you are being asked to pay for it, be sure
-            you understand why.
+            Lurker is free and source-available — anyone can host it themselves at
+            no cost. If you're paying for it, be sure you know why.
           </p>
           <ul class="about-links">
             <li>
