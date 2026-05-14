@@ -19,6 +19,7 @@
     <div v-else-if="row.divider === 'back'" class="notice presence-divider">
       — back (gone {{ formatDuration(row.awayAt, row.backAt) }}) —
     </div>
+    <div v-else-if="row.divider === 'date'" class="notice date-divider">{{ row.dateStr }}</div>
     <div
       v-else-if="row.consolidation"
       class="line"
@@ -96,7 +97,7 @@ import {
   useScrollState,
 } from '../composables/useScrollState.js';
 import { segmentInlineStyle, segmentHasStyle } from '../utils/nickColor.js';
-import { formatTimestamp, formatDuration } from '../utils/timestamp.js';
+import { formatTimestamp, formatDuration, formatDate } from '../utils/timestamp.js';
 import { consolidateRows } from '../utils/consolidate.js';
 import NickRef from './NickRef.vue';
 import LinkedText from './LinkedText.vue';
@@ -224,6 +225,11 @@ const renderRows = computed(() => {
   const presenceExpired = backAtMs != null && (now.value - backAtMs) > PRESENCE_MARKER_TTL_MS;
   let awayInserted = !awaySinceMs || presenceExpired;
   let backInserted = !backAtMs || presenceExpired;
+
+  // Day-change marker: WeeChat-style date line emitted before the first
+  // visible message of each local calendar day (including the very first
+  // message in the buffer). Tracked across the loop below.
+  let lastDayKey = null;
   const pushAwayDivider = () => {
     out.push({ divider: 'away', awayMessage: aw.message, awayAt: aw.since, key: 'presence-away' });
   };
@@ -258,6 +264,13 @@ const renderRows = computed(() => {
     }
 
     if (hidden) continue;
+
+    // Day-change marker before the first visible row of each local day.
+    const dayKey = formatDate(m.time);
+    if (dayKey && dayKey !== lastDayKey) {
+      out.push({ divider: 'date', dateStr: dayKey, key: `date:${dayKey}` });
+      lastDayKey = dayKey;
+    }
 
     const mTimeMs = Date.parse(m.time) || 0;
     if (!awayInserted && mTimeMs > awaySinceMs) {
@@ -744,10 +757,12 @@ watch(() => props.pendingScrollId, async (id) => {
   opacity: 0.6;
 }
 
-/* Self-presence markers (away / back). Same shape as the unread divider so
-   they read as a sibling kind of "structural" line, but in the muted fg
-   color since they're informational rather than action-required. */
-.presence-divider {
+/* Self-presence markers (away / back) and the day-change marker. Same shape
+   as the unread divider so they read as a sibling kind of "structural" line,
+   but in the muted fg color since they're informational rather than
+   action-required. */
+.presence-divider,
+.date-divider {
   font-style: normal;
   font-size: 0.85em;
   letter-spacing: 0.08em;
@@ -758,7 +773,9 @@ watch(() => props.pendingScrollId, async (id) => {
   gap: 8px;
 }
 .presence-divider::before,
-.presence-divider::after {
+.presence-divider::after,
+.date-divider::before,
+.date-divider::after {
   content: '';
   flex: 1;
   border-top: 1px dashed var(--fg-muted);

@@ -17,6 +17,21 @@ export function formatTimestamp(iso, fmt) {
   return fmt.replace(TOKEN_RE, (t) => tokens[t]);
 }
 
+// Local-time calendar date as 'YYYY-MM-DD', used for the day-change marker in
+// the message list. Uses the same `new Date(iso)` parsing as formatTimestamp
+// so the marker and the per-row times always agree on which day a message
+// falls in. Returns '' when the timestamp doesn't parse.
+export function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return (
+    `${d.getFullYear()}-` +
+    `${String(d.getMonth() + 1).padStart(2, '0')}-` +
+    `${String(d.getDate()).padStart(2, '0')}`
+  );
+}
+
 // SQLite's `datetime('now')` produces 'YYYY-MM-DD HH:MM:SS' with no timezone
 // marker, so Date.parse() interprets it as local time on most browsers (UTC
 // on a few) — which means for users east of UTC the rendered relative time
