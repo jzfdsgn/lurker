@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // Single source of truth for the settings registry, imported by both the
 // server (which uses it to validate writes and seed defaults) and the client
 // (which uses it to render the Settings UI and supply defaults during the

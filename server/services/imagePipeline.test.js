@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { describe, it, expect } from 'vitest';
 import sharp from 'sharp';
 import { optimize, thumbnail } from './imagePipeline.js';

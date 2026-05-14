@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { WebSocketServer } from 'ws';
 import cookie from 'cookie';
 import cookieParser from 'cookie-parser';

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // Drives in-client highlight notifications: a toast in the corner and an
 // optional sound. Called from useSocket whenever an IRC message arrives with
 // matched=true and self=false. Settings + buffer focus are read live so the

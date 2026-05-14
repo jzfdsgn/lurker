@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Brad Root
+  SPDX-License-Identifier: Elastic-2.0
+-->
+
 <template>
   <Teleport to="body">
     <div v-if="toasts.items.length" class="toast-stack" role="status" aria-live="polite">

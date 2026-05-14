@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // Deterministic nick coloring. Mirrors weechat's gui_nick_find_color:
 // trim stop chars, lowercase, hash, modulo a palette.
 //

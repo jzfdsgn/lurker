@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Brad Root
+  SPDX-License-Identifier: Elastic-2.0
+-->
+
 <template>
   <span class="nick-ref" :style="style">{{ nick }}</span>
 </template>

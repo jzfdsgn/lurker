@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { reactive } from 'vue';
 
 // Single global context menu, controlled imperatively by any consumer.

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import highlightRulesService from '../services/highlightRulesService.js';

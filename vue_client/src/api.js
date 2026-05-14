@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 export async function api(url, { method = 'GET', body, headers } = {}) {
   const res = await fetch(url, {
     method,

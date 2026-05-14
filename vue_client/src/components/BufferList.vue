@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Brad Root
+  SPDX-License-Identifier: Elastic-2.0
+-->
+
 <template>
   <nav class="buffer-list">
     <div v-for="net in networks.networks" :key="net.id" class="net">

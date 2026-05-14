@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import 'dotenv/config';
 import http from 'http';
 import express from 'express';

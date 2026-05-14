@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // WebAuthn helpers: RP config + a short-lived challenge store.
 //
 // Challenges are kept in-process and keyed by an opaque token returned to the

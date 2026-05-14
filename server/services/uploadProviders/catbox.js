@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // catbox.moe provider — anonymous, optional userhash for "logged-in" uploads
 // that can later be deleted via the user's account. The response body is the
 // bare URL on success or an error string on failure (200 in both cases for

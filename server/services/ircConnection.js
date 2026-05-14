@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import IRC from 'irc-framework';
 import { insertMessage, hasMessageForTarget, listBufferTargets } from '../db/messages.js';
 import { upsertChannel } from '../db/networks.js';

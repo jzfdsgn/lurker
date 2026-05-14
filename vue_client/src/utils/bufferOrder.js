@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // Sidebar order across all networks. Mirrors the visual layout in BufferList:
 // per network, the server pseudo-buffer first, then pinned buffers in their
 // stored order, then unpinned buffers (channels alphabetically before DMs

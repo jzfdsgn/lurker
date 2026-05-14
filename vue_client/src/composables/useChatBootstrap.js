@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { onMounted } from 'vue';
 import { useNetworksStore } from '../stores/networks.js';
 import { useSettingsStore } from '../stores/settings.js';

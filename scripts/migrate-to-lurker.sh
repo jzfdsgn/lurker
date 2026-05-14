@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Brad Root
+# SPDX-License-Identifier: Elastic-2.0
+
 # One-shot migration: rename data files and reminders for the caint → lurker rebrand.
 # Run from the repo root. Stops the docker stack, renames the sqlite triplet,
 # patches DATABASE_PATH and WEBAUTHN_RP_NAME in .env, and starts the stack back up.

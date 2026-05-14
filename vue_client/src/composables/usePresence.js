@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { socketSend, onSocketOpen } from './useSocket.js';
 
 let wired = false;

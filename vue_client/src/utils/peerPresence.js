@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // Derive UX state from a peer presence row. The row carries only the most
 // recent transition ({ state, stateAt }); these helpers translate that to
 // the boolean states BufferList / StatusBar care about.

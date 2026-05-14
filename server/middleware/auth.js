@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { findSession } from '../db/sessions.js';
 import { findUserById, touchUserLastSeen } from '../db/users.js';
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 const TOKEN_RE = /YYYY|MM|DD|HH|mm|ss/g;
 
 export function formatTimestamp(iso, fmt) {

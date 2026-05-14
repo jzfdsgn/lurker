@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Brad Root
+  SPDX-License-Identifier: Elastic-2.0
+-->
+
 <template>
   <div v-if="active" class="status-bar" :class="{ compact }">
     <span class="seg clock">{{ clock }}</span>

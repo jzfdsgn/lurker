@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // Consolidation of join/part/quit/nick "noise" events into a per-identity
 // net effect, IRCCloud-style. Pure, side-effect-free, no DOM/Vue deps — safe
 // to import from the Vue renderer, the Node demo script, and tests.

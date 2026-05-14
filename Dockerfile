@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brad Root
+# SPDX-License-Identifier: Elastic-2.0
+
 # Stage 1: Build Vue client
 FROM node:lts-alpine AS vue-builder
 

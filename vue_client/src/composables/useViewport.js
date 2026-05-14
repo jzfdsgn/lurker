@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 // Mobile breakpoint. The desktop layout is a 220 + 1fr + 180 = 400px-of-chrome

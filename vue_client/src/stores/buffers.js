@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { defineStore } from 'pinia';
 import { useNetworksStore } from './networks.js';
 import { socketSend } from '../composables/useSocket.js';

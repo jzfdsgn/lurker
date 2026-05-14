@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useNetworksStore } from '../stores/networks.js';

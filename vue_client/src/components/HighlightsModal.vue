@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 Brad Root
+  SPDX-License-Identifier: Elastic-2.0
+-->
+
 <template>
   <div class="modal" @click.self="$emit('close')">
     <div class="card">

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';

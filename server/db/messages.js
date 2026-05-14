@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import db from './index.js';
 
 // Alt parity is computed inline against the buffer's most recent striped row.

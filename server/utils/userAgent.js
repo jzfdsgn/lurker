@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // Centralized client-identification strings so Lurker shows up as itself when
 // it talks to the outside world — image hosts in HTTP User-Agent, IRC peers
 // via CTCP VERSION. Admins can override the contact portion with the

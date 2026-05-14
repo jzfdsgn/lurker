@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as x0 from './x0.js';
 import * as catbox from './catbox.js';

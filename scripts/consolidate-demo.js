@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 // Visual demo of the join/part consolidation algorithm. Run with:
 //
 //   node scripts/consolidate-demo.js

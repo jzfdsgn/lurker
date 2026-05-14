@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import { defineStore } from 'pinia';
 
 // Per-network channel-browser state. The server owns the cache; the store is

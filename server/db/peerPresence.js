@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: Elastic-2.0
+
 import db from './index.js';
 
 // One row per peer per network. `state` is the most recent transition we
