@@ -32,3 +32,6 @@ npm start
 
 ## Status
 v0.1 — single-user, single-network, in-memory backlog. See the Vikunja "Lurker" project for the post-v0.1 roadmap.
+
+## License
+Elastic License 2.0 — see [LICENSE](LICENSE). Source-available: you can use, copy, modify, and redistribute it, but you may not offer it to third parties as a hosted or managed service.
