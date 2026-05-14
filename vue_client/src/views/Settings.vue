@@ -1289,7 +1289,7 @@ async function onResetAll() {
 
 /* ── About ──────────────────────────────────────────────────────── */
 .about-warning {
-  margin: 10px 0 0;
+  margin: 20px 0 0;
   padding: 8px 10px;
   border: 1px solid var(--warn, var(--accent));
   color: var(--warn, var(--accent));
