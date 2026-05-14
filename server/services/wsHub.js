@@ -16,6 +16,12 @@ import {
   isClosed,
   closedKeySetForUser,
 } from '../db/closedBuffers.js';
+import {
+  pinBuffer,
+  unpinBuffer,
+  reorderPins,
+  listPinnedForUserNetwork,
+} from '../db/pinnedBuffers.js';
 import { upsertChannel, ownsNetwork } from '../db/networks.js';
 import * as chanlistDb from '../db/chanlist.js';
 import { getUserSettings } from '../db/settings.js';
@@ -600,6 +606,43 @@ export function attachWsHub(httpServer, sessionSecret) {
         // The originating socket already added it optimistically, so skip it
         // to avoid a duplicate append.
         fanOut(userId, { kind: 'input-history-added', networkId, target, text }, { exceptWs: ws });
+        break;
+      }
+      case 'pin-buffer': {
+        const networkId = Number(msg.networkId);
+        const target = typeof msg.target === 'string' ? msg.target : '';
+        // Server pseudo-buffer is the network header row, not a pinnable item.
+        if (!networkId || !target || target.startsWith(':server:')) break;
+        const pinned = pinBuffer(userId, networkId, target);
+        fanOut(userId, { kind: 'pins-changed', networkId, pinned });
+        break;
+      }
+      case 'unpin-buffer': {
+        const networkId = Number(msg.networkId);
+        const target = typeof msg.target === 'string' ? msg.target : '';
+        if (!networkId || !target) break;
+        const pinned = unpinBuffer(userId, networkId, target);
+        fanOut(userId, { kind: 'pins-changed', networkId, pinned });
+        break;
+      }
+      case 'reorder-pins': {
+        const networkId = Number(msg.networkId);
+        if (!networkId || !Array.isArray(msg.targets)) break;
+        const targets = msg.targets.filter((t) => typeof t === 'string' && t);
+        const next = reorderPins(userId, networkId, targets);
+        if (next === null) {
+          // Set mismatch (concurrent pin/unpin from another tab landed before
+          // this reorder). Echo the authoritative current order so the
+          // originating client snaps back to truth instead of staying out of
+          // sync.
+          fanOut(userId, {
+            kind: 'pins-changed',
+            networkId,
+            pinned: listPinnedForUserNetwork(userId, networkId),
+          });
+          break;
+        }
+        fanOut(userId, { kind: 'pins-changed', networkId, pinned: next });
         break;
       }
       case 'history': {

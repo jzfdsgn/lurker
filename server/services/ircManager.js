@@ -3,6 +3,7 @@ import { IrcConnection } from './ircConnection.js';
 import { listNetworksForUser, getNetwork, listChannels, upsertChannel, deleteChannel } from '../db/networks.js';
 import { reopenBuffer } from '../db/closedBuffers.js';
 import { getUserAwayState, writeAwayMarker, writeBackMarker } from '../db/userAwayState.js';
+import { listPinnedForUser } from '../db/pinnedBuffers.js';
 import db from '../db/index.js';
 
 // Translate a user_away_state row into the in-memory shape IrcConnection
@@ -256,7 +257,12 @@ class IrcManager extends EventEmitter {
   }
 
   snapshotForUser(userId) {
-    return this.listConnections(userId).map((conn) => conn.snapshot());
+    const pinsByNetwork = listPinnedForUser(userId);
+    return this.listConnections(userId).map((conn) => {
+      const snap = conn.snapshot();
+      const pinned = pinsByNetwork.get(snap.networkId) || [];
+      return { ...snap, pinned };
+    });
   }
 }
 

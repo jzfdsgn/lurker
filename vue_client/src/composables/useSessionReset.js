@@ -5,6 +5,7 @@ import { useHighlightsStore } from '../stores/highlights.js';
 import { useHighlightRulesStore } from '../stores/highlightRules.js';
 import { useInputHistoryStore } from '../stores/inputHistory.js';
 import { usePushSubscriptionsStore } from '../stores/pushSubscriptions.js';
+import { usePinsStore } from '../stores/pins.js';
 import { resetSocket } from './useSocket.js';
 import { resetPresence } from './usePresence.js';
 import { resetScrollState } from './useScrollState.js';
@@ -25,6 +26,7 @@ export function resetSession() {
   useHighlightRulesStore().$reset();
   useInputHistoryStore().$reset();
   usePushSubscriptionsStore().$reset();
+  usePinsStore().$reset();
   resetPresence();
   resetScrollState();
 }

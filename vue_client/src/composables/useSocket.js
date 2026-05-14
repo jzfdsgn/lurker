@@ -6,6 +6,7 @@ import { useSettingsStore } from '../stores/settings.js';
 import { useHighlightRulesStore } from '../stores/highlightRules.js';
 import { useInputHistoryStore } from '../stores/inputHistory.js';
 import { useChanlistStore } from '../stores/chanlist.js';
+import { usePinsStore } from '../stores/pins.js';
 import { notifyHighlight } from './useHighlightNotifier.js';
 
 let socket = null;
@@ -172,7 +173,9 @@ function applyEvent(event) {
 function applySnapshot(snapshot) {
   const networks = useNetworksStore();
   const buffers = useBuffersStore();
+  const pins = usePinsStore();
   networks.applySnapshot(snapshot);
+  pins.applySnapshot(snapshot);
   for (const net of snapshot) {
     for (const ch of net.channels) {
       // Snapshot members are already { nick, modes } objects from the server.
@@ -275,6 +278,11 @@ function handleMessage(raw) {
   if (payload.kind === 'chanlist-result') {
     const chanlist = useChanlistStore();
     chanlist.applyResult(payload);
+    return;
+  }
+  if (payload.kind === 'pins-changed') {
+    const pins = usePinsStore();
+    pins.setNetwork(payload.networkId, payload.pinned || []);
     return;
   }
   if (payload.kind === 'buffer-reopened') {

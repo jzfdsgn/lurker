@@ -270,6 +270,24 @@ function migrate() {
       PRIMARY KEY (network_id, nick),
       FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
     );
+
+    -- Per-(user, network) pinned buffer list. Pinned channels/DMs float to the
+    -- top of the sidebar in user-controlled order; position is a dense integer
+    -- scoped per (user_id, network_id), rewritten in full on each reorder so we
+    -- don't have to chase sparse gaps. Pin survives part/close — the row is
+    -- only removed by an explicit unpin (or user/network deletion via cascade).
+    CREATE TABLE IF NOT EXISTS pinned_buffers (
+      user_id INTEGER NOT NULL,
+      network_id INTEGER NOT NULL,
+      target TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, network_id, target),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_pinned_buffers_user_net
+      ON pinned_buffers(user_id, network_id, position);
   `);
 }
 

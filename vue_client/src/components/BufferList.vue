@@ -16,20 +16,51 @@
         >●</span>
         <span v-if="serverUnread(net.id) > 0" class="badge">{{ serverUnread(net.id) }}</span>
       </div>
-      <ul class="channels">
+
+      <draggable
+        v-if="(pinnedBufsByNet[net.id] || []).length"
+        :list="pinnedBufsByNet[net.id]"
+        item-key="target"
+        tag="ul"
+        class="channels pinned"
+        :animation="120"
+        ghost-class="drag-ghost"
+        @start="dragging = true"
+        @end="onPinDragEnd(net.id)"
+      >
+        <template #item="{ element: buf }">
+          <li
+            :class="rowClasses(buf, net.id)"
+            :title="dmTitle(buf)"
+            @click="select(net.id, buf.target)"
+            @contextmenu.prevent="onBufferContextMenu($event, buf)"
+          >
+            <span class="label" :style="labelStyle(buf)">{{ labelFor(buf) }}</span>
+            <span v-if="isPeerOffline(buf)" class="peer-mark" aria-hidden="true">*</span>
+            <span
+              v-if="buf.highlighted > 0"
+              class="badge highlight"
+              :title="`${buf.highlighted} highlight${buf.highlighted === 1 ? '' : 's'}`"
+            >●</span>
+            <span v-if="buf.unread > 0" class="badge">{{ buf.unread }}</span>
+          </li>
+        </template>
+      </draggable>
+
+      <div
+        v-if="(pinnedBufsByNet[net.id] || []).length && unpinnedBufs(net.id).length"
+        class="pin-divider"
+        aria-hidden="true"
+      ></div>
+
+      <ul v-if="unpinnedBufs(net.id).length" class="channels">
         <li
-          v-for="buf in netBuffers(net.id)"
+          v-for="buf in unpinnedBufs(net.id)"
           :key="buf.target"
-          :class="{
-            active: isActive(net.id, buf.target),
-            unread: buf.unread > 0,
-            highlighted: buf.highlighted > 0,
-            'not-joined': isUnjoined(buf, net.id),
-            'peer-away': isPeerAway(buf),
-            'peer-offline': isPeerOffline(buf),
-          }"
+          :class="rowClasses(buf, net.id)"
           :title="dmTitle(buf)"
           @click="select(net.id, buf.target)"
+          @contextmenu.prevent="onBufferContextMenu($event, buf)"
         >
           <span class="label" :style="labelStyle(buf)">{{ labelFor(buf) }}</span>
           <span v-if="isPeerOffline(buf)" class="peer-mark" aria-hidden="true">*</span>
@@ -47,14 +78,27 @@
 </template>
 
 <script setup>
+import { reactive, ref, watch } from 'vue';
+import draggable from 'vuedraggable';
 import { useNetworksStore } from '../stores/networks.js';
 import { useBuffersStore } from '../stores/buffers.js';
+import { usePinsStore } from '../stores/pins.js';
 import { useNickColors } from '../composables/useNickColors.js';
+import { useContextMenu } from '../composables/useContextMenu.js';
 import { isPeerOffline as derivePeerOffline, isPeerAway as derivePeerAway } from '../utils/peerPresence.js';
 
 const networks = useNetworksStore();
 const buffers = useBuffersStore();
+const pins = usePinsStore();
 const nicks = useNickColors();
+const menu = useContextMenu();
+
+// Per-network local mirror of the pinned buffer list, kept as concrete buffer
+// objects so vuedraggable can render them directly. We mutate the inner arrays
+// (splice) rather than replace them so vuedraggable's bound array reference
+// stays stable across syncs.
+const pinnedBufsByNet = reactive({});
+const dragging = ref(false);
 
 function isServerBuffer(buf) {
   return buf.target.startsWith(':server:');
@@ -103,16 +147,82 @@ function sortKey(target) {
   return target.replace(/^#+/, '').toLowerCase();
 }
 
-function netBuffers(networkId) {
+function unpinnedBufs(networkId) {
+  const pinnedSet = new Set(pins.forNetwork(networkId));
   return buffers
     .forNetwork(networkId)
-    .filter((b) => !isServerBuffer(b))
+    .filter((b) => !isServerBuffer(b) && !pinnedSet.has(b.target))
     .sort((a, b) => {
       const oa = bufferOrder(a);
       const ob = bufferOrder(b);
       if (oa !== ob) return oa - ob;
       return sortKey(a.target).localeCompare(sortKey(b.target));
     });
+}
+
+// Mirror pins.byNetwork into a local reactive map of concrete buffer objects.
+// Pinned targets without a matching open buffer (e.g. closed/parted, pin row
+// persists on the server) are filtered out so we don't render empty rows.
+function syncPinned() {
+  if (dragging.value) return;
+  for (const net of networks.networks) {
+    const targets = pins.forNetwork(net.id);
+    const bufByTarget = new Map();
+    for (const b of buffers.forNetwork(net.id)) bufByTarget.set(b.target, b);
+    const list = targets.map((t) => bufByTarget.get(t)).filter(Boolean);
+    if (!pinnedBufsByNet[net.id]) {
+      pinnedBufsByNet[net.id] = list;
+    } else {
+      const arr = pinnedBufsByNet[net.id];
+      arr.splice(0, arr.length, ...list);
+    }
+  }
+  // Drop entries for networks that no longer exist.
+  const live = new Set(networks.networks.map((n) => n.id));
+  for (const k of Object.keys(pinnedBufsByNet)) {
+    if (!live.has(Number(k))) delete pinnedBufsByNet[k];
+  }
+}
+
+// Only re-sync when something structurally relevant changes — pin order, the
+// set of networks, or the set of buffer keys. Per-buffer state churn (unread
+// counts, member list, messages) doesn't affect which buffers belong in the
+// pinned list and shouldn't re-walk this whole map on every keystroke.
+watch(
+  () => [pins.byNetwork, networks.networks.map((n) => n.id), Object.keys(buffers.buffers)],
+  syncPinned,
+  { deep: true, immediate: true },
+);
+
+function onPinDragEnd(networkId) {
+  dragging.value = false;
+  const list = pinnedBufsByNet[networkId] || [];
+  pins.reorder(networkId, list.map((b) => b.target));
+}
+
+function onBufferContextMenu(e, buf) {
+  if (isServerBuffer(buf)) return;
+  const pinned = pins.isPinned(buf.networkId, buf.target);
+  menu.open(
+    [
+      pinned
+        ? { label: 'Unpin', icon: 'fa-solid fa-thumbtack-slash', onClick: () => pins.unpin(buf.networkId, buf.target) }
+        : { label: 'Pin', icon: 'fa-solid fa-thumbtack', onClick: () => pins.pin(buf.networkId, buf.target) },
+    ],
+    e.clientX,
+    e.clientY,
+  );
+}
+
+function rowClasses(buf, networkId) {
+  return {
+    active: isActive(networkId, buf.target),
+    unread: buf.unread > 0,
+    highlighted: buf.highlighted > 0,
+    'not-joined': isUnjoined(buf, networkId),
+    'peer-away': isPeerAway(buf),
+    'peer-offline': isPeerOffline(buf),
+  };
 }
 
 function select(networkId, target) {
@@ -228,6 +338,20 @@ function dmTitle(buf) {
   border-left: 1px solid var(--border);
   pointer-events: none;
 }
+/* When the pinned section is followed by a divider (i.e. there are unpinned
+   buffers below), the last pinned row's spine must continue down through the
+   divider — otherwise the └─ terminator would break the line. :has() scopes
+   the override so an all-pinned network still terminates with └─ correctly. */
+.channels.pinned:has(+ .pin-divider) li:last-child::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid var(--border);
+  pointer-events: none;
+}
 .channels li:hover { background: var(--bg-soft); }
 .channels li.active {
   background: var(--bg-soft);
@@ -263,4 +387,40 @@ function dmTitle(buf) {
 .badge.highlight { color: var(--warn); }
 
 .empty { padding: 12px; color: var(--fg-muted); font-style: italic; }
+
+/* Separator between the pinned section and the auto-sorted section. The
+   vertical tree spine continues through the divider (so pinned and unpinned
+   read as one connected tree); a short dashed horizontal arm marks the
+   section boundary — like a phantom row that says "section break". */
+.pin-divider {
+  position: relative;
+  height: 10px;
+  pointer-events: none;
+  /* Channel rows carry `border-left: 2px solid transparent` (reserved for the
+     active-row accent), which shifts their content box 2px right. Mirror that
+     here so the divider's left:12px spine lines up with the channel rows'. */
+  border-left: 2px solid transparent;
+}
+.pin-divider::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--border);
+}
+.pin-divider::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  border-top: 1px solid var(--border);
+}
+/* The placeholder vuedraggable inserts during a drag — keep it visually
+   subtle so it doesn't fight with the row hover state. */
+.drag-ghost {
+  opacity: 0.4;
+  background: var(--bg-soft);
+}
 </style>
