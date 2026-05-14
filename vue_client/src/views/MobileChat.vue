@@ -6,6 +6,9 @@
         <span class="logo">lurker</span>
         <span v-if="!connected" class="status off" title="Disconnected">●</span>
         <span class="spacer"></span>
+        <button class="icon" title="Search messages" @click="showSearch = true">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
         <button class="icon" title="Highlights" @click="showHighlights = true">
           <i class="fa-regular fa-bell"></i>
         </button>
@@ -41,6 +44,9 @@
           title="Browse channels"
           @click="showChannelList = true"
         ><i class="fa-solid fa-list"></i></button>
+        <button class="icon" title="Search messages" @click="showSearch = true">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
         <button class="icon" title="Highlights" @click="showHighlights = true">
           <i class="fa-regular fa-bell"></i>
         </button>
@@ -87,6 +93,11 @@
       v-if="showUploads"
       @close="showUploads = false"
     />
+    <SearchModal
+      v-if="showSearch"
+      @close="showSearch = false"
+      @jump="onJumpToMessage"
+    />
   </div>
 </template>
 
@@ -106,6 +117,7 @@ import HighlightsModal from '../components/HighlightsModal.vue';
 import TopicModal from '../components/TopicModal.vue';
 import ChannelListModal from '../components/ChannelListModal.vue';
 import RecentUploadsModal from '../components/RecentUploadsModal.vue';
+import SearchModal from '../components/SearchModal.vue';
 
 const buffers = useBuffersStore();
 const { connected } = useSocket();
@@ -124,6 +136,7 @@ const showHighlights = ref(false);
 const showTopic = ref(false);
 const showChannelList = ref(false);
 const showUploads = ref(false);
+const showSearch = ref(false);
 const pendingScrollId = ref(null);
 const messageInputRef = ref(null);
 

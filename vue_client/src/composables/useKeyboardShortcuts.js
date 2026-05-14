@@ -11,7 +11,7 @@ import { flattenBufferOrder, flattenUnreadOrder } from '../utils/bufferOrder.js'
 //
 // Pass callbacks for the UI-driven shortcuts; the navigation/mark-read paths
 // are self-contained.
-export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp } = {}) {
+export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp, onOpenSearch } = {}) {
   const networks = useNetworksStore();
   const buffers = useBuffersStore();
   const pins = usePinsStore();
@@ -72,6 +72,12 @@ export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp } = {}) {
     if (isCmd(e) && !e.shiftKey && !e.altKey && (e.key === 'k' || e.key === 'K')) {
       e.preventDefault();
       onOpenSwitcher?.();
+      return;
+    }
+    // Cmd/Ctrl + F — message search
+    if (isCmd(e) && !e.shiftKey && !e.altKey && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      onOpenSearch?.();
       return;
     }
     // Cmd/Ctrl + / — help (browser doesn't shift to '?' for this combo on

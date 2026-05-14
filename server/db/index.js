@@ -370,7 +370,7 @@ ensureColumn('messages', 'alt', 'INTEGER NOT NULL DEFAULT 0');
 // Schema versioning lets us retire one-shot recovery blocks once every
 // production DB has run through them. Bump SCHEMA_VERSION when adding a new
 // recovery block, and delete blocks for versions far enough in the past.
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const schemaVersionRow = db
   .prepare(`SELECT value FROM app_meta WHERE key = 'schema_version'`)
   .get();
@@ -490,6 +490,38 @@ if (schemaVersion < 2) {
     }
   });
   backfill();
+}
+
+if (schemaVersion < 3) {
+  // Full-text search index over message bodies. External-content FTS5 table —
+  // it stores only the inverted index and points back at messages by rowid, so
+  // the text isn't duplicated. Triggers keep it in sync; messages are
+  // insert-only in normal use, but a network deletion cascades DELETEs, so the
+  // delete/update triggers matter too. Backfill indexes every existing row.
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+      text,
+      content='messages',
+      content_rowid='id'
+    );
+
+    CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+      INSERT INTO messages_fts(rowid, text) VALUES (new.id, new.text);
+    END;
+    CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+      INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', old.id, old.text);
+    END;
+    CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+      INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', old.id, old.text);
+      INSERT INTO messages_fts(rowid, text) VALUES (new.id, new.text);
+    END;
+  `);
+  // Index every existing row, NULL text included. The insert trigger does the
+  // same for new rows; keeping the backfill consistent with it means the
+  // delete/update triggers (which replay old.text) always have a matching
+  // index entry to remove — skipping NULL rows here would desync an
+  // external-content FTS5 table and risk index corruption on later deletes.
+  db.exec(`INSERT INTO messages_fts(rowid, text) SELECT id, text FROM messages`);
 }
 
 if (schemaVersion < SCHEMA_VERSION) {

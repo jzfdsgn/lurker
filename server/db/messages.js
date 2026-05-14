@@ -181,6 +181,61 @@ export function listUserHighlights(userId, { before, limit = 50 } = {}) {
   }));
 }
 
+// Turn a free-text query into an FTS5 MATCH string. Each whitespace-separated
+// term is wrapped in double quotes (embedded quotes doubled to escape them),
+// which neutralizes FTS5 operator characters in user input and ANDs the terms
+// together implicitly.
+function toFtsMatch(text) {
+  return text
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => `"${t.replace(/"/g, '""')}"`)
+    .join(' ');
+}
+
+// Full-text search across the caller's message history. Free-text `query` runs
+// against the messages_fts index; `networkId` / `target` / `nick` are
+// structured filters (the inline from:/in:/on: search syntax). The networks
+// join scopes every result to the caller's own networks — this is the
+// access-control boundary, so a missing networkId means "all my networks", not
+// "all networks". Cursor pagination via `before` (a message id); rows ordered
+// newest-first, restricted to chat-shaped types.
+export function searchMessages(userId, { query, networkId, target, nick, before, limit = 50 } = {}) {
+  const text = typeof query === 'string' ? query.trim() : '';
+  // Nothing to search on — no free text and no structured filter.
+  if (!text && !networkId && !target && !nick) return [];
+
+  let from = 'messages m JOIN networks n ON n.id = m.network_id';
+  const where = ['n.user_id = ?', `m.type IN ${COUNTABLE_TYPES_SQL}`];
+  const params = [userId];
+
+  if (text) {
+    const match = toFtsMatch(text);
+    if (!match) return [];
+    // FTS5's MATCH operator must reference the virtual table by its real name,
+    // not an alias — `alias MATCH ?` parses `alias` as a column.
+    from += ' JOIN messages_fts ON messages_fts.rowid = m.id';
+    where.push('messages_fts MATCH ?');
+    params.push(match);
+  }
+  if (networkId) { where.push('m.network_id = ?'); params.push(networkId); }
+  if (target) { where.push('m.target = ? COLLATE NOCASE'); params.push(target); }
+  if (nick) { where.push('m.nick = ? COLLATE NOCASE'); params.push(nick); }
+  if (before) { where.push('m.id < ?'); params.push(before); }
+
+  const sql = `SELECT m.*, n.name AS network_name
+               FROM ${from}
+               WHERE ${where.join(' AND ')}
+               ORDER BY m.id DESC
+               LIMIT ?`;
+  params.push(limit);
+
+  return db.prepare(sql).all(...params).map((row) => ({
+    ...rowToEvent(row),
+    networkName: row.network_name,
+  }));
+}
+
 const listSpeakersStmt = db.prepare(`
   SELECT nick, MAX(time) AS last_time
   FROM messages

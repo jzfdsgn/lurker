@@ -7,7 +7,7 @@ import highlightRulesService from './highlightRulesService.js';
 import * as pushService from './pushService.js';
 import { findSession } from '../db/sessions.js';
 import { findUserById, touchUserLastSeen } from '../db/users.js';
-import { listMessages, listBufferTargets, listSpeakers, countNewer, countHighlightsNewer, maxIdByBuffer, COUNTABLE_TYPES } from '../db/messages.js';
+import { listMessages, listBufferTargets, listSpeakers, countNewer, countHighlightsNewer, maxIdByBuffer, searchMessages, COUNTABLE_TYPES } from '../db/messages.js';
 import { listReadStateForUser, getReadState, setReadState } from '../db/bufferReads.js';
 import { addEntry as addInputHistory, listRecent as listRecentInputHistory } from '../db/inputHistory.js';
 import {
@@ -683,6 +683,30 @@ export function attachWsHub(httpServer, sessionSecret) {
           events,
           hasMore: events.length === limit,
           speakers,
+        });
+        break;
+      }
+      case 'search': {
+        // Full-text message search. The networkId boundary guard above already
+        // validated ownership when a network filter is present; searchMessages
+        // scopes the global case to the caller's own networks via the networks
+        // join, so no extra access-control check is needed here.
+        const limit = Math.min(Math.max(Number(msg.limit) || 50, 1), 100);
+        const results = searchMessages(userId, {
+          query: typeof msg.query === 'string' ? msg.query : '',
+          networkId: msg.networkId || undefined,
+          target: typeof msg.target === 'string' && msg.target ? msg.target : undefined,
+          nick: typeof msg.nick === 'string' && msg.nick ? msg.nick : undefined,
+          before: msg.before ? Number(msg.before) : undefined,
+          limit,
+        }).map((e) => decorateMessage(userId, e));
+        send(ws, {
+          kind: 'search-result',
+          // Echoed so the client can drop results for a superseded query.
+          token: msg.token ?? null,
+          results,
+          hasMore: results.length === limit,
+          before: msg.before || null,
         });
         break;
       }

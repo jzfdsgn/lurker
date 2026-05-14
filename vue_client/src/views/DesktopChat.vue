@@ -22,6 +22,7 @@
       <BufferList v-if="showChannels" />
       <div class="sidebar-foot">
         <RouterLink class="link" to="/settings" title="Settings"><i class="fa-solid fa-gear"></i></RouterLink>
+        <button class="link" @click="showSearch = true" title="Search messages"><i class="fa-solid fa-magnifying-glass"></i></button>
         <button class="link" @click="showHighlights = true" title="Highlights"><i class="fa-regular fa-bell"></i></button>
         <button class="link" @click="showUploads = true" title="Recent uploads"><i class="fa-solid fa-paperclip"></i></button>
         <button class="link" @click="openAddNetwork" title="Add network"><i class="fa-solid fa-plus"></i></button>
@@ -93,6 +94,11 @@
       v-if="showSwitcher"
       @close="showSwitcher = false"
     />
+    <SearchModal
+      v-if="showSearch"
+      @close="showSearch = false"
+      @jump="onJumpToMessage"
+    />
     <KeyboardHelpModal
       v-if="showKbdHelp"
       @close="showKbdHelp = false"
@@ -119,6 +125,7 @@ import TopicModal from '../components/TopicModal.vue';
 import ChannelListModal from '../components/ChannelListModal.vue';
 import RecentUploadsModal from '../components/RecentUploadsModal.vue';
 import QuickSwitcher from '../components/QuickSwitcher.vue';
+import SearchModal from '../components/SearchModal.vue';
 import KeyboardHelpModal from '../components/KeyboardHelpModal.vue';
 import { useKeyboardShortcuts } from '../composables/useKeyboardShortcuts.js';
 
@@ -134,6 +141,7 @@ const showTopic = ref(false);
 const showChannelList = ref(false);
 const showUploads = ref(false);
 const showSwitcher = ref(false);
+const showSearch = ref(false);
 const showKbdHelp = ref(false);
 const pendingScrollId = ref(null);
 const messageInputRef = ref(null);
@@ -141,6 +149,7 @@ const messageInputRef = ref(null);
 useKeyboardShortcuts({
   onOpenSwitcher: () => { showSwitcher.value = true; },
   onOpenHelp: () => { showKbdHelp.value = true; },
+  onOpenSearch: () => { showSearch.value = true; },
 });
 
 const showChannels = computed(() => settings.effective('look.layout.show_channel_list'));

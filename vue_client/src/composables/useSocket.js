@@ -6,6 +6,7 @@ import { useSettingsStore } from '../stores/settings.js';
 import { useHighlightRulesStore } from '../stores/highlightRules.js';
 import { useInputHistoryStore } from '../stores/inputHistory.js';
 import { useChanlistStore } from '../stores/chanlist.js';
+import { useSearchStore } from '../stores/search.js';
 import { usePinsStore } from '../stores/pins.js';
 import { notifyHighlight } from './useHighlightNotifier.js';
 
@@ -278,6 +279,11 @@ function handleMessage(raw) {
   if (payload.kind === 'chanlist-result') {
     const chanlist = useChanlistStore();
     chanlist.applyResult(payload);
+    return;
+  }
+  if (payload.kind === 'search-result') {
+    const search = useSearchStore();
+    search.applyResult(payload);
     return;
   }
   if (payload.kind === 'pins-changed') {
