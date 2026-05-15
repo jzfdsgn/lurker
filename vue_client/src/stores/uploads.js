@@ -77,6 +77,14 @@ export const useUploadsStore = defineStore('uploads', {
       }
     },
 
+    async uploadText(content, filename = 'message.txt') {
+      // Long-message → .txt upload. Wrap the text in a Blob so it can ride
+      // the same multipart endpoint as image uploads; the server branches on
+      // text/plain and skips the sharp pipeline.
+      const blob = new Blob([content], { type: 'text/plain' });
+      return this.upload(blob, filename);
+    },
+
     async loadRecent() {
       if (this.loading) return;
       this.loading = true;

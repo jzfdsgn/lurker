@@ -49,6 +49,16 @@
       @select="onPickerSelect"
       @close="closePicker"
     />
+    <Teleport to="body">
+      <LongMessageUploadModal
+        v-if="longMessageModalOpen"
+        :content="longMessageContent"
+        :chunks="longMessageChunks"
+        :uploading="longMessageUploading"
+        @confirm="onLongMessageConfirm"
+        @cancel="onLongMessageCancel"
+      />
+    </Teleport>
   </form>
 </template>
 
@@ -68,6 +78,7 @@ import { setComposingState } from '../composables/useComposing.js';
 import { chunkCountForSay, chunkCountForAction } from '../utils/messageSplit.js';
 import { buildNickCandidates } from '../utils/nickCompletion.js';
 import NickPicker from './NickPicker.vue';
+import LongMessageUploadModal from './LongMessageUploadModal.vue';
 
 const networks = useNetworksStore();
 const buffers = useBuffersStore();
@@ -186,6 +197,15 @@ let typingTarget = null;
 // second press within the same draft proceeds. Editing the text clears it,
 // so a fresh draft starts from a clean state.
 let pendingSplitConfirm = false;
+
+// Flood-confirmation modal. Opens when a Send hits the 3+ chunk gate; the
+// user either uploads the body as a .txt (URL inserted into the input,
+// replacing the typed message) or cancels to fall through to the existing
+// send-again override flow on the next Send press.
+const longMessageModalOpen = ref(false);
+const longMessageContent = ref('');
+const longMessageChunks = ref(0);
+const longMessageUploading = ref(false);
 
 // Strip a leading slash command (/me, /msg <who>) so chunk counting reflects
 // what irc-framework actually has to encode. For /me the relevant bytes are
@@ -688,16 +708,24 @@ async function submit() {
     const blocked = flood || !allowSplit;
     if (blocked && !pendingSplitConfirm) {
       pendingSplitConfirm = true;
-      toasts.push({
-        title: flood
-          ? `Will flood ${chunks} lines — Send again to confirm`
-          : `Will split into ${chunks} lines — Send again to confirm`,
-        body: !flood && !allowSplit
-          ? 'Enable "Allow auto-split messages" in Settings to send splits without confirming.'
-          : 'Lines will arrive back-to-back in the channel.',
-        kind: 'warn',
-        ttlMs: 7000,
-      });
+      if (flood) {
+        // 3+ chunks: offer the upload-as-.txt modal. If they cancel, the
+        // already-set pendingSplitConfirm makes the next Send press the
+        // override (matching the prior send-again-to-confirm behavior).
+        longMessageContent.value = raw;
+        longMessageChunks.value = chunks;
+        longMessageModalOpen.value = true;
+      } else {
+        // 2 chunks with chat.allow_split_messages=off: keep the existing
+        // toast confirmation — uploading would be overkill for a one-line
+        // overflow.
+        toasts.push({
+          title: `Will split into ${chunks} lines — Send again to confirm`,
+          body: 'Enable "Allow auto-split messages" in Settings to send splits without confirming.',
+          kind: 'warn',
+          ttlMs: 7000,
+        });
+      }
       return;
     }
   }
@@ -730,6 +758,37 @@ async function submit() {
   commitInput(raw, networkId, target);
   const result = await pending;
   if (!result.ok) toastSendFailure(result.error, raw);
+}
+
+async function onLongMessageConfirm() {
+  if (longMessageUploading.value) return;
+  const snapshot = longMessageContent.value;
+  longMessageUploading.value = true;
+  // Clear input first so the URL emitted by the upload pipeline lands in an
+  // empty field — replacing the typed message rather than appending after
+  // it. emitInsert → insertUrlAtCaret writes into whatever's currently
+  // there, so the clear has to happen before the upload completes.
+  text.value = '';
+  try {
+    await uploads.uploadText(snapshot);
+    longMessageModalOpen.value = false;
+    // The input is short again (just the URL), so the gate is no longer
+    // tripped — clear the override flag so the user's next Send goes
+    // through normally.
+    pendingSplitConfirm = false;
+  } catch (_err) {
+    // Restore so the user doesn't lose their typed message. Failure detail
+    // is already surfaced via the status bar's upload-failed segment.
+    text.value = snapshot;
+  } finally {
+    longMessageUploading.value = false;
+  }
+}
+
+function onLongMessageCancel() {
+  longMessageModalOpen.value = false;
+  // pendingSplitConfirm was set when the modal opened, so a subsequent
+  // Send press goes through via the existing send-again override path.
 }
 
 // Drop a synthetic, non-persisted info line into the current buffer so the

@@ -253,7 +253,7 @@ function migrate() {
       byte_size INTEGER NOT NULL,
       width INTEGER,
       height INTEGER,
-      thumbnail BLOB NOT NULL,
+      thumbnail BLOB,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
@@ -443,7 +443,7 @@ ensureColumn('messages', 'alt', 'INTEGER NOT NULL DEFAULT 0');
 // Schema versioning lets us retire one-shot recovery blocks once every
 // production DB has run through them. Bump SCHEMA_VERSION when adding a new
 // recovery block, and delete blocks for versions far enough in the past.
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const schemaVersionRow = db
   .prepare(`SELECT value FROM app_meta WHERE key = 'schema_version'`)
   .get();
@@ -620,6 +620,56 @@ if (schemaVersion < 4) {
     db.prepare(`DELETE FROM user_settings WHERE key = ?`).run(oldKey);
   });
   renameKey(oldRows);
+}
+
+if (schemaVersion < 5) {
+  // Drop NOT NULL on upload_history.thumbnail so text uploads (which have no
+  // thumbnail) can be recorded. SQLite can't ALTER COLUMN, so rebuild the
+  // table and copy rows over. Indexes are recreated below.
+  const needsRebuild = (() => {
+    const cols = db.prepare(`PRAGMA table_info(upload_history)`).all();
+    const thumb = cols.find((c) => c.name === 'thumbnail');
+    return !!thumb && thumb.notnull === 1;
+  })();
+  if (needsRebuild) {
+    const rebuild = db.transaction(() => {
+      db.exec(`DROP INDEX IF EXISTS idx_upload_history_user`);
+      db.exec(`
+        CREATE TABLE upload_history_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          provider TEXT NOT NULL,
+          url TEXT NOT NULL,
+          filename TEXT,
+          mime TEXT NOT NULL,
+          byte_size INTEGER NOT NULL,
+          width INTEGER,
+          height INTEGER,
+          thumbnail BLOB,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec(`
+        INSERT INTO upload_history_new
+          (id, user_id, provider, url, filename, mime, byte_size, width, height, thumbnail, created_at)
+        SELECT
+          id, user_id, provider, url, filename, mime, byte_size, width, height, thumbnail, created_at
+        FROM upload_history
+      `);
+      db.exec(`DROP TABLE upload_history`);
+      db.exec(`ALTER TABLE upload_history_new RENAME TO upload_history`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_upload_history_user
+               ON upload_history(user_id, id DESC)`);
+    });
+    const prevFk = db.pragma('foreign_keys', { simple: true });
+    db.pragma('foreign_keys = OFF');
+    try {
+      rebuild();
+    } finally {
+      db.pragma(`foreign_keys = ${prevFk ? 'ON' : 'OFF'}`);
+    }
+  }
 }
 
 if (schemaVersion < SCHEMA_VERSION) {

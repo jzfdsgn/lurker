@@ -40,43 +40,65 @@ const upload = multer({
 
 router.post('/', upload.single('image'), async (req, res, next) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'no image uploaded' });
+    if (!req.file) return res.status(400).json({ error: 'no file uploaded' });
 
     const settings = effectiveSettings(req.user.id);
     const maxMb = Number(settings['uploads.image.max_upload_mb']) || 25;
     if (req.file.size > maxMb * 1024 * 1024) {
-      return res.status(413).json({ error: `image exceeds ${maxMb} MB` });
+      return res.status(413).json({ error: `file exceeds ${maxMb} MB` });
     }
 
     const providerId = settings['uploads.provider'];
     const provider = getProvider(providerId);
     if (!provider) return res.status(400).json({ error: `unknown provider: ${providerId}` });
 
-    let optimized;
-    try {
-      optimized = await imagePipeline.optimize(req.file.buffer, {
-        maxDim: Number(settings['uploads.image.max_dimension']) || 2048,
-        quality: Number(settings['uploads.image.quality']) || 85,
-      });
-    } catch (err) {
-      if (err.code === 'UNSUPPORTED_FORMAT') {
-        return res.status(415).json({ error: err.message });
-      }
-      throw err;
-    }
+    // Long-message → .txt upload bypasses the sharp pipeline. Providers
+    // (x0.at, catbox, hoarder) are MIME-agnostic, so we hand the raw bytes
+    // straight through with a .txt extension and no thumbnail.
+    const isText = req.file.mimetype === 'text/plain';
 
-    const thumb = await imagePipeline.thumbnail(req.file.buffer);
+    let outBuffer, outMime, outExt, outByteSize;
+    let outWidth = null;
+    let outHeight = null;
+    let thumb = null;
+
+    if (isText) {
+      outBuffer = req.file.buffer;
+      outMime = 'text/plain';
+      outExt = 'txt';
+      outByteSize = req.file.size;
+    } else {
+      let optimized;
+      try {
+        optimized = await imagePipeline.optimize(req.file.buffer, {
+          maxDim: Number(settings['uploads.image.max_dimension']) || 2048,
+          quality: Number(settings['uploads.image.quality']) || 85,
+        });
+      } catch (err) {
+        if (err.code === 'UNSUPPORTED_FORMAT') {
+          return res.status(415).json({ error: err.message });
+        }
+        throw err;
+      }
+      thumb = await imagePipeline.thumbnail(req.file.buffer);
+      outBuffer = optimized.buffer;
+      outMime = optimized.mime;
+      outExt = optimized.ext;
+      outByteSize = optimized.byteSize;
+      outWidth = optimized.width;
+      outHeight = optimized.height;
+    }
 
     const originalName = req.file.originalname || '';
     const baseName = originalName.replace(/\.[^.]+$/, '') || `upload-${Date.now()}`;
-    const filename = `${baseName}.${optimized.ext}`;
+    const filename = `${baseName}.${outExt}`;
 
     const secrets = secretsForProvider(providerId, settings);
     let result;
     try {
-      result = await provider.upload(optimized.buffer, {
+      result = await provider.upload(outBuffer, {
         filename,
-        mime: optimized.mime,
+        mime: outMime,
       }, secrets);
     } catch (err) {
       const status = err.code === 'PROVIDER_AUTH' ? 401
@@ -89,10 +111,10 @@ router.post('/', upload.single('image'), async (req, res, next) => {
       provider: providerId,
       url: result.url,
       filename: originalName || null,
-      mime: optimized.mime,
-      byte_size: optimized.byteSize,
-      width: optimized.width,
-      height: optimized.height,
+      mime: outMime,
+      byte_size: outByteSize,
+      width: outWidth,
+      height: outHeight,
       thumbnail: thumb,
     });
 
