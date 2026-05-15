@@ -57,17 +57,17 @@
           @click="showTopic = true"
         ><LinkedText :text="topic" /></button>
       </template>
-      <span
-        v-if="isChannel && memberCount != null"
-        class="member-count"
-        :title="`${memberCount} ${memberCount === 1 ? 'user' : 'users'} in channel`"
-      >{{ memberCount }}</span>
       <button
         v-if="isChannel"
         class="link members-toggle"
         :title="showMembers ? 'Hide members' : 'Show members'"
         @click="toggleMembers"
       ><i class="fa-solid fa-users"></i></button>
+      <span
+        v-if="isChannel && memberCount != null"
+        class="member-count"
+        :title="`${memberCount} ${memberCount === 1 ? 'user' : 'users'} in channel`"
+      >{{ memberCount }}</span>
     </header>
     <div v-if="active" class="topic-divider"></div>
 
@@ -391,15 +391,13 @@ useChatBootstrap({ onJump: onJumpToMessage });
 .status-bar   { grid-area: status; }
 .input        { grid-area: input; }
 
-/* Pin the members toggle to the far right of the topic bar regardless of
-   what's between it and the buffer label. The topic text shrinks first
-   (it has min-width: 0 + ellipsis) so the toggle stays put. The member
-   count rides along just to the left of the toggle. */
+/* Pin the members toggle + count to the far right of the topic bar
+   regardless of what's between them and the buffer label. The topic
+   text shrinks first (it has min-width: 0 + ellipsis) so the pair
+   stays put. Count sits to the right of the icon. */
+.topic .members-toggle { margin-left: auto; padding-left: 8px; }
 .topic .member-count {
-  margin-left: auto;
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
-.topic .member-count + .members-toggle { margin-left: 0; padding-left: 8px; }
-.topic .members-toggle { margin-left: auto; padding-left: 8px; }
 </style>
