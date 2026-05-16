@@ -40,6 +40,19 @@
   :root { --font-size: 16px; }
 }
 
+/* Zero the home-indicator inset whenever a text input has focus on this
+   page. The JS visualViewport-based override in useViewport handles this
+   for in-Safari browsing, but in PWA standalone mode visualViewport.height
+   doesn't always shrink the way it does in Safari (so the heuristic never
+   fires). Focus state is an unambiguous proxy: on iOS, focusing a text
+   input means the soft keyboard is up, period. :has() is supported on
+   Safari 15.4+, which covers every iOS version that supports PWAs we'd
+   care about. Inline --safe-bottom from useViewport still wins when set
+   (cascade order: inline beats stylesheet), so the two layers compose. */
+:root:has(input:focus, textarea:focus, [contenteditable]:focus) {
+  --safe-bottom: 0px;
+}
+
 * { box-sizing: border-box; }
 
 html, body, #app {
