@@ -166,6 +166,46 @@ export const REGISTRY = Object.freeze([
       'inline-highlighted segments still override this.',
   },
 
+  // ─── Per-line display collapsing (nick / timestamp dedupe) ────────────
+  {
+    key: 'look.message.collapse_authors',
+    category: 'appearance',
+    group: 'messages',
+    type: 'bool',
+    default: false,
+    description:
+      'Hide the nick on consecutive messages from the same author so a run ' +
+      'reads as one grouped block. Only plain messages collapse; actions, ' +
+      'notices, and system events always show their author. Reset by any ' +
+      'divider (date/unread/away/back) or by a gap larger than the window ' +
+      'below.',
+  },
+  {
+    key: 'look.message.collapse_authors_window',
+    category: 'appearance',
+    group: 'messages',
+    type: 'int',
+    min: 0,
+    max: 1440,
+    default: 5,
+    description:
+      'Maximum gap in minutes between two messages from the same author for ' +
+      'the second to be collapsed. 0 collapses only messages with the exact ' +
+      'same timestamp; larger values keep the grouping going across longer ' +
+      'pauses.',
+  },
+  {
+    key: 'look.message.collapse_timestamps',
+    category: 'appearance',
+    group: 'messages',
+    type: 'bool',
+    default: false,
+    description:
+      'Hide the timestamp on consecutive rows that would display the exact ' +
+      'same time string (driven by look.buffer.time_format). Reduces visual ' +
+      'noise in fast bursts without losing any information.',
+  },
+
   // ─── Member-list mode prefixes ────────────────────────────────────────
   {
     key: 'look.color.member.owner',

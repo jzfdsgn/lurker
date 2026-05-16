@@ -23,10 +23,11 @@
     <div
       v-else-if="row.consolidation"
       class="line"
+      :class="{ 'cont-time': row.continuationTime }"
       :data-cons-first-id="row.firstId ?? null"
       :data-cons-last-id="row.lastId ?? null"
     >
-      <span class="time">{{ time(row.time) }}</span>
+      <span class="time">{{ row.continuationTime ? '' : time(row.time) }}</span>
       <span class="prefix p-cons">--</span>
       <span class="body meta-body">
         <template v-for="(g, gi) in row.groups" :key="gi"
@@ -51,8 +52,12 @@
       :class="rowClass(row)"
       :data-msg-id="row.m.id ?? null"
     >
-      <span class="time">{{ time(row.m.time) }}</span>
-      <span class="prefix" :class="prefixClass(row.m)" :style="prefixStyle(row.m)">{{ prefixText(row.m) }}</span>
+      <span class="time">{{ row.continuationTime ? '' : time(row.m.time) }}</span>
+      <span
+        class="prefix"
+        :class="prefixClass(row.m)"
+        :style="row.continuationAuthor ? null : prefixStyle(row.m)"
+      >{{ row.continuationAuthor ? '' : prefixText(row.m) }}</span>
       <span class="body" :class="bodyClass(row.m)">
         <template v-if="hasInlineText(row.m)">
           <template v-for="(seg, j) in textSegments(row.m)" :key="j">
@@ -100,6 +105,7 @@ import {
 import { segmentInlineStyle, segmentHasStyle } from '../utils/nickColor.js';
 import { formatTimestamp, formatDuration, formatDate } from '../utils/timestamp.js';
 import { consolidateRows } from '../utils/consolidate.js';
+import { collapseDisplay } from '../utils/collapseDisplay.js';
 import NickRef from './NickRef.vue';
 import LinkedText from './LinkedText.vue';
 
@@ -156,6 +162,8 @@ function rowClass(row) {
     self: row.m.self,
     alt: row.alt,
     highlight: !!row.m.matched,
+    'cont-author': !!row.continuationAuthor,
+    'cont-time': !!row.continuationTime,
   };
 }
 
@@ -168,6 +176,12 @@ const smartFilterNick = computed(() => !!settings.effective('chat.smart_filter_n
 
 const consolidateEnabled = computed(() => !!settings.effective('chat.consolidate_joins'));
 const consolidateMaxNames = computed(() => settings.effective('chat.consolidate_max_names') || 5);
+
+const collapseAuthorsEnabled = computed(() => !!settings.effective('look.message.collapse_authors'));
+const collapseAuthorsWindowMs = computed(() =>
+  Math.max(0, settings.effective('look.message.collapse_authors_window') || 0) * 60_000,
+);
+const collapseTimestampsEnabled = computed(() => !!settings.effective('look.message.collapse_timestamps'));
 
 // User-level self-presence (driven by user_away_state on the server). Each
 // network broadcasts the same payload, so reading from this buffer's network
@@ -316,15 +330,28 @@ const renderRows = computed(() => {
   // the away/back/unread markers to land between events, not get swallowed
   // by a multi-event group). Recent speakers come from the same `speakers`
   // map nick completion uses, so the cap prefers nicks the reader knows.
+  let final = out;
   if (consolidateEnabled.value) {
     const speakers = buf?.speakers ? Object.keys(buf.speakers) : [];
-    return consolidateRows(out, {
+    final = consolidateRows(out, {
       enabled: true,
       maxNames: consolidateMaxNames.value,
       recentSpeakers: speakers,
     });
   }
-  return out;
+  // Per-row display collapsing (nick + timestamp dedupe). Runs over the same
+  // row shape consolidateRows emits and tags rows in place — the template
+  // checks row.continuationAuthor / row.continuationTime to render empty
+  // prefix/time cells (subgrid stays aligned).
+  if (collapseAuthorsEnabled.value || collapseTimestampsEnabled.value) {
+    collapseDisplay(final, {
+      collapseAuthors: collapseAuthorsEnabled.value,
+      authorWindowMs: collapseAuthorsWindowMs.value,
+      collapseTimestamps: collapseTimestampsEnabled.value,
+      formatTime: (iso) => time(iso),
+    });
+  }
+  return final;
 });
 
 // What goes in column 2. For chat lines this is the nick (right-aligned);
