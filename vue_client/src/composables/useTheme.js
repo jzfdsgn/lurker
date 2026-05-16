@@ -20,6 +20,8 @@ const COLOR_VARS = {
   'look.color.border':        '--border',
   'look.color.message.alt_bg': '--alt-bg',
   'look.color.message.alt_fg': '--alt-fg',
+  'look.color.buffer.unread':    '--buffer-unread',
+  'look.color.buffer.highlight': '--buffer-highlight',
   'look.color.member.owner':  '--member-owner',
   'look.color.member.admin':  '--member-admin',
   'look.color.member.op':     '--member-op',

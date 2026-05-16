@@ -4,7 +4,7 @@
 -->
 
 <template>
-  <nav class="buffer-list">
+  <nav class="buffer-list" :class="{ 'unread-bold': unreadBold }">
     <div v-for="net in networks.networks" :key="net.id" class="net">
       <div
         class="net-head"
@@ -15,11 +15,14 @@
         <span class="indicator" :class="stateClass(net.id)"></span>
         <span class="name">{{ net.name }}</span>
         <span
-          v-if="serverHighlights(net.id) > 0"
+          v-if="serverHighlights(net.id) > 0 && showHighlightBadge"
           class="badge highlight"
           :title="`${serverHighlights(net.id)} highlight${serverHighlights(net.id) === 1 ? '' : 's'}`"
         >●</span>
-        <span v-if="serverUnread(net.id) > 0" class="badge">{{ unreadLabel(serverUnread(net.id)) }}</span>
+        <span
+          v-if="countFor(serverUnread(net.id), serverHighlights(net.id)) > 0"
+          class="badge"
+        >{{ unreadLabel(countFor(serverUnread(net.id), serverHighlights(net.id))) }}</span>
       </div>
 
       <draggable
@@ -49,11 +52,14 @@
               aria-label="unsent draft"
             ><i class="fa-solid fa-pencil"></i></span>
             <span
-              v-if="buf.highlighted > 0"
+              v-if="buf.highlighted > 0 && showHighlightBadge"
               class="badge highlight"
               :title="`${buf.highlighted} highlight${buf.highlighted === 1 ? '' : 's'}`"
             >●</span>
-            <span v-if="buf.unread > 0" class="badge">{{ unreadLabel(buf.unread) }}</span>
+            <span
+              v-if="countFor(buf.unread, buf.highlighted) > 0"
+              class="badge"
+            >{{ unreadLabel(countFor(buf.unread, buf.highlighted)) }}</span>
             <button
               v-if="!isServerBuffer(buf)"
               type="button"
@@ -91,11 +97,14 @@
             aria-label="unsent draft"
           ><i class="fa-solid fa-pencil"></i></span>
           <span
-            v-if="buf.highlighted > 0"
+            v-if="buf.highlighted > 0 && showHighlightBadge"
             class="badge highlight"
             :title="`${buf.highlighted} highlight${buf.highlighted === 1 ? '' : 's'}`"
           >●</span>
-          <span v-if="buf.unread > 0" class="badge">{{ unreadLabel(buf.unread) }}</span>
+          <span
+            v-if="countFor(buf.unread, buf.highlighted) > 0"
+            class="badge"
+          >{{ unreadLabel(countFor(buf.unread, buf.highlighted)) }}</span>
           <button
             v-if="!isServerBuffer(buf)"
             type="button"
@@ -113,12 +122,13 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 import { useNetworksStore } from '../stores/networks.js';
 import { useBuffersStore } from '../stores/buffers.js';
 import { useDraftStore } from '../stores/drafts.js';
 import { usePinsStore } from '../stores/pins.js';
+import { useSettingsStore } from '../stores/settings.js';
 import { useNickColors } from '../composables/useNickColors.js';
 import { useBufferActions } from '../composables/useBufferActions.js';
 import { isPeerOffline as derivePeerOffline, isPeerAway as derivePeerAway } from '../utils/peerPresence.js';
@@ -127,8 +137,24 @@ const networks = useNetworksStore();
 const buffers = useBuffersStore();
 const drafts = useDraftStore();
 const pins = usePinsStore();
+const settings = useSettingsStore();
 const nicks = useNickColors();
 const bufferActions = useBufferActions();
+
+// Buffer-list display settings — feed both the row CSS (bold gate) and the
+// badge logic. `unread_display` picks between four modes:
+//   full       → highlight ● + total unread count (default, current behavior)
+//   highlights → highlight ● + highlight-only count (hides noisy totals)
+//   badge      → highlight ● only, no numbers
+//   off        → nothing — row color/weight is the only cue
+const unreadBold = computed(() => !!settings.effective('look.buffer_list.unread_bold'));
+const unreadDisplay = computed(() => String(settings.effective('look.buffer_list.unread_display')));
+const showHighlightBadge = computed(() => unreadDisplay.value !== 'off');
+function countFor(unread, highlights) {
+  if (unreadDisplay.value === 'full') return unread;
+  if (unreadDisplay.value === 'highlights') return highlights;
+  return 0;
+}
 
 // Per-network local mirror of the pinned buffer list, kept as concrete buffer
 // objects so vuedraggable can render them directly. We mutate the inner arrays
@@ -400,8 +426,12 @@ function dmTitle(buf) {
   background: var(--bg-soft);
   border-left-color: var(--accent);
 }
-.channels li.unread .label { font-weight: 600; color: var(--fg); }
-.channels li.highlighted .label { color: var(--warn); }
+.channels li.unread .label { color: var(--buffer-unread); }
+.channels li.highlighted .label { color: var(--buffer-highlight); }
+/* Bold is opt-in via look.buffer_list.unread_bold — applies to plain unread
+   and highlighted rows alike (highlighted implies unread on the data side). */
+.buffer-list.unread-bold .channels li.unread .label,
+.buffer-list.unread-bold .channels li.highlighted .label { font-weight: 600; }
 /* Parted/disconnected channels render as a history view rather than a live
    buffer. Apply opacity to the whole row so badges, labels, and tree guides
    all dim together; unread/highlight colors still come through. */
@@ -427,7 +457,7 @@ function dmTitle(buf) {
   color: var(--accent);
   padding: 0 2px;
 }
-.badge.highlight { color: var(--warn); }
+.badge.highlight { color: var(--buffer-highlight); }
 /* Draft pencil is a passive "you've got unsent text here" cue, not an alert —
    render it in the muted text color so it doesn't compete with unread/
    highlight badges for attention. */

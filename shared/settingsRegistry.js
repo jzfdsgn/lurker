@@ -208,6 +208,58 @@ export const REGISTRY = Object.freeze([
     description: 'Color for the + prefix (voiced mode +v).',
   },
 
+  // ─── Buffer list (channel/DM rows in the sidebar) ─────────────────────
+  // Defaults preserve current behavior: unread rows inherit --fg and render
+  // bold; highlighted rows render in --warn; the full unread count plus the
+  // highlight bullet both show. Customize the two colors for weechat-style
+  // two-color buffer states; flip unread_display to dial down the numbers.
+  {
+    key: 'look.color.buffer.unread',
+    category: 'appearance',
+    group: 'buffer-list',
+    type: 'color',
+    default: 'var(--fg)',
+    description:
+      'Color applied to channel/DM rows that have unread messages but no ' +
+      'highlights. Defaults to the foreground color (visually quiet); set it ' +
+      'to a distinct hue for weechat-style two-color buffer states.',
+  },
+  {
+    key: 'look.color.buffer.highlight',
+    category: 'appearance',
+    group: 'buffer-list',
+    type: 'color',
+    default: 'var(--warn)',
+    description:
+      'Color applied to channel/DM rows that contain highlights. Stands out ' +
+      'from the plain-unread color above.',
+  },
+  {
+    key: 'look.buffer_list.unread_bold',
+    category: 'appearance',
+    group: 'buffer-list',
+    type: 'bool',
+    default: true,
+    description:
+      'Render channel/DM row labels in bold when they have unread messages or ' +
+      'highlights. On by default; turn off if you prefer to signal unread ' +
+      'state through color alone.',
+  },
+  {
+    key: 'look.buffer_list.unread_display',
+    category: 'appearance',
+    group: 'buffer-list',
+    type: 'enum',
+    choices: ['full', 'highlights', 'badge', 'off'],
+    default: 'full',
+    description:
+      'How much detail the unread indicators show on each channel/DM row. ' +
+      '"full" shows the highlight ● plus a full unread count (default). ' +
+      '"highlights" shows the ● plus a highlight-only count (hides the noisy ' +
+      'total). "badge" shows only the ● for highlighted rows, no numbers. ' +
+      '"off" hides both — rely purely on row color/weight.',
+  },
+
   // ─── Nick coloring ────────────────────────────────────────────────────
   {
     key: 'look.nick.colors',

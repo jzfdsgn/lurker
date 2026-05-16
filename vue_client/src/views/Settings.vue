@@ -1105,6 +1105,7 @@ const GROUP_TITLES = {
   palette: 'colors',
   messages: 'message rows',
   members: 'member prefixes',
+  'buffer-list': 'buffer list',
   nicks: 'nick coloring',
   layout: 'layout',
   misc: 'misc',
