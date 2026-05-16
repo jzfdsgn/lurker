@@ -4,55 +4,53 @@
 -->
 
 <template>
-  <div class="modal" @click.self="$emit('close')">
-    <div class="card" tabindex="-1">
-      <header class="head">
-        <input
-          ref="inputEl"
-          v-model="queryInput"
-          class="filter"
-          type="text"
-          placeholder="search messages — from:nick in:#channel on:network"
-          autocomplete="off"
-          spellcheck="false"
-          @keydown="onKeydown"
-        />
-        <button class="link" @click="$emit('close')" title="close"><i class="fa-solid fa-xmark"></i></button>
-      </header>
-      <p v-if="store.error" class="error inline">{{ store.error }}</p>
-      <ul
-        v-if="visibleResults.length"
-        ref="listEl"
-        class="match-list"
-        @scroll="onScroll"
-      >
-        <li
-          v-for="(m, i) in visibleResults"
-          :key="`${m.networkId}::${m.target}::${m.id}`"
-          :class="{ match: true, active: i === selected }"
-          @click="onJump(m)"
-          @mouseenter="selected = i"
-        >
-          <span class="time">{{ time(m.time) }}</span>
-          <span class="loc">
-            <span class="net">{{ m.networkName || networkName(m.networkId) }}</span>
-            <span class="target">{{ targetLabel(m) }}</span>
-          </span>
-          <span class="nick" :style="nickStyle(m)">{{ m.nick }}</span>
-          <span class="text">{{ m.text }}</span>
-        </li>
-        <li v-if="store.loading" class="more">Loading…</li>
-      </ul>
-      <p v-else-if="store.loading" class="empty">Searching…</p>
-      <p v-else-if="store.results.length" class="empty">All matches are from ignored users.</p>
-      <p v-else-if="store.searched" class="empty">No matches.</p>
-      <p v-else class="empty">Type to search your message history.</p>
+  <AppModal word="search" title="search" size="lg" align="top" @close="$emit('close')">
+    <div class="search-row">
+      <input
+        ref="inputEl"
+        v-model="queryInput"
+        class="filter"
+        type="text"
+        placeholder="search messages — from:nick in:#channel on:network"
+        autocomplete="off"
+        spellcheck="false"
+        @keydown="onKeydown"
+      />
     </div>
-  </div>
+    <p v-if="store.error" class="error inline">{{ store.error }}</p>
+    <ul
+      v-if="visibleResults.length"
+      ref="listEl"
+      class="match-list"
+      @scroll="onScroll"
+    >
+      <li
+        v-for="(m, i) in visibleResults"
+        :key="`${m.networkId}::${m.target}::${m.id}`"
+        :class="{ match: true, active: i === selected }"
+        @click="onJump(m)"
+        @mouseenter="selected = i"
+      >
+        <span class="time">{{ time(m.time) }}</span>
+        <span class="loc">
+          <span class="net">{{ m.networkName || networkName(m.networkId) }}</span>
+          <span class="target">{{ targetLabel(m) }}</span>
+        </span>
+        <span class="nick" :style="nickStyle(m)">{{ m.nick }}</span>
+        <span class="text">{{ m.text }}</span>
+      </li>
+      <li v-if="store.loading" class="more">Loading…</li>
+    </ul>
+    <p v-else-if="store.loading" class="empty">Searching…</p>
+    <p v-else-if="store.results.length" class="empty">All matches are from ignored users.</p>
+    <p v-else-if="store.searched" class="empty">No matches.</p>
+    <p v-else class="empty">Type to search your message history.</p>
+  </AppModal>
 </template>
 
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue';
+import AppModal from './AppModal.vue';
 import { useNetworksStore } from '../stores/networks.js';
 import { useSettingsStore } from '../stores/settings.js';
 import { useSearchStore } from '../stores/search.js';
@@ -144,10 +142,8 @@ function onKeydown(e) {
     e.preventDefault();
     const row = rows[selected.value];
     if (row) onJump(row);
-  } else if (e.key === 'Escape') {
-    e.preventDefault();
-    emit('close');
   }
+  // Esc handled by AppModal's keydown listener on the modal root.
 }
 
 function onScroll() {
@@ -171,51 +167,18 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 12vh;
-  z-index: 100;
-}
-.card {
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  width: min(720px, 92vw);
-  max-height: 70vh;
-  display: flex;
-  flex-direction: column;
-  outline: none;
-}
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
+.search-row {
+  margin-bottom: 12px;
 }
 .filter {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border);
-  padding: 4px 8px;
+  padding: 8px 10px;
   font: inherit;
 }
 .filter:focus { outline: none; border-color: var(--accent); }
-.link {
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  font: inherit;
-  padding: 0 4px;
-}
-.link:hover { color: var(--fg); }
 
 .match-list {
   list-style: none;
@@ -230,7 +193,7 @@ onBeforeUnmount(() => {
   grid-template-columns: max-content max-content max-content 1fr;
   gap: 8px;
   align-items: baseline;
-  padding: 6px 16px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
@@ -258,8 +221,8 @@ onBeforeUnmount(() => {
   padding: 32px;
 }
 .error.inline {
-  color: var(--error, #d66);
-  padding: 8px 16px;
+  color: var(--bad);
+  padding: 8px 0;
   margin: 0;
 }
 </style>

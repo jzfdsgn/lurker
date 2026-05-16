@@ -4,43 +4,38 @@
 -->
 
 <template>
-  <div class="modal" @click.self="$emit('close')" @keydown.esc="$emit('close')">
-    <div class="card" tabindex="-1" ref="cardEl">
-      <header class="head">
-        <h2>ignore {{ nick }}</h2>
-        <button class="link" @click="$emit('close')" title="close"><i class="fa-solid fa-xmark"></i></button>
-      </header>
-      <form class="body" @submit.prevent="confirm">
-        <label class="field">
-          <span class="label-text">Mask</span>
-          <input
-            ref="inputEl"
-            v-model="mask"
-            type="text"
-            spellcheck="false"
-            autocapitalize="off"
-            autocomplete="off"
-          />
-        </label>
-        <p class="hint">
-          Plain nick (e.g. <code>{{ nick }}</code>) or <code>nick!user@host</code>
-          with <code>*</code> wildcards. The default targets this user's
-          identity (<code>user@host</code>) so it survives nick changes.
-        </p>
-        <p class="preview">
-          Messages matching <code>{{ mask || '∅' }}</code> will be hidden on this network.
-        </p>
-        <div class="actions">
-          <button type="button" class="btn-secondary" @click="$emit('close')">Cancel</button>
-          <button type="submit" class="btn-primary" :disabled="!mask.trim()">Ignore</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <AppModal word="ignore" :title="`ignore ${nick}`" size="md" @close="$emit('close')">
+    <form class="body" @submit.prevent="confirm">
+      <label class="field">
+        <span class="label-text">Mask</span>
+        <input
+          ref="inputEl"
+          v-model="mask"
+          type="text"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+        />
+      </label>
+      <p class="hint">
+        Plain nick (e.g. <code>{{ nick }}</code>) or <code>nick!user@host</code>
+        with <code>*</code> wildcards. The default targets this user's
+        identity (<code>user@host</code>) so it survives nick changes.
+      </p>
+      <p class="preview">
+        Messages matching <code>{{ mask || '∅' }}</code> will be hidden on this network.
+      </p>
+      <div class="actions">
+        <button type="button" class="btn-secondary" @click="$emit('close')">Cancel</button>
+        <button type="submit" class="btn-primary" :disabled="!mask.trim()">Ignore</button>
+      </div>
+    </form>
+  </AppModal>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue';
+import AppModal from './AppModal.vue';
 import { useIgnoresStore } from '../stores/ignores.js';
 
 const props = defineProps({
@@ -52,7 +47,6 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const ignores = useIgnoresStore();
-const cardEl = ref(null);
 const inputEl = ref(null);
 
 // Default to a hostmask that hides the nick segment — IRCCloud convention.
@@ -72,59 +66,13 @@ function confirm() {
 }
 
 onMounted(() => {
-  cardEl.value?.focus();
   // Focus the input next tick so Tab/Enter behave naturally on open.
   setTimeout(() => inputEl.value?.focus(), 0);
 });
 </script>
 
 <style scoped>
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-.card {
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  width: min(560px, 90vw);
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  outline: none;
-}
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.head h2 {
-  margin: 0;
-  flex: 1;
-  color: var(--accent);
-  font-weight: 600;
-  text-transform: lowercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.link {
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  font: inherit;
-  padding: 0 4px;
-}
-.link:hover { color: var(--fg); }
 .body {
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;

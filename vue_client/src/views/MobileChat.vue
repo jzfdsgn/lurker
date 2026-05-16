@@ -49,6 +49,12 @@
           title="Browse channels"
           @click="showChannelList = true"
         ><i class="fa-solid fa-list"></i></button>
+        <button
+          v-if="isServerBuffer"
+          class="icon"
+          title="Edit network"
+          @click="editActiveNetwork"
+        ><i class="fa-solid fa-gear"></i></button>
         <button class="icon" title="Search messages" @click="showSearch = true">
           <i class="fa-solid fa-magnifying-glass"></i>
         </button>
@@ -85,6 +91,11 @@
       <MemberList />
     </section>
 
+    <NetworkForm
+      v-if="showNetworkForm"
+      :network="editingNetwork"
+      @close="closeNetworkForm"
+    />
     <HighlightsModal
       v-if="showHighlights"
       @close="showHighlights = false"
@@ -127,6 +138,7 @@ import MessageList from '../components/MessageList.vue';
 import MessageInput from '../components/MessageInput.vue';
 import MemberList from '../components/MemberList.vue';
 import StatusBar from '../components/StatusBar.vue';
+import NetworkForm from '../components/NetworkForm.vue';
 import HighlightsModal from '../components/HighlightsModal.vue';
 import TopicModal from '../components/TopicModal.vue';
 import ChannelListModal from '../components/ChannelListModal.vue';
@@ -153,6 +165,8 @@ const showTopic = ref(false);
 const showChannelList = ref(false);
 const showUploads = ref(false);
 const showSearch = ref(false);
+const showNetworkForm = ref(false);
+const editingNetwork = ref(null);
 const pendingScrollId = ref(null);
 const messageInputRef = ref(null);
 const bufferCogBtn = ref(null);
@@ -164,6 +178,18 @@ const showBufferCog = computed(() => !!active.value && !isServerBuffer.value);
 function openBufferActions() {
   if (!activeBuf.value) return;
   bufferActions.openMenuFromButton(activeBuf.value, bufferCogBtn.value);
+}
+
+function editActiveNetwork() {
+  const net = active.value?.network;
+  if (!net) return;
+  editingNetwork.value = net;
+  showNetworkForm.value = true;
+}
+
+function closeNetworkForm() {
+  showNetworkForm.value = false;
+  editingNetwork.value = null;
 }
 
 // BufferList calls buffers.activate() directly on click; we react to the

@@ -4,12 +4,8 @@
 -->
 
 <template>
-  <div class="modal" @click.self="$emit('close')" @keydown.esc="$emit('close')">
-    <div class="card" tabindex="-1" ref="cardEl">
-      <header class="head">
-        <h2>keyboard shortcuts</h2>
-        <button class="link" @click="$emit('close')" title="close"><i class="fa-solid fa-xmark"></i></button>
-      </header>
+  <AppModal word="keys" title="keyboard shortcuts" size="sm" @close="$emit('close')">
+    <div class="body">
       <table class="list">
         <tbody>
           <tr v-for="row in shortcuts" :key="row.label">
@@ -24,15 +20,14 @@
         </tbody>
       </table>
     </div>
-  </div>
+  </AppModal>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
+import AppModal from './AppModal.vue';
 
 defineEmits(['close']);
-
-const cardEl = ref(null);
 
 const isMac = typeof navigator !== 'undefined'
   && /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
@@ -50,68 +45,28 @@ const shortcuts = computed(() => [
   { keys: ['↑', '↓'],            label: 'Browse input history' },
   { keys: [MOD, '/'],            label: 'Show this help panel' },
 ]);
-
-onMounted(() => {
-  cardEl.value?.focus();
-});
 </script>
 
 <style scoped>
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-.card {
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  width: min(520px, 92vw);
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  outline: none;
-}
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.head h2 {
-  margin: 0;
+.body {
+  overflow-y: auto;
   flex: 1;
-  color: var(--accent);
-  font-weight: 600;
-  text-transform: lowercase;
+  min-height: 0;
 }
-.link {
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  font: inherit;
-  padding: 0 4px;
-}
-.link:hover { color: var(--fg); }
-
 .list {
   width: 100%;
   border-collapse: collapse;
-  overflow-y: auto;
 }
 .list td {
-  padding: 6px 16px;
+  padding: 6px 0;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+.list tr:last-child td { border-bottom: none; }
 .keys {
   white-space: nowrap;
   width: 1%;
+  padding-right: 16px;
 }
 kbd {
   font: inherit;

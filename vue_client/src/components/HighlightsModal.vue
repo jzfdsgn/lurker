@@ -4,52 +4,50 @@
 -->
 
 <template>
-  <div class="modal" @click.self="$emit('close')">
-    <div class="card">
-      <header class="head">
-        <h2>highlights</h2>
-        <button
-          class="link sound-toggle"
-          :title="soundEnabled ? 'mute highlight sound' : 'unmute highlight sound'"
-          @click="toggleSound"
-        >
-          <i :class="soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark'"></i>
-        </button>
-        <button class="link" @click="$emit('close')" title="close"><i class="fa-solid fa-xmark"></i></button>
-      </header>
-      <p v-if="store.error" class="error inline">{{ store.error }}</p>
-      <ul v-if="visibleItems.length" class="match-list">
-        <li
-          v-for="m in visibleItems"
-          :key="`${m.networkId}::${m.target}::${m.id}`"
-          class="match"
-          @click="onJump(m)"
-        >
-          <span class="time">{{ time(m.time) }}</span>
-          <span class="loc">
-            <span class="net">{{ m.networkName || networkName(m.networkId) }}</span>
-            <span class="target">{{ targetLabel(m) }}</span>
-          </span>
-          <span class="nick" :style="nickStyle(m)">{{ m.nick }}</span>
-          <span class="text">{{ m.text }}</span>
-        </li>
-      </ul>
-      <p v-else-if="store.loading" class="empty">Loading…</p>
-      <p v-else-if="store.items.length" class="empty">All highlights are from ignored users.</p>
-      <p v-else class="empty">No highlights yet.</p>
-      <footer v-if="store.hasMore || store.loading" class="foot">
-        <button
-          class="link"
-          :disabled="store.loading || !store.hasMore"
-          @click="store.loadMore()"
-        >{{ store.loading ? 'Loading…' : 'Load more' }}</button>
-      </footer>
-    </div>
-  </div>
+  <AppModal word="highlights" title="highlights" size="lg" @close="$emit('close')">
+    <template #actions>
+      <button
+        class="link sound-toggle"
+        :title="soundEnabled ? 'mute highlight sound' : 'unmute highlight sound'"
+        @click="toggleSound"
+      >
+        <i :class="soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark'"></i>
+      </button>
+    </template>
+
+    <p v-if="store.error" class="error inline">{{ store.error }}</p>
+    <ul v-if="visibleItems.length" class="match-list">
+      <li
+        v-for="m in visibleItems"
+        :key="`${m.networkId}::${m.target}::${m.id}`"
+        class="match"
+        @click="onJump(m)"
+      >
+        <span class="time">{{ time(m.time) }}</span>
+        <span class="loc">
+          <span class="net">{{ m.networkName || networkName(m.networkId) }}</span>
+          <span class="target">{{ targetLabel(m) }}</span>
+        </span>
+        <span class="nick" :style="nickStyle(m)">{{ m.nick }}</span>
+        <span class="text">{{ m.text }}</span>
+      </li>
+    </ul>
+    <p v-else-if="store.loading" class="empty">Loading…</p>
+    <p v-else-if="store.items.length" class="empty">All highlights are from ignored users.</p>
+    <p v-else class="empty">No highlights yet.</p>
+    <footer v-if="store.hasMore || store.loading" class="foot">
+      <button
+        class="link"
+        :disabled="store.loading || !store.hasMore"
+        @click="store.loadMore()"
+      >{{ store.loading ? 'Loading…' : 'Load more' }}</button>
+    </footer>
+  </AppModal>
 </template>
 
 <script setup>
 import { computed, onMounted } from 'vue';
+import AppModal from './AppModal.vue';
 import { useNetworksStore } from '../stores/networks.js';
 import { useSettingsStore } from '../stores/settings.js';
 import { useHighlightsStore } from '../stores/highlights.js';
@@ -107,37 +105,6 @@ function onJump(m) {
 </script>
 
 <style scoped>
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-.card {
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  width: min(720px, 90vw);
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.head h2 {
-  margin: 0;
-  flex: 1;
-  color: var(--accent);
-  font-weight: 600;
-  text-transform: lowercase;
-}
 .link {
   background: none;
   border: none;
@@ -146,9 +113,9 @@ function onJump(m) {
   font: inherit;
   padding: 0 4px;
 }
-.link:hover { color: var(--fg); }
+.link:hover { color: var(--accent); }
 .link:disabled { opacity: 0.5; cursor: default; }
-.sound-toggle { font-size: 0.9em; }
+.sound-toggle { font-size: 1.1em; }
 
 .match-list {
   list-style: none;
@@ -163,7 +130,7 @@ function onJump(m) {
   grid-template-columns: max-content max-content max-content 1fr;
   gap: 8px;
   align-items: baseline;
-  padding: 6px 16px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
@@ -184,13 +151,13 @@ function onJump(m) {
   padding: 32px;
 }
 .error.inline {
-  color: var(--error, #d66);
-  padding: 8px 16px;
+  color: var(--bad);
+  padding: 8px 0;
   margin: 0;
 }
 .foot {
   border-top: 1px solid var(--border);
-  padding: 8px 16px;
+  padding: 8px 0;
   display: flex;
   justify-content: center;
 }

@@ -4,22 +4,16 @@
 -->
 
 <template>
-  <div class="modal" @click.self="$emit('close')" @keydown.esc="$emit('close')">
-    <div class="card" tabindex="-1" ref="cardEl">
-      <header class="head">
-        <h2>{{ label }}</h2>
-        <button class="link" @click="$emit('close')" title="close"><i class="fa-solid fa-xmark"></i></button>
-      </header>
-      <div class="body">
-        <p v-if="!topic" class="empty">No topic set.</p>
-        <p v-else class="topic-text"><LinkedText :text="topic" /></p>
-      </div>
+  <AppModal :word="word" :title="label" size="lg" @close="$emit('close')">
+    <div class="body">
+      <p v-if="!topic" class="empty">No topic set.</p>
+      <p v-else class="topic-text"><LinkedText :text="topic" /></p>
     </div>
-  </div>
+  </AppModal>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import AppModal from './AppModal.vue';
 import LinkedText from './LinkedText.vue';
 
 defineProps({
@@ -28,60 +22,14 @@ defineProps({
 });
 defineEmits(['close']);
 
-const cardEl = ref(null);
-onMounted(() => {
-  cardEl.value?.focus();
-});
+// The label is the channel name and includes characters like '#' that
+// don't tile as nicely as a plain word, so just say "topic" on the wall.
+const word = 'topic';
 </script>
 
 <style scoped>
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-.card {
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  width: min(720px, 90vw);
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  outline: none;
-}
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.head h2 {
-  margin: 0;
-  flex: 1;
-  color: var(--accent);
-  font-weight: 600;
-  text-transform: lowercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.link {
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  font: inherit;
-  padding: 0 4px;
-}
-.link:hover { color: var(--fg); }
-
 .body {
-  padding: 16px;
+  padding: 16px 0 0;
   overflow-y: auto;
   flex: 1;
   min-height: 0;

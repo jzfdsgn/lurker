@@ -5,8 +5,9 @@
 
 <template>
   <div class="login">
+    <WordBackdrop :word="backdropWord" />
     <div class="card">
-      <h1>Lurker</h1>
+      <h1>lurker</h1>
 
       <template v-if="loadingStatus">
         <p class="subtitle">Checking setup…</p>
@@ -94,6 +95,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth.js';
+import WordBackdrop from '../components/WordBackdrop.vue';
 
 const username = ref('');
 const password = ref('');
@@ -108,6 +110,10 @@ const showPasswordForm = ref(false);
 const loginMode = ref(null);
 
 const submitLabel = computed(() => (working.value ? 'Creating account…' : 'Create account'));
+
+// Swap the wallpaper word so the first-run sign-up screen feels distinct
+// from the regular login.
+const backdropWord = computed(() => (setup.value?.needsSetup ? 'welcome' : 'lurker'));
 
 onMounted(async () => {
   setup.value = await auth.fetchSetupStatus();
@@ -174,20 +180,33 @@ async function onCreateUser() {
 
 <style scoped>
 .login {
+  position: relative;
   min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 .card {
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
   border: 1px solid var(--accent);
-  padding: 20px 24px;
+  padding: 24px 28px;
   width: 360px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-h1 { margin: 0; color: var(--accent); font-weight: 600; }
+h1 {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: lowercase;
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
 .subtitle { margin: 0; color: var(--fg-muted); }
 .warning {
   margin: 0;

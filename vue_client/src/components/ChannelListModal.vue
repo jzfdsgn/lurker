@@ -4,71 +4,73 @@
 -->
 
 <template>
-  <div class="modal" @click.self="$emit('close')" @keydown.esc="$emit('close')">
-    <div class="card" tabindex="-1" ref="cardEl">
-      <header class="head">
-        <h2>channels — {{ networkLabel }}</h2>
-        <button class="link" @click="$emit('close')" title="close"><i class="fa-solid fa-xmark"></i></button>
-      </header>
-      <div class="controls">
-        <input
-          ref="filterEl"
-          v-model="filterInput"
-          class="filter"
-          type="text"
-          placeholder="filter (name or topic)"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button class="btn" :disabled="state.inProgress" @click="refresh">
-          {{ state.inProgress ? `Streaming… ${state.totalCount}` : 'Refresh' }}
-        </button>
-        <span class="meta">{{ headerLabel }}</span>
-      </div>
-      <div ref="listEl" class="list-wrap" @scroll="onScroll">
-        <table v-if="state.rows.length" class="list">
-          <thead>
-            <tr>
-              <th class="col-name">
-                <button class="sort" @click="setSort('name')">
-                  name<span v-if="state.sortBy === 'name'">{{ state.sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
-                </button>
-              </th>
-              <th class="col-users">
-                <button class="sort" @click="setSort('users')">
-                  users<span v-if="state.sortBy === 'users'">{{ state.sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
-                </button>
-              </th>
-              <th class="col-topic">topic</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="ch in state.rows"
-              :key="ch.channel"
-              class="row"
-              @click="onJoin(ch)"
-              :title="`Join ${ch.channel}`"
-            >
-              <td class="col-name">{{ ch.channel }}</td>
-              <td class="col-users">{{ ch.num_users }}</td>
-              <td class="col-topic">{{ ch.topic }}</td>
-            </tr>
-            <tr v-if="state.loading"><td colspan="3" class="loading">Loading…</td></tr>
-          </tbody>
-        </table>
-        <p v-else-if="state.loading || state.inProgress" class="empty">
-          {{ state.inProgress ? `Streaming channels… ${state.totalCount}` : 'Loading…' }}
-        </p>
-        <p v-else-if="!state.totalCount" class="empty">No channels cached yet — Refresh to fetch.</p>
-        <p v-else class="empty">No matches.</p>
-      </div>
+  <AppModal
+    word="channels"
+    :title="`channels — ${networkLabel}`"
+    size="xl"
+    @close="$emit('close')"
+  >
+    <div class="controls">
+      <input
+        ref="filterEl"
+        v-model="filterInput"
+        class="filter"
+        type="text"
+        placeholder="filter (name or topic)"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="btn" :disabled="state.inProgress" @click="refresh">
+        {{ state.inProgress ? `Streaming… ${state.totalCount}` : 'Refresh' }}
+      </button>
+      <span class="meta">{{ headerLabel }}</span>
     </div>
-  </div>
+    <div class="sort-bar">
+      <span class="sort-label">sort by</span>
+      <button
+        class="sort"
+        :class="{ active: state.sortBy === 'name' }"
+        @click="setSort('name')"
+      >
+        name<span v-if="state.sortBy === 'name'" class="sort-arrow">{{ state.sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+      </button>
+      <button
+        class="sort"
+        :class="{ active: state.sortBy === 'users' }"
+        @click="setSort('users')"
+      >
+        users<span v-if="state.sortBy === 'users'" class="sort-arrow">{{ state.sortDir === 'asc' ? ' ▲' : ' ▼' }}</span>
+      </button>
+    </div>
+    <div ref="listEl" class="list-wrap" @scroll="onScroll">
+      <ul v-if="state.rows.length" class="list-stack">
+        <li
+          v-for="ch in state.rows"
+          :key="ch.channel"
+          class="list-item"
+          @click="onJoin(ch)"
+          :title="`Join ${ch.channel}`"
+        >
+          <div class="list-item-head">
+            <span class="list-item-title">{{ ch.channel }}</span>
+            <span class="list-item-meta">{{ ch.num_users }} {{ ch.num_users === 1 ? 'user' : 'users' }}</span>
+          </div>
+          <div v-if="ch.topic" class="list-item-sub">{{ ch.topic }}</div>
+        </li>
+        <li v-if="state.loading" class="list-item-loading">Loading…</li>
+      </ul>
+      <p v-else-if="state.loading || state.inProgress" class="empty">
+        {{ state.inProgress ? `Streaming channels… ${state.totalCount}` : 'Loading…' }}
+      </p>
+      <p v-else-if="!state.totalCount" class="empty">No channels cached yet — Refresh to fetch.</p>
+      <p v-else class="empty">No matches.</p>
+    </div>
+  </AppModal>
 </template>
 
 <script setup>
 import { computed, ref, onMounted, watch, onBeforeUnmount } from 'vue';
+import AppModal from './AppModal.vue';
 import { useChanlistStore, resultKey } from '../stores/chanlist.js';
 import { useNetworksStore } from '../stores/networks.js';
 import { useBuffersStore } from '../stores/buffers.js';
@@ -86,7 +88,6 @@ const chanlist = useChanlistStore();
 const networks = useNetworksStore();
 const buffers = useBuffersStore();
 
-const cardEl = ref(null);
 const filterEl = ref(null);
 const listEl = ref(null);
 const filterInput = ref('');
@@ -192,7 +193,6 @@ function onJoin(ch) {
 }
 
 onMounted(() => {
-  cardEl.value?.focus();
   prevInProgress = state.value.inProgress;
   // Always pull a fresh first page on open so the rows match whatever the
   // current search snapshot is, and so a stale `rows` list left over from a
@@ -213,56 +213,13 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-.card {
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  width: min(900px, 92vw);
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  outline: none;
-}
-.head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.head h2 {
-  margin: 0;
-  flex: 1;
-  color: var(--accent);
-  font-weight: 600;
-  text-transform: lowercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.link {
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  font: inherit;
-  padding: 0 4px;
-}
-.link:hover { color: var(--fg); }
-
 .controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 8px 16px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }
 .filter {
@@ -288,48 +245,93 @@ onBeforeUnmount(() => {
 .btn:disabled { opacity: 0.6; cursor: default; }
 .meta { color: var(--fg-muted); font-size: 0.9em; }
 
-.list-wrap {
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
+/* On mobile the filter + refresh button consume the full row; push the
+   match/total/fetched line under them rather than letting it squeeze in
+   and overflow. */
+@media (max-width: 768px) {
+  .meta { flex-basis: 100%; }
 }
-.list {
-  width: 100%;
-  border-collapse: collapse;
+
+.sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
 }
-.list th, .list td {
-  text-align: left;
-  padding: 4px 16px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
-}
-.list thead th {
-  position: sticky;
-  top: 0;
-  background: var(--bg);
-  z-index: 1;
+.sort-label {
   color: var(--fg-muted);
-  font-weight: 500;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 .sort {
   background: none;
   border: none;
-  color: inherit;
+  color: var(--fg-muted);
   font: inherit;
   padding: 0;
   cursor: pointer;
 }
 .sort:hover { color: var(--fg); }
-.col-users { width: 80px; text-align: right; }
-.col-name  { width: 200px; color: var(--accent); white-space: nowrap; }
-.col-topic { color: var(--fg-muted); }
-.row { cursor: pointer; }
-.row:hover { background: var(--bg-soft); }
-.row:hover .col-topic { color: var(--fg); }
-.loading {
+.sort.active { color: var(--accent); }
+.sort-arrow { opacity: 0.7; }
+
+.list-wrap {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Stacked list-item format: title + right-aligned meta on the first
+   row, optional sub line beneath. Built here for the channel list but
+   intentionally generic — same shape should slot in anywhere we list
+   selectable rows with a primary + secondary line. */
+.list-stack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list-item {
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.list-item:hover { background: var(--bg-soft); }
+.list-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.list-item-title {
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.list-item-meta {
+  color: var(--fg-muted);
+  font-size: 0.9em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.list-item-sub {
+  color: var(--fg-muted);
+  font-size: 0.9em;
+  margin-top: 2px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.list-item:hover .list-item-sub { color: var(--fg); }
+.list-item-loading {
   text-align: center;
   color: var(--fg-muted);
   font-style: italic;
+  padding: 8px;
+  list-style: none;
 }
 .empty {
   text-align: center;
