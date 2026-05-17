@@ -16,6 +16,7 @@ import { useNicklistCollapseStore } from '../stores/nicklistCollapse.js';
 import { useChannelNotifyStore } from '../stores/channelNotify.js';
 import { useIgnoresStore } from '../stores/ignores.js';
 import { useNickNotesStore } from '../stores/nickNotes.js';
+import { useBookmarksStore } from '../stores/bookmarks.js';
 import { notifyForEvent } from './useHighlightNotifier.js';
 
 let socket = null;
@@ -361,6 +362,16 @@ function handleMessage(raw) {
   if (payload.kind === 'nick-note-updated') {
     const nickNotes = useNickNotesStore();
     nickNotes.applyUpdate(payload.networkId, payload.nick, payload.note || '', payload.updatedAt);
+    return;
+  }
+  if (payload.kind === 'bookmark-ids-snapshot') {
+    const bookmarks = useBookmarksStore();
+    bookmarks.applySnapshot(payload.ids || []);
+    return;
+  }
+  if (payload.kind === 'bookmark-updated') {
+    const bookmarks = useBookmarksStore();
+    bookmarks.applyUpdate({ messageId: payload.messageId, saved: !!payload.saved });
     return;
   }
   if (payload.kind === 'buffer-reopened') {

@@ -49,8 +49,10 @@
     <div
       v-else
       class="line"
-      :class="rowClass(row)"
+      :class="[rowClass(row), { actionable: eligibleForActions(row.m) }]"
       :data-msg-id="row.m.id ?? null"
+      @contextmenu="onLineContextMenu($event, row.m)"
+      v-bind="longPressBind(row.m)"
     >
       <template v-if="compactMode && row.m.type === 'message'">
         <!-- Compact-mode message rows (IRCCloud-style): nick on its own
@@ -110,9 +112,26 @@
           <template v-else-if="row.m.type === 'error'"><LinkedText :text="row.m.text" /></template>
         </span>
       </template>
+      <button
+        v-if="eligibleForActions(row.m)"
+        type="button"
+        class="row-actions"
+        title="Message actions"
+        aria-label="Message actions"
+        @click.stop="onActionsClick($event, row.m)"
+        @contextmenu.stop.prevent
+      ><i class="fa-solid fa-ellipsis-vertical"></i></button>
     </div>
     </template>
   </div>
+  <IgnoreModal
+    v-if="ignoreTarget"
+    :nick="ignoreTarget.nick || ''"
+    :user="ignoreTarget.user || null"
+    :host="ignoreTarget.host || null"
+    :network-id="ignoreTarget.networkId || null"
+    @close="ignoreTarget = null"
+  />
 </template>
 
 <script setup>
@@ -136,6 +155,9 @@ import { consolidateRows } from '../utils/consolidate.js';
 import { collapseDisplay } from '../utils/collapseDisplay.js';
 import NickRef from './NickRef.vue';
 import LinkedText from './LinkedText.vue';
+import IgnoreModal from './IgnoreModal.vue';
+import { useMessageActions } from '../composables/useMessageActions.js';
+import { useLongPress } from '../composables/useLongPress.js';
 
 const props = defineProps({
   pendingScrollId: { type: [Number, String, null], default: null },
@@ -201,6 +223,68 @@ function rowClass(row) {
     'cont-author': !!row.continuationAuthor,
     'cont-time': !!row.continuationTime,
   };
+}
+
+// Per-message context menu wiring. Same items surface via right-click,
+// mobile long-press, and the hover three-dots button — every path funnels
+// through useMessageActions. The ignore confirmation modal is owned here so
+// the menu callback can hand off without needing to know which view it lives
+// in (mirrors MemberList's pattern).
+const messageActions = useMessageActions();
+const longPress = useLongPress();
+const ignoreTarget = ref(null);
+
+function eligibleForActions(m) {
+  if (!m || m.id == null) return false;
+  return m.type === 'message' || m.type === 'action' || m.type === 'notice';
+}
+
+function parseUserHost(userhost) {
+  if (!userhost) return { user: null, host: null };
+  // Format is nick!user@host; tolerate missing pieces.
+  const bang = userhost.indexOf('!');
+  if (bang < 0) return { user: null, host: null };
+  const rest = userhost.slice(bang + 1);
+  const at = rest.indexOf('@');
+  if (at < 0) return { user: null, host: null };
+  return { user: rest.slice(0, at) || null, host: rest.slice(at + 1) || null };
+}
+
+function menuContext(m) {
+  return {
+    networkId: buffer.value?.networkId,
+    onIgnore: (msg) => {
+      const { user, host } = parseUserHost(msg.userhost);
+      ignoreTarget.value = {
+        nick: msg.nick,
+        user,
+        host,
+        networkId: buffer.value?.networkId,
+      };
+    },
+  };
+}
+
+function onLineContextMenu(e, m) {
+  if (!eligibleForActions(m)) return;
+  e.preventDefault();
+  messageActions.openMenuFor(m, menuContext(m), e.clientX, e.clientY);
+}
+
+function onActionsClick(e, m) {
+  if (!eligibleForActions(m)) return;
+  messageActions.openMenuFromButton(m, menuContext(m), e.currentTarget);
+}
+
+// Touch long-press → same menu. Eligibility is rechecked inside the callback
+// so the timer set on touchstart of an ineligible row (rare, the v-bind only
+// emits handlers for eligible rows) is a no-op. The bind() factory threads
+// the message through to the callback as the payload arg.
+function longPressBind(m) {
+  if (!eligibleForActions(m)) return null;
+  return longPress.bind((coords, msg) => {
+    messageActions.openMenuFor(msg, menuContext(msg), coords.clientX, coords.clientY);
+  }, m);
 }
 
 const smartFilterEnabled = computed(() => !!settings.effective('chat.smart_filter'));
@@ -846,6 +930,14 @@ watch(() => props.pendingScrollId, async (id) => {
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
   align-items: baseline;
+  position: relative;
+}
+/* iOS Safari fires its native text-callout on long-press, which would race
+   our useLongPress handler. -webkit-touch-callout: none alone suppresses it
+   without touching user-select, so desktop drag-to-select (including
+   across multiple lines) still works exactly as before. */
+.line.actionable {
+  -webkit-touch-callout: none;
 }
 /* Alt-row striping is a standard-mode helper for telling adjacent same-type
    rows apart in a dense column. In compact mode, message groups already
@@ -853,6 +945,41 @@ watch(() => props.pendingScrollId, async (id) => {
    inside a group fights the grouping signal — drop it. */
 .message-list:not(.compact) .line.alt { background: var(--alt-bg); color: var(--alt-fg); }
 .line:hover { background: var(--bg-soft); }
+
+/* Hover-revealed three-dots button on eligible rows (desktop only). Sits in
+   the gutter on the right edge of the line. Hidden on touch viewports;
+   mobile users get the same menu via long-press. */
+.row-actions {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  padding: 0;
+  border-radius: 3px;
+}
+.line:hover .row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.row-actions:hover {
+  color: var(--fg);
+  background: var(--bg-soft);
+}
+@media (hover: none), (max-width: 768px) {
+  .row-actions { display: none; }
+}
 
 /* Matched highlight (rule fired): warm background tint. Sits above .alt so
    striping doesn't drown it out. DMs are NOT styled here — they get their

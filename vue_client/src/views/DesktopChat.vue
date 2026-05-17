@@ -29,6 +29,7 @@
         <RouterLink class="link" to="/settings" title="Settings"><i class="fa-solid fa-gear"></i></RouterLink>
         <button class="link" @click="showSearch = true" title="Search messages"><i class="fa-solid fa-magnifying-glass"></i></button>
         <button class="link" @click="showHighlights = true" title="Highlights"><i class="fa-regular fa-bell"></i></button>
+        <button class="link" @click="showBookmarks = true" title="Saved messages"><i class="fa-regular fa-bookmark"></i></button>
         <button class="link" @click="showUploads = true" title="Recent uploads"><i class="fa-solid fa-paperclip"></i></button>
         <button class="link" @click="openAddNetwork" title="Add network"><i class="fa-solid fa-plus"></i></button>
       </div>
@@ -93,6 +94,11 @@
       @close="showHighlights = false"
       @jump="onJumpToMessage"
     />
+    <BookmarksModal
+      v-if="showBookmarks"
+      @close="showBookmarks = false"
+      @jump="onJumpToMessage"
+    />
     <TopicModal
       v-if="showTopic && active"
       :topic="topic"
@@ -143,6 +149,7 @@ import MemberList from '../components/MemberList.vue';
 import StatusBar from '../components/StatusBar.vue';
 import NetworkForm from '../components/NetworkForm.vue';
 import HighlightsModal from '../components/HighlightsModal.vue';
+import BookmarksModal from '../components/BookmarksModal.vue';
 import LinkedText from '../components/LinkedText.vue';
 import TopicModal from '../components/TopicModal.vue';
 import ChannelListModal from '../components/ChannelListModal.vue';
@@ -168,6 +175,7 @@ const bufferActions = useBufferActions();
 const showNetworkForm = ref(false);
 const editingNetwork = ref(null);
 const showHighlights = ref(false);
+const showBookmarks = ref(false);
 const showTopic = ref(false);
 const showChannelList = ref(false);
 const showUploads = ref(false);
@@ -192,7 +200,7 @@ function openBufferActions() {
 
 // Any modal open? Type-ahead must not steal focus from a modal's own fields.
 const anyModalOpen = computed(() =>
-  showNetworkForm.value || showHighlights.value || showTopic.value ||
+  showNetworkForm.value || showHighlights.value || showBookmarks.value || showTopic.value ||
   showChannelList.value || showUploads.value || showSwitcher.value ||
   showSearch.value || showKbdHelp.value
 );

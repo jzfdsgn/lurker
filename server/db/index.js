@@ -375,6 +375,23 @@ function migrate() {
     );
     CREATE INDEX IF NOT EXISTS idx_user_nick_notes_user_net
       ON user_nick_notes(user_id, network_id);
+
+    -- Per-(user, message) bookmarks. Operator hits "Save" on a message in the
+    -- context menu to pin it for later recall via the bookmarks modal. The
+    -- message_id FK cascades, so bookmarks evaporate when their underlying
+    -- network/buffer is deleted — no orphan rows pointing at vanished history.
+    -- Authorization on insert is enforced at the query layer (the message must
+    -- belong to one of the caller's networks).
+    CREATE TABLE IF NOT EXISTS user_bookmarks (
+      user_id INTEGER NOT NULL,
+      message_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, message_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_bookmarks_user_msg
+      ON user_bookmarks(user_id, message_id DESC);
   `);
 }
 

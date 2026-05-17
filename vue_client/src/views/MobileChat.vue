@@ -17,6 +17,9 @@
         <button class="icon" title="Highlights" @click="showHighlights = true">
           <i class="fa-regular fa-bell"></i>
         </button>
+        <button class="icon" title="Saved messages" @click="showBookmarks = true">
+          <i class="fa-regular fa-bookmark"></i>
+        </button>
         <button class="icon" title="Recent uploads" @click="showUploads = true">
           <i class="fa-solid fa-paperclip"></i>
         </button>
@@ -64,6 +67,9 @@
         <button class="icon" title="Highlights" @click="showHighlights = true">
           <i class="fa-regular fa-bell"></i>
         </button>
+        <button class="icon" title="Saved messages" @click="showBookmarks = true">
+          <i class="fa-regular fa-bookmark"></i>
+        </button>
         <button
           v-if="showBufferCog"
           ref="bufferCogBtn"
@@ -102,6 +108,11 @@
     <HighlightsModal
       v-if="showHighlights"
       @close="showHighlights = false"
+      @jump="onJumpToMessage"
+    />
+    <BookmarksModal
+      v-if="showBookmarks"
+      @close="showBookmarks = false"
       @jump="onJumpToMessage"
     />
     <TopicModal
@@ -147,6 +158,7 @@ import MemberList from '../components/MemberList.vue';
 import StatusBar from '../components/StatusBar.vue';
 import NetworkForm from '../components/NetworkForm.vue';
 import HighlightsModal from '../components/HighlightsModal.vue';
+import BookmarksModal from '../components/BookmarksModal.vue';
 import TopicModal from '../components/TopicModal.vue';
 import ChannelListModal from '../components/ChannelListModal.vue';
 import RecentUploadsModal from '../components/RecentUploadsModal.vue';
@@ -171,6 +183,7 @@ useVisualViewportHeight();
 // land on the buffer screen with no active buffer.
 const screen = ref('list');
 const showHighlights = ref(false);
+const showBookmarks = ref(false);
 const showTopic = ref(false);
 const showChannelList = ref(false);
 const showUploads = ref(false);

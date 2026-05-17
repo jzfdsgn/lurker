@@ -29,6 +29,14 @@
       <span class="sep">|</span>
       <span class="text">{{ message.text }}</span>
     </div>
+    <button
+      v-if="removable"
+      type="button"
+      class="remove"
+      title="Remove"
+      aria-label="Remove"
+      @click.stop="$emit('remove', message)"
+    ><i class="fa-solid fa-xmark"></i></button>
   </li>
 </template>
 
@@ -42,9 +50,10 @@ import { formatTimestamp, formatDate } from '../utils/timestamp.js';
 const props = defineProps({
   message: { type: Object, required: true },
   active: { type: Boolean, default: false },
+  removable: { type: Boolean, default: false },
 });
 
-defineEmits(['jump', 'hover']);
+defineEmits(['jump', 'hover', 'remove']);
 
 const networks = useNetworksStore();
 const settings = useSettingsStore();
@@ -86,12 +95,36 @@ const nickStyle = computed(() => {
 
 <style scoped>
 .row {
+  position: relative;
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
 .row:hover,
 .row.active { background: var(--bg-soft); }
+
+.remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  padding: 0;
+  border-radius: 3px;
+}
+.row:hover .remove { opacity: 1; }
+.remove:hover { color: var(--bad); }
+@media (hover: none) {
+  .remove { opacity: 1; }
+}
 
 .head {
   display: flex;
