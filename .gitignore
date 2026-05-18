@@ -13,6 +13,7 @@ data/
 
 # Build output
 vue_client/dist/
+coverage/
 
 # Editor
 .DS_Store
