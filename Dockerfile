@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Elastic-2.0
 
 # Stage 1: Build Vue client
-FROM node:lts-alpine AS vue-builder
+FROM node:lts-slim AS vue-builder
 
 WORKDIR /app/vue_client
 
@@ -16,23 +16,28 @@ COPY vue_client/ ./
 COPY shared/ /app/shared/
 RUN npm run build
 
-# Stage 2: Install server dependencies (with toolchain for native modules)
-FROM node:lts-alpine AS server-deps
+# Stage 2: Install server dependencies
+#
+# Using debian-slim (glibc) rather than alpine (musl) so better-sqlite3 and
+# sharp can install from their published linux-x64 / linux-arm64 prebuilds
+# instead of compiling from source. Compiling native modules under QEMU when
+# multi-arch building on a single-arch GHA runner is glacial (or hangs
+# outright), and the prebuild path sidesteps it entirely.
+FROM node:lts-slim AS server-deps
 
 WORKDIR /app
-
-# better-sqlite3 builds from source on alpine when no prebuild matches
-RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
 RUN npm install --omit=dev
 
 # Stage 3: Runtime image
-FROM node:lts-alpine
+FROM node:lts-slim
 
 WORKDIR /app
 
-RUN apk add --no-cache tini
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends tini \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=server-deps /app/node_modules ./node_modules
 COPY package*.json ./
@@ -44,5 +49,5 @@ RUN mkdir -p /app/data
 
 EXPOSE 8015
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "server/server.js"]
