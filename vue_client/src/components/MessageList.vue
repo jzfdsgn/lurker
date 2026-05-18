@@ -879,6 +879,26 @@ onBeforeUnmount(() => {
   if (nowTimer) { clearInterval(nowTimer); nowTimer = null; }
 });
 
+// PageUp/PageDown shortcut handler: scroll the message list by ~90% of the
+// viewport in either direction. Less than 100% leaves a row of overlap so the
+// user keeps their place across the page boundary (same trick browsers use
+// for their own PgUp/PgDn). Marks not-stuck on upward paging so a live
+// message arriving mid-read doesn't yank the viewport back to the bottom;
+// downward paging that reaches the tail re-engages stick-to-bottom via the
+// normal onScroll path.
+function scrollByPage(direction) {
+  const el = scroller.value;
+  if (!el) return;
+  const delta = Math.max(el.clientHeight - 40, 80) * (direction < 0 ? -1 : 1);
+  if (direction < 0) {
+    stickToBottom.value = false;
+    setStuckToBottom(false);
+  }
+  el.scrollBy({ top: delta, behavior: 'smooth' });
+}
+
+defineExpose({ scrollByPage });
+
 watch(() => props.pendingScrollId, async (id) => {
   if (id == null) return;
   await nextTick();

@@ -41,6 +41,8 @@ const shortcuts = computed(() => [
   { keys: [ALT, 'Shift', '↑'],   label: 'Previous unread channel' },
   { keys: [ALT, 'Shift', '↓'],   label: 'Next unread channel' },
   { keys: ['Shift', 'Esc'],      label: 'Mark all channels read' },
+  { keys: ['PgUp'],              label: 'Scroll messages up one page' },
+  { keys: ['PgDn'],              label: 'Scroll messages down one page' },
   { keys: ['Tab'],               label: 'Autocomplete nicks and channels' },
   { keys: ['↑', '↓'],            label: 'Browse input history' },
   { keys: [MOD, '/'],            label: 'Show this help panel' },

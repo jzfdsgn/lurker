@@ -79,7 +79,7 @@
     </header>
     <div v-if="active" class="topic-divider"></div>
 
-    <MessageList :pending-scroll-id="pendingScrollId" />
+    <MessageList ref="messageListRef" :pending-scroll-id="pendingScrollId" />
     <MemberList v-if="showMembers" />
     <StatusBar />
     <MessageInput ref="messageInputRef" />
@@ -184,6 +184,7 @@ const showSearch = ref(false);
 const showKbdHelp = ref(false);
 const pendingScrollId = ref(null);
 const messageInputRef = ref(null);
+const messageListRef = ref(null);
 const bufferCogBtn = ref(null);
 
 // The cog opens the same menu as right-clicking the sidebar row — exposed
@@ -212,6 +213,10 @@ useKeyboardShortcuts({
   onTypeAhead: () => {
     if (anyModalOpen.value || !active.value) return;
     messageInputRef.value?.focus();
+  },
+  onScrollMessages: (dir) => {
+    if (anyModalOpen.value) return;
+    messageListRef.value?.scrollByPage(dir);
   },
 });
 

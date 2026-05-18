@@ -16,7 +16,7 @@ import { flattenBufferOrder, flattenUnreadOrder } from '../utils/bufferOrder.js'
 // are self-contained. onTypeAhead fires when the user starts typing a
 // printable character while focus is somewhere non-text — the consumer
 // decides whether to redirect focus into the message input.
-export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp, onOpenSearch, onTypeAhead } = {}) {
+export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp, onOpenSearch, onTypeAhead, onScrollMessages } = {}) {
   const networks = useNetworksStore();
   const buffers = useBuffersStore();
   const pins = usePinsStore();
@@ -90,6 +90,18 @@ export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp, onOpenSearch,
     if (isCmd(e) && !e.altKey && (e.key === '/' || e.key === '?')) {
       e.preventDefault();
       onOpenHelp?.();
+      return;
+    }
+    // PageUp / PageDown — scroll the message list a viewport at a time, even
+    // when focus is in the message input (textareas otherwise eat the keys to
+    // move the caret to the top/bottom of the field, which is identical to
+    // Home/End for a single-line input and useless to the user). Skip when a
+    // modal text field has focus so PgUp/PgDn in QuickSwitcher, Search, etc.
+    // still does the normal caret thing.
+    if ((e.key === 'PageUp' || e.key === 'PageDown') && !isCmd(e) && !e.altKey && !e.shiftKey) {
+      if (e.target.closest('.modal')) return;
+      e.preventDefault();
+      onScrollMessages?.(e.key === 'PageUp' ? -1 : 1);
       return;
     }
     // Shift + Esc — mark all channels read
