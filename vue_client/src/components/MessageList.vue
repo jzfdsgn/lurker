@@ -150,7 +150,7 @@ import {
   useScrollState,
 } from '../composables/useScrollState.js';
 import { segmentInlineStyle, segmentHasStyle } from '../utils/nickColor.js';
-import { formatTimestamp, formatDuration, formatDate } from '../utils/timestamp.js';
+import { formatTimestamp, formatDuration, formatDate, formatDayLabel } from '../utils/timestamp.js';
 import { consolidateRows } from '../utils/consolidate.js';
 import { collapseDisplay } from '../utils/collapseDisplay.js';
 import NickRef from './NickRef.vue';
@@ -435,7 +435,7 @@ const renderRows = computed(() => {
     // Day-change marker before the first visible row of each local day.
     const dayKey = formatDate(m.time);
     if (dayKey && dayKey !== lastDayKey) {
-      out.push({ divider: 'date', dateStr: dayKey, key: `date:${dayKey}` });
+      out.push({ divider: 'date', dateStr: formatDayLabel(m.time), key: `date:${dayKey}` });
       lastDayKey = dayKey;
     }
 

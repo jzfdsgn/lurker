@@ -37,7 +37,7 @@
 import { computed, onMounted, ref } from 'vue';
 import AppModal from './AppModal.vue';
 import { useNickNotesStore } from '../stores/nickNotes.js';
-import { formatTimestamp } from '../utils/timestamp.js';
+import { formatDateTime } from '../utils/timestamp.js';
 
 const props = defineProps({
   nick: { type: String, required: true },
@@ -53,15 +53,7 @@ const initial = computed(() => entry.value?.note || '');
 const draft = ref(initial.value);
 const dirty = computed(() => draft.value !== initial.value);
 const hasExistingNote = computed(() => !!entry.value?.note);
-const formattedUpdatedAt = computed(() => {
-  const ts = entry.value?.updatedAt;
-  if (!ts) return '';
-  // updated_at comes back from SQLite as "YYYY-MM-DD HH:MM:SS" (UTC, no
-  // timezone marker). Reattach Z so the timestamp formatter and the user's
-  // locale both interpret it correctly.
-  const iso = ts.includes('T') ? ts : `${ts.replace(' ', 'T')}Z`;
-  return formatTimestamp(iso, 'YYYY-MM-DD HH:mm');
-});
+const formattedUpdatedAt = computed(() => formatDateTime(entry.value?.updatedAt));
 
 function confirm() {
   if (!dirty.value) return;

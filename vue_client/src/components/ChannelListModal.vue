@@ -75,6 +75,7 @@ import { useChanlistStore, resultKey } from '../stores/chanlist.js';
 import { useNetworksStore } from '../stores/networks.js';
 import { useBuffersStore } from '../stores/buffers.js';
 import { socketSend } from '../composables/useSocket.js';
+import { formatRelative } from '../utils/timestamp.js';
 
 const PAGE_LIMIT = 200;
 const FILTER_DEBOUNCE_MS = 200;
@@ -111,23 +112,10 @@ const headerLabel = computed(() => {
   const s = state.value;
   if (s.inProgress) return `streaming · ${s.totalCount}`;
   if (s.fetchedAt) {
-    return `${s.total.toLocaleString()} match · ${s.totalCount.toLocaleString()} total · fetched ${relTime(s.fetchedAt)}`;
+    return `${s.total.toLocaleString()} match · ${s.totalCount.toLocaleString()} total · fetched ${formatRelative(s.fetchedAt)}`;
   }
   return '';
 });
-
-function relTime(iso) {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return '';
-  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const days = Math.floor(hr / 24);
-  return `${days}d ago`;
-}
 
 function sendSearch(offset) {
   const s = state.value;

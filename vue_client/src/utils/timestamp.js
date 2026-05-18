@@ -44,8 +44,15 @@ export function parseServerTimestamp(iso) {
   return Date.parse(normalized);
 }
 
-// Render a server timestamp as a human relative phrase. Past renders as
-// "Xs ago", future as "in Xs". Returns the raw string back if it doesn't
+// Cached Intl formatters. Locale is taken from the runtime default
+// (navigator.language in browsers), which Lurker never changes at runtime —
+// so a single module-level instance is safe.
+const RTF = new Intl.RelativeTimeFormat(undefined, { numeric: 'always', style: 'narrow' });
+const DTF_DAY = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
+const DTF_DATETIME = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+// Render a server timestamp as a locale-aware relative phrase (e.g. "5m ago"
+// in en-US, "vor 5 Min." in de). Returns the raw string back if it doesn't
 // parse, so callers can use it as a title/tooltip fallback.
 export function formatRelative(iso) {
   if (!iso) return '';
@@ -53,12 +60,33 @@ export function formatRelative(iso) {
   if (!Number.isFinite(t)) return iso;
   const diffMs = t - Date.now();
   const past = diffMs <= 0;
-  const sec = Math.max(0, Math.round(Math.abs(diffMs) / 1000));
-  const label = sec < 60 ? `${sec}s`
-    : sec < 3600 ? `${Math.round(sec / 60)}m`
-    : sec < 86400 ? `${Math.round(sec / 3600)}h`
-    : `${Math.round(sec / 86400)}d`;
-  return past ? `${label} ago` : `in ${label}`;
+  const absMs = Math.abs(diffMs);
+  let value, unit;
+  if (absMs < 60_000) { value = Math.round(absMs / 1000); unit = 'second'; }
+  else if (absMs < 3_600_000) { value = Math.round(absMs / 60_000); unit = 'minute'; }
+  else if (absMs < 86_400_000) { value = Math.round(absMs / 3_600_000); unit = 'hour'; }
+  else { value = Math.round(absMs / 86_400_000); unit = 'day'; }
+  return RTF.format(past ? -value : value, unit);
+}
+
+// Locale-aware long-form day label for the date divider in MessageList,
+// e.g. "Sunday, May 17, 2026" in en-US. The grouping key stays as the ISO
+// YYYY-MM-DD string from formatDate() so grouping math is locale-stable.
+export function formatDayLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return DTF_DAY.format(d);
+}
+
+// Locale-aware date+time for fixed displays like "Updated …" lines. Accepts
+// both ISO-with-timezone and the SQLite-style "YYYY-MM-DD HH:MM:SS" UTC
+// strings the server emits, via parseServerTimestamp.
+export function formatDateTime(iso) {
+  if (!iso) return '';
+  const t = parseServerTimestamp(iso);
+  if (!Number.isFinite(t)) return '';
+  return DTF_DATETIME.format(t);
 }
 
 // Format an interval between two ISO timestamps for the back-from-away
