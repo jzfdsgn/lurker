@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // x0.at provider — anonymous, no auth, accepts multipart `file`. The response
 // body is the bare URL with a trailing newline.

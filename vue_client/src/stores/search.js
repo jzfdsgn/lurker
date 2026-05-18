@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 import { defineStore } from 'pinia';
 import { socketSend } from '../composables/useSocket.js';

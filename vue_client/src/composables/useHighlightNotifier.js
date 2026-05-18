@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Drives in-client notifications: a toast in the corner and an optional sound.
 // Called from useSocket whenever an IRC message arrives. The event carries

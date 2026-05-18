@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Per-user data export/import endpoints. Lets a user download a zip
 // containing all of their data, and restore it on a fresh account on a

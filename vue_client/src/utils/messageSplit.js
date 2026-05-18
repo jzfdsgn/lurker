@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Client-side estimate of how many IRC lines a message will split into when
 // the server hands it to irc-framework. We can't import the server-side

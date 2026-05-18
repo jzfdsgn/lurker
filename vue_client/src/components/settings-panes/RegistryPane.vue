@@ -1,6 +1,6 @@
 <!--
   Copyright (c) 2026 Brad Root
-  SPDX-License-Identifier: Elastic-2.0
+  SPDX-License-Identifier: MPL-2.0
 
   Generic registry-driven settings pane. Filters REGISTRY by `categoryId`,
   groups items by their `group` field, and renders one SettingsRow per item.

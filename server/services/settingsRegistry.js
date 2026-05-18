@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Server-side wrapper around the shared settings registry. Re-exports the
 // data + shared helpers and adds validate(), used to gate writes against

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Generic touch long-press primitive. Returns a `bind(callback, payload?)`
 // factory that produces the four touch handlers a row element needs:

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Lurker service worker — handles Web Push delivery and notification clicks.
 // The server has already gated by presence (no push fires when any of the

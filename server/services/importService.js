@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Per-user data import. Reads a zip produced by exportService and replays it
 // into the database under the *importing* user's id. Refuses to import into

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Resolves the session-signing secret in this priority order:
 //   1. SESSION_SECRET environment variable (operator-supplied).

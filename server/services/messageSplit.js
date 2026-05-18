@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Mirrors irc-framework's outgoing splitter (client.sendMessage / client.action)
 // so we can publish self-message events that match exactly what peers receive

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Single source of truth for the per-user export/import contract. Every table
 // in the live schema must be declared here as one of:

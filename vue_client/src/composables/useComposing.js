@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Cross-component state for what the user is currently composing. Lives in a
 // module-level reactive ref so MessageInput (the writer) and StatusBar (the

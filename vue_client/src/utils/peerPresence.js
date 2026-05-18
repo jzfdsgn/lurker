@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Derive UX state from a peer presence row. The row carries only the most
 // recent transition ({ state, stateAt }); these helpers translate that to

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Per-user data export. Streams a zip to a writable destination (typically
 // the HTTP response). Driven entirely by EXPORT_TABLES — if a table is

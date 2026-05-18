@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Server-side ignore matching. Mirrors vue_client/src/utils/maskMatch.js;
 // kept in sync by hand because the client is the source of truth for the

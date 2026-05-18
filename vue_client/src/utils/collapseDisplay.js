@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Brad Root
-// SPDX-License-Identifier: Elastic-2.0
+// SPDX-License-Identifier: MPL-2.0
 
 // Per-row display-collapsing pass. Runs after consolidateRows over the same
 // row shape MessageList emits — items either have `m` for a real row, a

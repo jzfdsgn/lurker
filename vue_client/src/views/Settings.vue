@@ -1,6 +1,6 @@
 <!--
   Copyright (c) 2026 Brad Root
-  SPDX-License-Identifier: Elastic-2.0
+  SPDX-License-Identifier: MPL-2.0
 
   Settings shell: master/detail layout with a category sidebar on the left
   and one pane component on the right. The active category comes from the
