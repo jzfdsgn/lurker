@@ -108,4 +108,38 @@ describe('verbRegistry', () => {
     const entry = listVerbs('read').find((v) => v.name === 'sch');
     expect(entry.inputSchema).toEqual(schema);
   });
+
+  it('callVerb rejects missing required fields declared in the input schema', () => {
+    registerVerb({
+      name: 'req-net',
+      scope: 'read',
+      input: { type: 'object', properties: { networkId: { type: 'integer' } }, required: ['networkId'] },
+      handler: () => 'should-not-run',
+    });
+    try {
+      callVerb('req-net', { userId: 1, scope: 'read' }, {});
+      throw new Error('expected throw');
+    } catch (err) {
+      expect(err.code).toBe('invalid_input');
+      expect(err.message).toMatch(/networkId/);
+    }
+  });
+
+  it('the required-field check fires before the ownership check (so missing networkId is invalid_input, not unknown_network)', () => {
+    // Reproduces Copilot review comment: omitting networkId entirely used to
+    // bypass the ownership branch and let the handler see NaN. Now the
+    // registry rejects it cleanly with a distinguishable error code.
+    registerVerb({
+      name: 'needs-net',
+      scope: 'read',
+      input: { type: 'object', properties: { networkId: { type: 'integer' } }, required: ['networkId'] },
+      handler: () => 'never',
+    });
+    try {
+      callVerb('needs-net', { userId: 1, scope: 'read' }, { somethingElse: 'x' });
+      throw new Error('expected throw');
+    } catch (err) {
+      expect(err.code).toBe('invalid_input');
+    }
+  });
 });

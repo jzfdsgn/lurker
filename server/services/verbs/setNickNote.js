@@ -26,7 +26,11 @@ registerVerb({
   handler(ctx, input) {
     const networkId = Number(input.networkId);
     const nick = typeof input.nick === 'string' ? input.nick.trim() : '';
-    if (!nick) return { networkId, nick: '', note: '', updatedAt: null };
+    if (!nick) {
+      const err = new Error('nick is empty or whitespace');
+      err.code = 'invalid_input';
+      throw err;
+    }
     const raw = typeof input.note === 'string' ? input.note : '';
     const note = raw.length > 4096 ? raw.slice(0, 4096) : raw;
     const saved = ircManager.setNickNote(ctx.userId, networkId, nick, note);

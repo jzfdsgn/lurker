@@ -114,6 +114,26 @@ describe('recent_messages', () => {
       networkId: otherNet.id, target: '#chan', limit: 5,
     })).toThrow(/unknown network/);
   });
+
+  it('throws invalid_input when networkId is omitted (registry-level required check)', () => {
+    try {
+      callVerb('recent_messages', rCtx(owner.id), { target: '#chan' });
+      throw new Error('expected throw');
+    } catch (err) {
+      expect(err.code).toBe('invalid_input');
+      expect(err.message).toMatch(/networkId/);
+    }
+  });
+
+  it('throws invalid_input when target is empty after trim', () => {
+    try {
+      callVerb('recent_messages', rCtx(owner.id), { networkId: net.id, target: '   ' });
+      throw new Error('expected throw');
+    } catch (err) {
+      expect(err.code).toBe('invalid_input');
+      expect(err.message).toMatch(/target/);
+    }
+  });
 });
 
 describe('search_messages', () => {
@@ -128,6 +148,38 @@ describe('search_messages', () => {
   it('returns empty when nothing matches', () => {
     const result = callVerb('search_messages', rCtx(owner.id), { query: 'xyzzy-no-such-term' });
     expect(result.messages).toEqual([]);
+  });
+
+  it('reports hasMore=false when total matches equal the requested limit exactly', () => {
+    // Seed a fresh user + network so the message count is deterministic.
+    const u = createUser('search-limit-edge');
+    const n = createNetwork(u.id, { name: 'l', host: 'h', port: 6697, tls: true, nick: 'u' });
+    const t = new Date().toISOString();
+    for (let i = 0; i < 3; i += 1) {
+      insertMessage({
+        networkId: n.id, target: '#c', time: t, type: 'message',
+        nick: 'u', text: `needle-${i}`, self: false,
+      });
+    }
+    const res = callVerb('search_messages', rCtx(u.id), { query: 'needle', limit: 3 });
+    expect(res.messages).toHaveLength(3);
+    // The pre-fix heuristic (length === limit) would report true here.
+    expect(res.hasMore).toBe(false);
+  });
+
+  it('reports hasMore=true when there is at least one extra match beyond the limit', () => {
+    const u = createUser('search-limit-overflow');
+    const n = createNetwork(u.id, { name: 'l', host: 'h', port: 6697, tls: true, nick: 'u' });
+    const t = new Date().toISOString();
+    for (let i = 0; i < 5; i += 1) {
+      insertMessage({
+        networkId: n.id, target: '#c', time: t, type: 'message',
+        nick: 'u', text: `morsel-${i}`, self: false,
+      });
+    }
+    const res = callVerb('search_messages', rCtx(u.id), { query: 'morsel', limit: 3 });
+    expect(res.messages).toHaveLength(3);
+    expect(res.hasMore).toBe(true);
   });
 });
 
@@ -162,6 +214,27 @@ describe('get_nick_note / set_nick_note', () => {
     expect(() => callVerb('set_nick_note', rCtx(owner.id), {
       networkId: net.id, nick: 'eve', note: 'denied',
     })).toThrow(/scope insufficient/);
+  });
+
+  it('set_nick_note throws invalid_input on empty/whitespace nick (not silent success)', () => {
+    try {
+      callVerb('set_nick_note', rwCtx(owner.id), {
+        networkId: net.id, nick: '   ', note: 'orphan',
+      });
+      throw new Error('expected throw');
+    } catch (err) {
+      expect(err.code).toBe('invalid_input');
+      expect(err.message).toMatch(/nick/);
+    }
+  });
+
+  it('get_nick_note throws invalid_input on empty nick', () => {
+    try {
+      callVerb('get_nick_note', rCtx(owner.id), { networkId: net.id, nick: '' });
+      throw new Error('expected throw');
+    } catch (err) {
+      expect(err.code).toBe('invalid_input');
+    }
   });
 });
 

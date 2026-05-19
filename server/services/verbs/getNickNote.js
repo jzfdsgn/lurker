@@ -20,7 +20,11 @@ registerVerb({
   handler(ctx, input) {
     const networkId = Number(input.networkId);
     const nick = typeof input.nick === 'string' ? input.nick.trim() : '';
-    if (!nick) return { networkId, nick: '', note: '', updatedAt: null };
+    if (!nick) {
+      const err = new Error('nick is empty or whitespace');
+      err.code = 'invalid_input';
+      throw err;
+    }
     const row = getNote({ userId: ctx.userId, networkId, nick });
     return {
       networkId,

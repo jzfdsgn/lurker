@@ -47,11 +47,12 @@ export function listVerbs(callerScope) {
   return out;
 }
 
-// Universal boundary: scope check + network-ownership check. Verbs trust ctx
-// to carry an authenticated userId and the granted scope. Anything with a
-// numeric networkId in the input gets ownership-checked here rather than at
-// each call site; verbs are still free to do additional structural validation
-// in their handlers.
+// Universal boundary: scope check + required-field check + network-ownership
+// check. Verbs trust ctx to carry an authenticated userId and the granted
+// scope. Anything with a numeric networkId in the input gets ownership-checked
+// here rather than at each call site; verbs are still free to do additional
+// structural validation in their handlers (e.g. rejecting empty-after-trim
+// strings that the JSON Schema can't express).
 export function callVerb(name, ctx, input) {
   const verb = verbs.get(name);
   if (!verb) {
@@ -63,6 +64,21 @@ export function callVerb(name, ctx, input) {
     const err = new Error(`scope insufficient: ${name} requires read-write`);
     err.code = 'forbidden';
     throw err;
+  }
+  // Required-field check from the verb's declared JSON Schema. Without this
+  // the ownership check below could be bypassed simply by omitting networkId,
+  // and the handler would coerce undefined to NaN and surface a confusing
+  // downstream error instead of a clean invalid_input.
+  const required = Array.isArray(verb.input?.required) ? verb.input.required : null;
+  if (required) {
+    const payload = input || {};
+    for (const field of required) {
+      if (payload[field] == null) {
+        const err = new Error(`missing required field: ${field}`);
+        err.code = 'invalid_input';
+        throw err;
+      }
+    }
   }
   if (input && input.networkId != null) {
     const networkId = Number(input.networkId);

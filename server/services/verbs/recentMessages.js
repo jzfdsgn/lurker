@@ -36,8 +36,12 @@ registerVerb({
   },
   handler(ctx, input) {
     const networkId = Number(input.networkId);
-    const target = typeof input.target === 'string' ? input.target : '';
-    if (!target) return { messages: [], hasOlder: false };
+    const target = typeof input.target === 'string' ? input.target.trim() : '';
+    if (!target) {
+      const err = new Error('target is empty or whitespace');
+      err.code = 'invalid_input';
+      throw err;
+    }
     const limit = Math.min(Math.max(Number(input.limit) || 100, 1), 500);
     const before = input.before ? Number(input.before) : undefined;
     const events = listMessages(networkId, target, { before, limit })
