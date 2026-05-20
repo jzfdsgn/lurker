@@ -364,6 +364,8 @@ function extractProposals(content) {
         : [],
     }))
     // Drop malformed proposals — an empty nick or note would render a broken
-    // review card and make /api/apply call set_nick_note with junk.
-    .filter((p) => p.nick && p.proposedNote);
+    // review card and make /api/apply call set_nick_note with junk. Evidence
+    // is required too: the prompt forbids proposing without it, and the review
+    // UI is built around showing the cited messages per card.
+    .filter((p) => p.nick && p.proposedNote && p.evidence.length > 0);
 }

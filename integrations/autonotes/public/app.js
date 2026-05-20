@@ -40,6 +40,7 @@ const state = {
   scan: null,
   cards: new Map(), // nick -> { proposal, status, note }
   pollHandle: null,
+  activeScanId: null, // scan whose review route is currently active
   renderedEventCount: 0, // index up to which the trace has been rendered
   turnEls: new Map(), // turn number -> { container, body }
   isApplyingAll: false, // true while the apply-all loop is in flight
@@ -219,6 +220,7 @@ els.scanForm.addEventListener("submit", async (e) => {
 function enterReview(scanId) {
   showView("review");
   stopPolling();
+  state.activeScanId = scanId;
   state.cards.clear();
   state.renderedEventCount = 0;
   state.turnEls.clear();
@@ -232,6 +234,10 @@ function enterReview(scanId) {
 }
 
 function stopPolling() {
+  // Clear activeScanId too — an in-flight pollScan() fetch will resolve after
+  // this runs and would otherwise schedule a fresh timeout that outlives the
+  // navigation. pollScan() checks this id before scheduling the next tick.
+  state.activeScanId = null;
   if (state.pollHandle) {
     clearTimeout(state.pollHandle);
     state.pollHandle = null;
@@ -239,8 +245,11 @@ function stopPolling() {
 }
 
 async function pollScan(scanId) {
+  if (scanId !== state.activeScanId) return;
   try {
     const scan = await api(`/api/scan/${scanId}`);
+    // The user may have navigated away while the fetch was in flight.
+    if (scanId !== state.activeScanId) return;
     state.scan = scan;
     renderTrace(scan);
 
@@ -255,6 +264,7 @@ async function pollScan(scanId) {
     }
     renderReview(scan);
   } catch (err) {
+    if (scanId !== state.activeScanId) return;
     setStatus(els.reviewSummary, err.message, "err");
   }
 }
