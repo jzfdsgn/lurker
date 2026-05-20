@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lurker Auto-notes</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Lurker Auto-notes</h1>
+      <nav>
+        <a href="#config">Config</a>
+        <a href="#scan">Scan</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="view-config" class="view" hidden>
+        <h2>Connection</h2>
+        <p class="hint">
+          Point this app at your Lurker instance's MCP endpoint (the URL must
+          end in <code>/mcp</code>). Mint a read-write API token in Lurker →
+          Settings → API tokens; paste it here.
+        </p>
+        <form id="config-form">
+          <label>
+            Lurker MCP URL
+            <input
+              type="url"
+              name="lurkerUrl"
+              required
+              placeholder="https://lurker.example.com/mcp"
+            />
+          </label>
+          <label>
+            API token
+            <input
+              type="password"
+              name="lurkerToken"
+              required
+              autocomplete="off"
+            />
+          </label>
+          <button type="submit">Test &amp; save</button>
+        </form>
+        <div id="config-status" class="status"></div>
+        <p id="env-warning" class="warning" hidden>
+          ⚠ <code>ANTHROPIC_API_KEY</code> is not set in this integration's
+          environment. Scans will fail until you set it in <code>.env</code>
+          and restart the server.
+        </p>
+      </section>
+
+      <section id="view-scan" class="view" hidden>
+        <h2>Scan a channel</h2>
+        <form id="scan-form">
+          <label>
+            Network
+            <select name="networkId" required></select>
+          </label>
+          <label>
+            Buffer
+            <select name="target" required></select>
+          </label>
+          <label>
+            Backlog depth
+            <input
+              type="number"
+              name="depth"
+              min="10"
+              max="500"
+              value="200"
+              required
+            />
+          </label>
+          <button type="submit" id="scan-submit">Scan</button>
+        </form>
+        <div id="scan-status" class="status"></div>
+      </section>
+
+      <section id="view-review" class="view" hidden>
+        <h2>Proposed updates</h2>
+        <div id="review-summary" class="status"></div>
+        <details id="trace-panel" open hidden>
+          <summary>
+            <span class="summary-label">Trace</span>
+            <span id="trace-totals" class="trace-totals"></span>
+          </summary>
+          <div id="trace-list"></div>
+        </details>
+        <div id="review-list"></div>
+        <div class="footer-actions" hidden id="review-actions">
+          <button id="apply-all">Apply all remaining</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

@@ -174,6 +174,18 @@ curl -X POST https://<your-lurker>/mcp \
   }'
 ```
 
+### Auto-notes — reference integration
+
+The repo includes a small standalone web app at
+[`integrations/autonotes/`](integrations/autonotes/) that uses the MCP API
+to propose updates to your nick-notes from recent channel chatter. It's
+useful on its own, but more importantly it serves as a worked example of
+consuming Lurker's MCP API from outside the server. If you're building
+your own integration, [`lib/mcpClient.js`](integrations/autonotes/lib/mcpClient.js)
+shows the wire protocol end-to-end and
+[`lib/agent.js`](integrations/autonotes/lib/agent.js) shows how to wrap
+MCP verbs as Anthropic tool definitions for an agentic loop.
+
 ## Revocation
 
 Revoke a token from the settings pane at any time. Soft revocation: the
