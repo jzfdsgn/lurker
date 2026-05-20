@@ -37,23 +37,33 @@ describe('formatServerNumeric', () => {
   const fmt = (line: string) => formatServerNumeric(ircLineParser(line));
 
   it('renders RPL_WELCOME (001) trailing text', () => {
-    expect(fmt(':tungsten.libera.chat 001 amiantos :Welcome to the Libera.Chat Internet Relay Chat Network amiantos'))
-      .toBe('Welcome to the Libera.Chat Internet Relay Chat Network amiantos');
+    expect(
+      fmt(
+        ':tungsten.libera.chat 001 amiantos :Welcome to the Libera.Chat Internet Relay Chat Network amiantos',
+      ),
+    ).toBe('Welcome to the Libera.Chat Internet Relay Chat Network amiantos');
   });
 
   it('renders RPL_YOURHOST (002) trailing text', () => {
-    expect(fmt(':srv 002 nick :Your host is tungsten.libera.chat, running version solanum-1.0-dev'))
-      .toBe('Your host is tungsten.libera.chat, running version solanum-1.0-dev');
+    expect(
+      fmt(':srv 002 nick :Your host is tungsten.libera.chat, running version solanum-1.0-dev'),
+    ).toBe('Your host is tungsten.libera.chat, running version solanum-1.0-dev');
   });
 
   it('renders RPL_CREATED (003) trailing text', () => {
-    expect(fmt(':srv 003 nick :This server was created Tue Feb 17 2026 at 18:43:04 UTC'))
-      .toBe('This server was created Tue Feb 17 2026 at 18:43:04 UTC');
+    expect(fmt(':srv 003 nick :This server was created Tue Feb 17 2026 at 18:43:04 UTC')).toBe(
+      'This server was created Tue Feb 17 2026 at 18:43:04 UTC',
+    );
   });
 
   it('formats RPL_MYINFO (004) into a Host/IRCd/modes line', () => {
-    expect(fmt(':srv 004 nick tungsten.libera.chat solanum-1.0-dev DGIMQRSZaghilopsuwz CFILMPQRSTbcefgijklmnopqrstuvz bkloveqjfI'))
-      .toBe('Host: tungsten.libera.chat, IRCd: solanum-1.0-dev, user modes: DGIMQRSZaghilopsuwz, channel modes: CFILMPQRSTbcefgijklmnopqrstuvz, parametric channel modes: bkloveqjfI');
+    expect(
+      fmt(
+        ':srv 004 nick tungsten.libera.chat solanum-1.0-dev DGIMQRSZaghilopsuwz CFILMPQRSTbcefgijklmnopqrstuvz bkloveqjfI',
+      ),
+    ).toBe(
+      'Host: tungsten.libera.chat, IRCd: solanum-1.0-dev, user modes: DGIMQRSZaghilopsuwz, channel modes: CFILMPQRSTbcefgijklmnopqrstuvz, parametric channel modes: bkloveqjfI',
+    );
   });
 
   it('formats RPL_UMODEIS (221) with the mode string', () => {
@@ -61,13 +71,17 @@ describe('formatServerNumeric', () => {
   });
 
   it('renders RPL_STATSCONN (250) trailing text', () => {
-    expect(fmt(':srv 250 nick :Highest connection count: 2419 (2418 clients) (135662 connections received)'))
-      .toBe('Highest connection count: 2419 (2418 clients) (135662 connections received)');
+    expect(
+      fmt(
+        ':srv 250 nick :Highest connection count: 2419 (2418 clients) (135662 connections received)',
+      ),
+    ).toBe('Highest connection count: 2419 (2418 clients) (135662 connections received)');
   });
 
   it('renders RPL_LUSERCLIENT (251) trailing text', () => {
-    expect(fmt(':srv 251 nick :There are 61 users and 30637 invisible on 29 servers'))
-      .toBe('There are 61 users and 30637 invisible on 29 servers');
+    expect(fmt(':srv 251 nick :There are 61 users and 30637 invisible on 29 servers')).toBe(
+      'There are 61 users and 30637 invisible on 29 servers',
+    );
   });
 
   it('joins count+label for LUSEROP/UNKNOWN/CHANNELS (252/253/254)', () => {
@@ -77,32 +91,37 @@ describe('formatServerNumeric', () => {
   });
 
   it('renders RPL_LUSERME (255) trailing text', () => {
-    expect(fmt(':srv 255 nick :I have 1818 clients and 1 servers'))
-      .toBe('I have 1818 clients and 1 servers');
+    expect(fmt(':srv 255 nick :I have 1818 clients and 1 servers')).toBe(
+      'I have 1818 clients and 1 servers',
+    );
   });
 
   it('renders RPL_LOCAL/GLOBALUSERS (265/266) trailing text', () => {
-    expect(fmt(':srv 265 nick 1818 2418 :Current local users 1818, max 2418'))
-      .toBe('Current local users 1818, max 2418');
-    expect(fmt(':srv 266 nick 30698 35475 :Current global users 30698, max 35475'))
-      .toBe('Current global users 30698, max 35475');
+    expect(fmt(':srv 265 nick 1818 2418 :Current local users 1818, max 2418')).toBe(
+      'Current local users 1818, max 2418',
+    );
+    expect(fmt(':srv 266 nick 30698 35475 :Current global users 30698, max 35475')).toBe(
+      'Current global users 30698, max 35475',
+    );
   });
 
   it('formats RPL_HOSTCLOAKING (396)', () => {
-    expect(fmt(':srv 396 nick uid752922@user/amiantos :is now your displayed host'))
-      .toBe('Your hostmask: uid752922@user/amiantos');
+    expect(fmt(':srv 396 nick uid752922@user/amiantos :is now your displayed host')).toBe(
+      'Your hostmask: uid752922@user/amiantos',
+    );
   });
 
   it('renders RPL_LOGGEDIN (900) and RPL_SASLLOGGEDIN (903) trailing text', () => {
-    expect(fmt(':srv 900 nick nick!user@host amiantos :You are now logged in as amiantos'))
-      .toBe('You are now logged in as amiantos');
-    expect(fmt(':srv 903 nick :SASL authentication successful'))
-      .toBe('SASL authentication successful');
+    expect(fmt(':srv 900 nick nick!user@host amiantos :You are now logged in as amiantos')).toBe(
+      'You are now logged in as amiantos',
+    );
+    expect(fmt(':srv 903 nick :SASL authentication successful')).toBe(
+      'SASL authentication successful',
+    );
   });
 
   it('returns null for the deliberately-skipped 005/ISUPPORT', () => {
-    expect(fmt(':srv 005 nick CHANTYPES=# EXCEPTS INVEX :are supported by this server'))
-      .toBeNull();
+    expect(fmt(':srv 005 nick CHANTYPES=# EXCEPTS INVEX :are supported by this server')).toBeNull();
   });
 
   it('returns null for non-numerics and bad input', () => {

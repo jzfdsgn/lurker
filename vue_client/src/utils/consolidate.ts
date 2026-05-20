@@ -6,4 +6,8 @@
 // (e.g. a Vue-friendly memoization helper) have a place to live without
 // touching the shared module.
 
-export { consolidateRows, consolidateMessages, CONSOLIDATABLE_TYPES } from '../../../shared/consolidate.js';
+export {
+  consolidateRows,
+  consolidateMessages,
+  CONSOLIDATABLE_TYPES,
+} from '../../../shared/consolidate.js';

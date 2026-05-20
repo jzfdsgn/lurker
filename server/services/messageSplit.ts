@@ -22,11 +22,13 @@ const MESSAGE_MAX_BYTES = 350;
 const ACTION_MAX_BYTES = MESSAGE_MAX_BYTES - ('ACTION'.length + 3);
 
 function chunk(text: string, bytes: number): string[] {
-  return [...lineBreak(text, {
-    bytes,
-    allowBreakingWords: true,
-    allowBreakingGraphemes: true,
-  })];
+  return [
+    ...lineBreak(text, {
+      bytes,
+      allowBreakingWords: true,
+      allowBreakingGraphemes: true,
+    }),
+  ];
 }
 
 // Split a PRIVMSG body the way irc-framework would: first on line breaks

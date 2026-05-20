@@ -29,11 +29,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-const props = withDefaults(defineProps<{
-  word: string;
-  rows?: number;
-  repeats?: number;
-}>(), { rows: 12, repeats: 10 });
+const props = withDefaults(
+  defineProps<{
+    word: string;
+    rows?: number;
+    repeats?: number;
+  }>(),
+  { rows: 12, repeats: 10 },
+);
 
 const tiledLine = computed(() => {
   const w = (props.word || '').trim();
@@ -69,5 +72,7 @@ const tiledLine = computed(() => {
   letter-spacing: -0.04em;
   color: var(--bg-soft);
 }
-.word-backdrop-row.offset { margin-left: 8rem; }
+.word-backdrop-row.offset {
+  margin-left: 8rem;
+}
 </style>

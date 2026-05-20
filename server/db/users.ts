@@ -52,9 +52,8 @@ export function countUsers(): number {
 }
 
 export function countAdmins(): number {
-  return (
-    db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin'`).get() as { n: number }
-  ).n;
+  return (db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin'`).get() as { n: number })
+    .n;
 }
 
 export function createUser(username: string, { role = 'user' }: { role?: UserRole } = {}): User {

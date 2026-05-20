@@ -20,11 +20,9 @@
     <p v-else-if="store.items.length" class="empty">All bookmarks are from ignored users.</p>
     <p v-else class="empty">No saved messages yet. Use the message context menu to save one.</p>
     <footer v-if="store.hasMore || store.loading" class="foot">
-      <button
-        class="link"
-        :disabled="store.loading || !store.hasMore"
-        @click="store.loadMore()"
-      >{{ store.loading ? 'Loading…' : 'Load more' }}</button>
+      <button class="link" :disabled="store.loading || !store.hasMore" @click="store.loadMore()">
+        {{ store.loading ? 'Loading…' : 'Load more' }}
+      </button>
     </footer>
   </AppModal>
 </template>
@@ -50,7 +48,9 @@ const ignores = useIgnoresStore();
 type BookmarkRow = HistoryMessage & { userhost?: string | null };
 
 const visibleItems = computed(() =>
-  (store.items as BookmarkRow[]).filter((m) => !ignores.isIgnored(m.networkId, m.nick, m.userhost ?? ''))
+  (store.items as BookmarkRow[]).filter(
+    (m) => !ignores.isIgnored(m.networkId, m.nick, m.userhost ?? ''),
+  ),
 );
 
 onMounted(() => {
@@ -78,8 +78,13 @@ function onRemove(m: HistoryMessage): void {
   font: inherit;
   padding: 0 4px;
 }
-.link:hover { color: var(--accent); }
-.link:disabled { opacity: 0.5; cursor: default; }
+.link:hover {
+  color: var(--accent);
+}
+.link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 .match-list {
   list-style: none;

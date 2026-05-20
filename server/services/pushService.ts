@@ -38,24 +38,33 @@ export function getPublicKey(): string | null {
   return publicKey;
 }
 
-export async function deliver(userId: number, payload: unknown): Promise<{ sent: number; dropped: number }> {
+export async function deliver(
+  userId: number,
+  payload: unknown,
+): Promise<{ sent: number; dropped: number }> {
   ensureVapid();
   const subs: PushSubscription[] = listEnabledForUser(userId);
   if (!subs.length) return { sent: 0, dropped: 0 };
   const json = JSON.stringify(payload);
-  const results = await Promise.allSettled(subs.map((sub) =>
-    webpush.sendNotification(
-      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-      json,
-    )
-  ));
+  const results = await Promise.allSettled(
+    subs.map((sub) =>
+      webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        json,
+      ),
+    ),
+  );
   let sent = 0;
   let dropped = 0;
   results.forEach((r, i) => {
     const sub = subs[i];
     if (r.status === 'fulfilled') {
       sent += 1;
-      try { touchSubscription(sub.id); } catch (_) { /* ignore */ }
+      try {
+        touchSubscription(sub.id);
+      } catch (_) {
+        /* ignore */
+      }
       return;
     }
     const err = r.reason as webpush.WebPushError & { statusCode?: number };
@@ -66,11 +75,15 @@ export async function deliver(userId: number, payload: unknown): Promise<{ sent:
       return;
     }
     let host = '';
-    try { host = new URL(sub.endpoint).host; } catch (_) { /* ignore */ }
+    try {
+      host = new URL(sub.endpoint).host;
+    } catch (_) {
+      /* ignore */
+    }
     const body = typeof err?.body === 'string' ? err.body.slice(0, 500) : '';
     console.warn(
       `[push] delivery failed for sub ${sub.id} (${host}): ` +
-      `status=${status ?? '?'} message=${err?.message || String(err)} body=${body}`,
+        `status=${status ?? '?'} message=${err?.message || String(err)} body=${body}`,
     );
   });
   return { sent, dropped };

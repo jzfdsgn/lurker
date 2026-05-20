@@ -10,8 +10,20 @@
     <div ref="listEl" class="list-wrap" @scroll="onScroll">
       <ul v-if="recentRows.length" class="list">
         <li v-for="u in recentRows" :key="u.id" class="row">
-          <a :href="u.url" target="_blank" rel="noreferrer noopener" class="thumb-link" :title="u.url">
-            <img v-if="u.thumbnail_url" :src="u.thumbnail_url" class="thumb" alt="" loading="lazy" />
+          <a
+            :href="u.url"
+            target="_blank"
+            rel="noreferrer noopener"
+            class="thumb-link"
+            :title="u.url"
+          >
+            <img
+              v-if="u.thumbnail_url"
+              :src="u.thumbnail_url"
+              class="thumb"
+              alt=""
+              loading="lazy"
+            />
             <div v-else class="thumb thumb-placeholder">
               <i class="fa-solid fa-file-lines fa-2x"></i>
             </div>
@@ -28,13 +40,27 @@
           </div>
           <div class="row-actions">
             <button class="link" @click="onInsert(u)" title="insert URL into input">insert</button>
-            <button class="link" @click="onCopy(u)" :title="copiedId === u.id ? 'copied' : 'copy URL'">{{ copiedId === u.id ? 'copied' : 'copy' }}</button>
-            <button class="link danger" @click="onDelete(u)" title="remove from history (does not delete from host)">delete</button>
+            <button
+              class="link"
+              @click="onCopy(u)"
+              :title="copiedId === u.id ? 'copied' : 'copy URL'"
+            >
+              {{ copiedId === u.id ? 'copied' : 'copy' }}
+            </button>
+            <button
+              class="link danger"
+              @click="onDelete(u)"
+              title="remove from history (does not delete from host)"
+            >
+              delete
+            </button>
           </div>
         </li>
       </ul>
       <p v-else-if="uploads.loading && !uploads.loaded" class="empty">Loading…</p>
-      <p v-else-if="uploads.loaded" class="empty">No uploads yet. Paste, drop, or pick an image in the input.</p>
+      <p v-else-if="uploads.loaded" class="empty">
+        No uploads yet. Paste, drop, or pick an image in the input.
+      </p>
       <p v-if="uploads.loading && uploads.loaded" class="empty small">Loading more…</p>
     </div>
   </AppModal>
@@ -67,7 +93,9 @@ const listEl = ref<HTMLDivElement | null>(null);
 const copiedId = ref<number | null>(null);
 
 onMounted(() => {
-  uploads.loadRecent().catch(() => { /* surfaced via store.listError */ });
+  uploads.loadRecent().catch(() => {
+    /* surfaced via store.listError */
+  });
 });
 
 function onScroll() {
@@ -97,7 +125,11 @@ async function onCopy(u: UploadRow) {
 }
 
 async function onDelete(u: UploadRow) {
-  try { await uploads.remove(u.id); } catch (_) { /* listError set */ }
+  try {
+    await uploads.remove(u.id);
+  } catch (_) {
+    /* listError set */
+  }
 }
 
 function formatBytes(n: number) {
@@ -116,8 +148,12 @@ function formatBytes(n: number) {
   font: inherit;
   padding: 0 4px;
 }
-.link:hover { color: var(--accent); }
-.link.danger:hover { color: var(--bad); }
+.link:hover {
+  color: var(--accent);
+}
+.link.danger:hover {
+  color: var(--bad);
+}
 
 .error {
   margin: 0 0 8px;
@@ -135,7 +171,11 @@ function formatBytes(n: number) {
   flex: 1;
   min-height: 0;
 }
-.list { list-style: none; margin: 0; padding: 0; }
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .row {
   display: grid;
   grid-template-columns: 80px 1fr max-content;
@@ -147,7 +187,10 @@ function formatBytes(n: number) {
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
-.thumb-link { display: block; line-height: 0; }
+.thumb-link {
+  display: block;
+  line-height: 0;
+}
 .thumb {
   width: 64px;
   height: 64px;
@@ -161,7 +204,9 @@ function formatBytes(n: number) {
   justify-content: center;
   color: var(--fg-muted);
 }
-.meta { min-width: 0; }
+.meta {
+  min-width: 0;
+}
 .filename {
   color: var(--fg);
   white-space: nowrap;
@@ -200,7 +245,9 @@ function formatBytes(n: number) {
     justify-content: flex-end;
     margin-left: 0;
   }
-  .row-actions .link { padding: 6px 10px; }
+  .row-actions .link {
+    padding: 6px 10px;
+  }
 }
 
 .empty {
@@ -208,5 +255,8 @@ function formatBytes(n: number) {
   color: var(--fg-muted);
   text-align: center;
 }
-.empty.small { padding: 8px 0; font-size: 0.9em; }
+.empty.small {
+  padding: 8px 0;
+  font-size: 0.9em;
+}
 </style>

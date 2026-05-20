@@ -46,29 +46,30 @@ export async function upload(
       headers: {
         'Content-Type': contentType,
         'User-Agent': USER_AGENT,
-        'Accept': '*/*',
+        Accept: '*/*',
       },
       timeoutMs: TIMEOUT_MS,
     });
   } catch (cause) {
     const c = cause as NodeJS.ErrnoException; // eslint-disable-line @typescript-eslint/no-explicit-any
     const detail = c.code || c.message || 'unknown error';
-    const err = Object.assign(new Error(`catbox upload failed: ${detail}`), { code: 'PROVIDER_ERROR', cause });
+    const err = Object.assign(new Error(`catbox upload failed: ${detail}`), {
+      code: 'PROVIDER_ERROR',
+      cause,
+    });
     throw err;
   }
 
   const text = (resp.text || '').trim();
   if (resp.status < 200 || resp.status >= 300) {
-    throw Object.assign(
-      new Error(`catbox upload failed: ${resp.status} ${text.slice(0, 200)}`),
-      { code: 'PROVIDER_ERROR' },
-    );
+    throw Object.assign(new Error(`catbox upload failed: ${resp.status} ${text.slice(0, 200)}`), {
+      code: 'PROVIDER_ERROR',
+    });
   }
   if (!/^https?:\/\//.test(text)) {
-    throw Object.assign(
-      new Error(`catbox refused upload: ${text.slice(0, 200)}`),
-      { code: 'PROVIDER_ERROR' },
-    );
+    throw Object.assign(new Error(`catbox refused upload: ${text.slice(0, 200)}`), {
+      code: 'PROVIDER_ERROR',
+    });
   }
   return { url: text };
 }

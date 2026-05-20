@@ -4,7 +4,13 @@
 -->
 
 <template>
-  <div ref="scroller" class="message-list" :class="{ compact: compactMode }" @scroll="onScroll" @wheel="onWheel">
+  <div
+    ref="scroller"
+    class="message-list"
+    :class="{ compact: compactMode }"
+    @scroll="onScroll"
+    @wheel="onWheel"
+  >
     <!-- No "loading older…" notice. It would appear/disappear above the
          user's view during a history fetch, shifting scrollTop and either
          throwing off the prepend anchor math or (with browser anchoring)
@@ -12,82 +18,63 @@
     <div v-if="!buffer?.hasMoreOlder && messages.length" class="notice">— start of history —</div>
     <p v-if="!messages.length" class="notice empty">No messages yet.</p>
     <template v-for="row in renderRows" :key="row.key">
-    <div v-if="row.divider === 'unread'" class="notice unread-divider">— unread —</div>
-    <div v-else-if="row.divider === 'away'" class="notice presence-divider">
-      — away<template v-if="row.awayMessage">: {{ row.awayMessage }}</template> —
-    </div>
-    <div v-else-if="row.divider === 'back'" class="notice presence-divider">
-      — back (gone {{ formatDuration(row.awayAt ?? '', row.backAt ?? '') }}) —
-    </div>
-    <div v-else-if="row.divider === 'date'" class="notice date-divider">{{ row.dateStr }}</div>
-    <div
-      v-else-if="row.consolidation"
-      class="line"
-      :class="{ 'cont-time': row.continuationTime }"
-      :data-cons-first-id="row.firstId ?? null"
-      :data-cons-last-id="row.lastId ?? null"
-    >
-      <span class="time">{{ row.continuationTime ? '' : time(row.time) }}</span>
-      <span class="prefix p-cons">--</span>
-      <span class="body meta-body">
-        <template v-for="(g, gi) in row.groups" :key="gi"
-          ><template v-if="gi > 0">; </template
-          ><template v-for="(item, ii) in g.visible" :key="ii"
-            ><template v-if="ii > 0">{{ ii === g.visible.length - 1 && g.hidden === 0 ? ' and ' : ', ' }}</template
-            ><template v-if="g.kind === 'renamed'"
-              ><NickRef :nick="asRename(item).from" /> → <NickRef :nick="asRename(item).to" /></template
-            ><template v-else><NickRef :nick="asNick(item).nick" /></template
-          ></template
-          ><template v-if="g.hidden > 0">, and {{ g.hidden }} {{ g.hidden === 1 ? 'other' : 'others' }}</template
-          ><template v-if="g.kind === 'joined'"> joined</template
-          ><template v-else-if="g.kind === 'left'"> left</template
-          ><template v-else-if="g.kind === 'reconnected'"> reconnected</template
-          ><template v-else-if="g.kind === 'joinedAndLeft'"> joined briefly</template
-        ></template>
-      </span>
-    </div>
-    <div
-      v-else
-      class="line"
-      :class="[rowClass(row), { actionable: eligibleForActions(row.m) }]"
-      :data-msg-id="row.m?.id ?? null"
-      @contextmenu="onLineContextMenu($event, row.m)"
-      v-bind="longPressBind(row.m)"
-    >
-      <template v-if="compactMode && row.m?.type === 'message'">
-        <!-- Compact-mode message rows (IRCCloud-style): nick on its own
+      <div v-if="row.divider === 'unread'" class="notice unread-divider">— unread —</div>
+      <div v-else-if="row.divider === 'away'" class="notice presence-divider">
+        — away<template v-if="row.awayMessage">: {{ row.awayMessage }}</template> —
+      </div>
+      <div v-else-if="row.divider === 'back'" class="notice presence-divider">
+        — back (gone {{ formatDuration(row.awayAt ?? '', row.backAt ?? '') }}) —
+      </div>
+      <div v-else-if="row.divider === 'date'" class="notice date-divider">{{ row.dateStr }}</div>
+      <div
+        v-else-if="row.consolidation"
+        class="line"
+        :class="{ 'cont-time': row.continuationTime }"
+        :data-cons-first-id="row.firstId ?? null"
+        :data-cons-last-id="row.lastId ?? null"
+      >
+        <span class="time">{{ row.continuationTime ? '' : time(row.time) }}</span>
+        <span class="prefix p-cons">--</span>
+        <span class="body meta-body">
+          <template v-for="(g, gi) in row.groups" :key="gi"
+            ><template v-if="gi > 0">; </template
+            ><template v-for="(item, ii) in g.visible" :key="ii"
+              ><template v-if="ii > 0">{{
+                ii === g.visible.length - 1 && g.hidden === 0 ? ' and ' : ', '
+              }}</template
+              ><template v-if="g.kind === 'renamed'"
+                ><NickRef :nick="asRename(item).from" /> →
+                <NickRef :nick="asRename(item).to" /></template
+              ><template v-else><NickRef :nick="asNick(item).nick" /></template></template
+            ><template v-if="g.hidden > 0"
+              >, and {{ g.hidden }} {{ g.hidden === 1 ? 'other' : 'others' }}</template
+            ><template v-if="g.kind === 'joined'"> joined</template
+            ><template v-else-if="g.kind === 'left'"> left</template
+            ><template v-else-if="g.kind === 'reconnected'"> reconnected</template
+            ><template v-else-if="g.kind === 'joinedAndLeft'"> joined briefly</template></template
+          >
+        </span>
+      </div>
+      <div
+        v-else
+        class="line"
+        :class="[rowClass(row), { actionable: eligibleForActions(row.m) }]"
+        :data-msg-id="row.m?.id ?? null"
+        @contextmenu="onLineContextMenu($event, row.m)"
+        v-bind="longPressBind(row.m)"
+      >
+        <template v-if="compactMode && row.m?.type === 'message'">
+          <!-- Compact-mode message rows (IRCCloud-style): nick on its own
              head line above the body; body row carries the body and a
              right-aligned timestamp. The head is omitted entirely on
              author continuations so a run of same-author messages reads
              as one block, but every body row still shows its own time. -->
-        <div v-if="!row.continuationAuthor" class="head">
-          <span class="prefix" :class="prefixClass(row.m)" :style="prefixStyle(row.m)">{{ row.m?.nick }}</span>
-        </div>
-        <span class="body" :class="bodyClass(row.m)">
-          <template v-for="(seg, j) in textSegments(row.m)" :key="j">
-            <a
-              v-if="seg.url"
-              class="msg-link"
-              :href="seg.url"
-              target="_blank"
-              rel="noreferrer noopener"
-              :style="segStyle(seg)"
-            >{{ seg.text }}</a>
-            <span v-else-if="segHasStyle(seg)" :style="segStyle(seg)">{{ seg.text }}</span>
-            <template v-else>{{ seg.text }}</template>
-          </template>
-        </span>
-        <span class="time">{{ row.continuationTime ? '' : time(row.m?.time) }}</span>
-      </template>
-      <template v-else>
-        <span class="time">{{ row.continuationTime ? '' : time(row.m?.time) }}</span>
-        <span
-          class="prefix"
-          :class="prefixClass(row.m)"
-          :style="row.continuationAuthor ? null : prefixStyle(row.m)"
-        >{{ row.continuationAuthor ? '' : prefixText(row.m) }}</span>
-        <span class="body" :class="bodyClass(row.m)">
-          <template v-if="hasInlineText(row.m)">
+          <div v-if="!row.continuationAuthor" class="head">
+            <span class="prefix" :class="prefixClass(row.m)" :style="prefixStyle(row.m)">{{
+              row.m?.nick
+            }}</span>
+          </div>
+          <span class="body" :class="bodyClass(row.m)">
             <template v-for="(seg, j) in textSegments(row.m)" :key="j">
               <a
                 v-if="seg.url"
@@ -96,32 +83,88 @@
                 target="_blank"
                 rel="noreferrer noopener"
                 :style="segStyle(seg)"
-              >{{ seg.text }}</a>
+                >{{ seg.text }}</a
+              >
               <span v-else-if="segHasStyle(seg)" :style="segStyle(seg)">{{ seg.text }}</span>
               <template v-else>{{ seg.text }}</template>
             </template>
-          </template>
-          <template v-else-if="row.m?.type === 'join'"><NickRef :nick="row.m.nick ?? ''" /> joined</template>
-          <template v-else-if="row.m?.type === 'part'"><NickRef :nick="row.m.nick ?? ''" /> left<template v-if="row.m.text"> (<LinkedText :text="row.m.text" />)</template></template>
-          <template v-else-if="row.m?.type === 'quit'"><NickRef :nick="row.m.nick ?? ''" /> quit<template v-if="row.m.text"> (<LinkedText :text="row.m.text" />)</template></template>
-          <template v-else-if="row.m?.type === 'kick'"><NickRef :nick="row.m.kicked ?? ''" /> kicked by <NickRef :nick="row.m.nick ?? ''" /><template v-if="row.m.text"> (<LinkedText :text="row.m.text" />)</template></template>
-          <template v-else-if="row.m?.type === 'nick'"><NickRef :nick="row.m.nick ?? ''" /> is now <NickRef :nick="row.m.newNick ?? ''" /></template>
-          <template v-else-if="row.m?.type === 'mode'">mode by <NickRef :nick="row.m.nick ?? ''" /><template v-if="row.m.text">: <LinkedText :text="row.m.text" /></template></template>
-          <template v-else-if="row.m?.type === 'topic'">topic set by <NickRef :nick="row.m.nick ?? ''" /><template v-if="row.m.text">: <LinkedText :text="row.m.text" /></template></template>
-          <template v-else-if="row.m?.type === 'motd'"><LinkedText :text="row.m.text ?? ''" /></template>
-          <template v-else-if="row.m?.type === 'error'"><LinkedText :text="row.m.text ?? ''" /></template>
-        </span>
-      </template>
-      <button
-        v-if="eligibleForActions(row.m)"
-        type="button"
-        class="row-actions"
-        title="Message actions"
-        aria-label="Message actions"
-        @click.stop="onActionsClick($event, row.m)"
-        @contextmenu.stop.prevent
-      ><i class="fa-solid fa-ellipsis-vertical"></i></button>
-    </div>
+          </span>
+          <span class="time">{{ row.continuationTime ? '' : time(row.m?.time) }}</span>
+        </template>
+        <template v-else>
+          <span class="time">{{ row.continuationTime ? '' : time(row.m?.time) }}</span>
+          <span
+            class="prefix"
+            :class="prefixClass(row.m)"
+            :style="row.continuationAuthor ? null : prefixStyle(row.m)"
+            >{{ row.continuationAuthor ? '' : prefixText(row.m) }}</span
+          >
+          <span class="body" :class="bodyClass(row.m)">
+            <template v-if="hasInlineText(row.m)">
+              <template v-for="(seg, j) in textSegments(row.m)" :key="j">
+                <a
+                  v-if="seg.url"
+                  class="msg-link"
+                  :href="seg.url"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  :style="segStyle(seg)"
+                  >{{ seg.text }}</a
+                >
+                <span v-else-if="segHasStyle(seg)" :style="segStyle(seg)">{{ seg.text }}</span>
+                <template v-else>{{ seg.text }}</template>
+              </template>
+            </template>
+            <template v-else-if="row.m?.type === 'join'"
+              ><NickRef :nick="row.m.nick ?? ''" /> joined</template
+            >
+            <template v-else-if="row.m?.type === 'part'"
+              ><NickRef :nick="row.m.nick ?? ''" /> left<template v-if="row.m.text">
+                (<LinkedText :text="row.m.text" />)</template
+              ></template
+            >
+            <template v-else-if="row.m?.type === 'quit'"
+              ><NickRef :nick="row.m.nick ?? ''" /> quit<template v-if="row.m.text">
+                (<LinkedText :text="row.m.text" />)</template
+              ></template
+            >
+            <template v-else-if="row.m?.type === 'kick'"
+              ><NickRef :nick="row.m.kicked ?? ''" /> kicked by
+              <NickRef :nick="row.m.nick ?? ''" /><template v-if="row.m.text">
+                (<LinkedText :text="row.m.text" />)</template
+              ></template
+            >
+            <template v-else-if="row.m?.type === 'nick'"
+              ><NickRef :nick="row.m.nick ?? ''" /> is now <NickRef :nick="row.m.newNick ?? ''"
+            /></template>
+            <template v-else-if="row.m?.type === 'mode'"
+              >mode by <NickRef :nick="row.m.nick ?? ''" /><template v-if="row.m.text"
+                >: <LinkedText :text="row.m.text" /></template
+            ></template>
+            <template v-else-if="row.m?.type === 'topic'"
+              >topic set by <NickRef :nick="row.m.nick ?? ''" /><template v-if="row.m.text"
+                >: <LinkedText :text="row.m.text" /></template
+            ></template>
+            <template v-else-if="row.m?.type === 'motd'"
+              ><LinkedText :text="row.m.text ?? ''"
+            /></template>
+            <template v-else-if="row.m?.type === 'error'"
+              ><LinkedText :text="row.m.text ?? ''"
+            /></template>
+          </span>
+        </template>
+        <button
+          v-if="eligibleForActions(row.m)"
+          type="button"
+          class="row-actions"
+          title="Message actions"
+          aria-label="Message actions"
+          @click.stop="onActionsClick($event, row.m)"
+          @contextmenu.stop.prevent
+        >
+          <i class="fa-solid fa-ellipsis-vertical"></i>
+        </button>
+      </div>
     </template>
   </div>
   <IgnoreModal
@@ -214,9 +257,12 @@ interface IgnoreTarget {
   networkId?: number;
 }
 
-const props = withDefaults(defineProps<{
-  pendingScrollId?: number | string | null;
-}>(), { pendingScrollId: null });
+const props = withDefaults(
+  defineProps<{
+    pendingScrollId?: number | string | null;
+  }>(),
+  { pendingScrollId: null },
+);
 
 const networks = useNetworksStore();
 const buffers = useBuffersStore();
@@ -232,9 +278,11 @@ const selfColor = computed(() => settings.effective('look.nick.self_color'));
 // standard-layout timestamps. Note: `tsFormat` is referenced via `time()`
 // inside the collapseDisplay formatter too, so the timestamp-collapse
 // granularity follows the active format automatically.
-const tsFormat = computed(() => settings.effective(
-  compactMode.value ? 'look.buffer.time_format_compact' : 'look.buffer.time_format',
-));
+const tsFormat = computed(() =>
+  settings.effective(
+    compactMode.value ? 'look.buffer.time_format_compact' : 'look.buffer.time_format',
+  ),
+);
 
 const scroller = ref<HTMLElement | null>(null);
 const stickToBottom = ref(true);
@@ -253,7 +301,7 @@ const nickSet = computed((): Set<string> => {
   const b = buffer.value;
   const set = new Set<string>();
   if (!b) return set;
-  for (const mem of (b.members || [])) {
+  for (const mem of b.members || []) {
     const n = typeof mem === 'string' ? mem : mem.nick;
     if (n) set.add(n);
   }
@@ -266,7 +314,7 @@ const nickSet = computed((): Set<string> => {
 });
 
 function time(iso: string | undefined): string {
-  return formatTimestamp(iso ?? '', tsFormat.value as string ?? '');
+  return formatTimestamp(iso ?? '', (tsFormat.value as string) ?? '');
 }
 
 function rowClass(row: RenderRow) {
@@ -295,7 +343,10 @@ function eligibleForActions(m: ChatMessage | undefined | null): boolean {
   return m.type === 'message' || m.type === 'action' || m.type === 'notice';
 }
 
-function parseUserHost(userhost: string | null | undefined): { user: string | null; host: string | null } {
+function parseUserHost(userhost: string | null | undefined): {
+  user: string | null;
+  host: string | null;
+} {
   if (!userhost) return { user: null, host: null };
   // Format is nick!user@host; tolerate missing pieces.
   const bang = userhost.indexOf('!');
@@ -331,7 +382,11 @@ function onLineContextMenu(e: MouseEvent, m: ChatMessage | undefined) {
 function onActionsClick(e: MouseEvent, m: ChatMessage | undefined) {
   if (!eligibleForActions(m)) return;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  messageActions.openMenuFromButton(m as any, menuContext(m!), (e.currentTarget as Element) || null);
+  messageActions.openMenuFromButton(
+    m as any,
+    menuContext(m!),
+    (e.currentTarget as Element) || null,
+  );
 }
 
 // Touch long-press → same menu. Eligibility is rechecked inside the callback
@@ -348,20 +403,32 @@ function longPressBind(m: ChatMessage | undefined) {
 }
 
 const smartFilterEnabled = computed(() => !!settings.effective('chat.smart_filter'));
-const smartFilterDelayMs = computed(() => ((settings.effective('chat.smart_filter_delay') as number) || 0) * 60_000);
-const smartFilterUnmaskMs = computed(() => ((settings.effective('chat.smart_filter_join_unmask') as number) || 0) * 60_000);
+const smartFilterDelayMs = computed(
+  () => ((settings.effective('chat.smart_filter_delay') as number) || 0) * 60_000,
+);
+const smartFilterUnmaskMs = computed(
+  () => ((settings.effective('chat.smart_filter_join_unmask') as number) || 0) * 60_000,
+);
 const smartFilterJoin = computed(() => !!settings.effective('chat.smart_filter_join'));
 const smartFilterQuit = computed(() => !!settings.effective('chat.smart_filter_quit'));
 const smartFilterNick = computed(() => !!settings.effective('chat.smart_filter_nick'));
 
 const consolidateEnabled = computed(() => !!settings.effective('chat.consolidate_joins'));
-const consolidateMaxNames = computed(() => (settings.effective('chat.consolidate_max_names') as number) || 5);
-
-const collapseAuthorsEnabled = computed(() => !!settings.effective('look.message.collapse_authors'));
-const collapseAuthorsWindowMs = computed(() =>
-  Math.max(0, (settings.effective('look.message.collapse_authors_window') as number) || 0) * 60_000,
+const consolidateMaxNames = computed(
+  () => (settings.effective('chat.consolidate_max_names') as number) || 5,
 );
-const collapseTimestampsEnabled = computed(() => !!settings.effective('look.message.collapse_timestamps'));
+
+const collapseAuthorsEnabled = computed(
+  () => !!settings.effective('look.message.collapse_authors'),
+);
+const collapseAuthorsWindowMs = computed(
+  () =>
+    Math.max(0, (settings.effective('look.message.collapse_authors_window') as number) || 0) *
+    60_000,
+);
+const collapseTimestampsEnabled = computed(
+  () => !!settings.effective('look.message.collapse_timestamps'),
+);
 
 // look.message.layout: auto / standard / compact. Compact swaps the 3-column
 // subgrid for a two-line stack (head: nick + time, body below) on
@@ -449,7 +516,7 @@ const renderRows = computed((): RenderRow[] => {
   const aw = awayState.value;
   const awaySinceMs = aw?.since ? Date.parse(aw.since) : null;
   const backAtMs = aw?.backAt ? Date.parse(aw.backAt) : null;
-  const presenceExpired = backAtMs != null && (now.value - backAtMs) > PRESENCE_MARKER_TTL_MS;
+  const presenceExpired = backAtMs != null && now.value - backAtMs > PRESENCE_MARKER_TTL_MS;
   let awayInserted = !awaySinceMs || presenceExpired;
   let backInserted = !backAtMs || presenceExpired;
 
@@ -459,13 +526,22 @@ const renderRows = computed((): RenderRow[] => {
   let lastDayKey = null;
   const pushAwayDivider = () => {
     if (!aw) return;
-    out.push({ divider: 'away', awayMessage: aw.message ?? undefined, awayAt: aw.since ?? undefined, key: 'presence-away' });
+    out.push({
+      divider: 'away',
+      awayMessage: aw.message ?? undefined,
+      awayAt: aw.since ?? undefined,
+      key: 'presence-away',
+    });
   };
   const pushBackDivider = () => {
     if (!aw) return;
-    out.push({ divider: 'back', awayAt: aw.since ?? undefined, backAt: aw.backAt ?? undefined, key: 'presence-back' });
+    out.push({
+      divider: 'back',
+      awayAt: aw.since ?? undefined,
+      backAt: aw.backAt ?? undefined,
+      key: 'presence-back',
+    });
   };
-
 
   const networkId = buf?.networkId;
 
@@ -481,8 +557,7 @@ const renderRows = computed((): RenderRow[] => {
     // bare nick and the full nick!user@host so hostmask entries can fire.
     // Removing a mask re-runs this computed and previously-hidden rows
     // reappear without a backlog reload.
-    if (!m.self && m.nick && networkId
-        && ignores.isIgnored(networkId, m.nick, m.userhost ?? '')) {
+    if (!m.self && m.nick && networkId && ignores.isIgnored(networkId, m.nick, m.userhost ?? '')) {
       continue;
     }
 
@@ -494,14 +569,14 @@ const renderRows = computed((): RenderRow[] => {
       if (filterable && m.nick.toLowerCase() !== ownNickLc) {
         const lastSpoke = buf?.speakers[m.nick.toLowerCase()]?.lastTime;
         const eventTime = Date.parse(m.time ?? '') || 0;
-        const recentlySpoke = lastSpoke != null
-          && lastSpoke <= eventTime
-          && (eventTime - lastSpoke) <= delayMs;
-        const unmasked = m.type === 'join'
-          && unmaskMs > 0
-          && lastSpoke != null
-          && lastSpoke > eventTime
-          && (lastSpoke - eventTime) <= unmaskMs;
+        const recentlySpoke =
+          lastSpoke != null && lastSpoke <= eventTime && eventTime - lastSpoke <= delayMs;
+        const unmasked =
+          m.type === 'join' &&
+          unmaskMs > 0 &&
+          lastSpoke != null &&
+          lastSpoke > eventTime &&
+          lastSpoke - eventTime <= unmaskMs;
         if (!recentlySpoke && !unmasked) hidden = true;
       }
     }
@@ -579,19 +654,27 @@ function prefixText(m: ChatMessage | undefined): string {
   if (!m) return '';
 
   switch (m.type) {
-    case 'message': return m.nick ?? '';
-    case 'action':  return '*';
-    case 'notice':  return `-${m.nick ?? ''}-`;
-    case 'join':    return '-->';
+    case 'message':
+      return m.nick ?? '';
+    case 'action':
+      return '*';
+    case 'notice':
+      return `-${m.nick ?? ''}-`;
+    case 'join':
+      return '-->';
     case 'part':
     case 'quit':
-    case 'kick':    return '<--';
+    case 'kick':
+      return '<--';
     case 'nick':
     case 'mode':
     case 'topic':
-    case 'motd':    return '--';
-    case 'error':   return '!!';
-    default:        return '';
+    case 'motd':
+      return '--';
+    case 'error':
+      return '!!';
+    default:
+      return '';
   }
 }
 
@@ -632,18 +715,30 @@ function textSegments(m: ChatMessage | undefined): RenderSegment[] {
   if (!m) return [];
   if (m.type === 'action') {
     // Body is "<nick> <text>" — author's nick then the action text.
-    return nicks.splitText(`${m.nick} ${m.text || ''}`, nickSet.value, selfLower.value) as RenderSegment[];
+    return nicks.splitText(
+      `${m.nick} ${m.text || ''}`,
+      nickSet.value,
+      selfLower.value,
+    ) as RenderSegment[];
   }
   return nicks.splitText(m.text || '', nickSet.value, selfLower.value) as RenderSegment[];
 }
 
-function segStyle(seg: RenderSegment): CSSProperties { return segmentInlineStyle(seg, selfColor.value as string | null) as CSSProperties; }
-function segHasStyle(seg: RenderSegment) { return segmentHasStyle(seg); }
+function segStyle(seg: RenderSegment): CSSProperties {
+  return segmentInlineStyle(seg, selfColor.value as string | null) as CSSProperties;
+}
+function segHasStyle(seg: RenderSegment) {
+  return segmentHasStyle(seg);
+}
 
 // Template helpers for consolidation row items — vue-tsc can't narrow
 // NickEntry | RenameEntry based on g.kind, so we provide typed accessors.
-function asRename(item: NickEntry | RenameEntry): RenameEntry { return item as RenameEntry; }
-function asNick(item: NickEntry | RenameEntry): NickEntry { return item as NickEntry; }
+function asRename(item: NickEntry | RenameEntry): RenameEntry {
+  return item as RenameEntry;
+}
+function asNick(item: NickEntry | RenameEntry): NickEntry {
+  return item as NickEntry;
+}
 
 function requestMoreHistory() {
   const buf = buffer.value;
@@ -791,15 +886,12 @@ function scrollToBottom() {
 // the messages-array watcher below doesn't see them. When the user flips
 // state while pinned to the bottom, follow the new divider down — same
 // behavior as sending a normal message.
-watch(
-  [() => awayState.value?.since, () => awayState.value?.backAt],
-  async (next, prev) => {
-    if (next[0] === prev?.[0] && next[1] === prev?.[1]) return;
-    if (!stickToBottom.value) return;
-    await nextTick();
-    scrollToBottom();
-  },
-);
+watch([() => awayState.value?.since, () => awayState.value?.backAt], async (next, prev) => {
+  if (next[0] === prev?.[0] && next[1] === prev?.[1]) return;
+  if (!stickToBottom.value) return;
+  await nextTick();
+  scrollToBottom();
+});
 
 // Watch the messages array shape so we can react to:
 //   - prepend (older history): pin the OLD first row's viewport position.
@@ -824,8 +916,8 @@ watch(
     // yet replaces that tail. Use the surviving tail to tell them apart, so a
     // capped buffer isn't misread as a re-snapshot (and force-scrolled to the
     // bottom) on every single message.
-    const appended = lastChanged && oldLastId != null
-      && messages.value.some((m) => m.id === oldLastId);
+    const appended =
+      lastChanged && oldLastId != null && messages.value.some((m) => m.id === oldLastId);
     // Pure prepend: anchor by element ID so re-flow from changing column
     // widths or differing message heights doesn't drift the math. With the
     // loading notice gone from the template, the OLD DOM and NEW DOM share
@@ -837,9 +929,10 @@ watch(
       const oldScrollTop = el.scrollTop;
       const oldScrollHeight = el.scrollHeight;
       await nextTick();
-      const anchorNew = anchorOldTop != null
-        ? el.querySelector(`[data-msg-id="${oldFirstId}"]`) as HTMLElement | null
-        : null;
+      const anchorNew =
+        anchorOldTop != null
+          ? (el.querySelector(`[data-msg-id="${oldFirstId}"]`) as HTMLElement | null)
+          : null;
       if (anchorNew) {
         el.scrollTop = anchorNew.offsetTop - (anchorOldTop! - oldScrollTop);
       } else {
@@ -889,8 +982,12 @@ watch(
       else {
         const tail = messages.value[messages.value.length - 1] as ChatMessage | undefined;
         const nid = buffer.value?.networkId;
-        const tailIgnored = tail && !tail.self && tail.nick && nid
-          && ignores.isIgnored(nid, tail.nick, tail.userhost ?? '');
+        const tailIgnored =
+          tail &&
+          !tail.self &&
+          tail.nick &&
+          nid &&
+          ignores.isIgnored(nid, tail.nick, tail.userhost ?? '');
         if (!tailIgnored) bumpNewBelow();
       }
     }
@@ -903,13 +1000,17 @@ watch(
 // set, so a plain (lazy) watcher would never see it change. The first
 // nextTick after setup resolves after the initial render, so scroller.value
 // is populated by the time scrollToBottom runs.
-watch(() => networks.activeKey, async () => {
-  stickToBottom.value = true;
-  resetScrollState();
-  await nextTick();
-  scrollToBottom();
-  ensureViewportFilled();
-}, { immediate: true });
+watch(
+  () => networks.activeKey,
+  async () => {
+    stickToBottom.value = true;
+    resetScrollState();
+    await nextTick();
+    scrollToBottom();
+    ensureViewportFilled();
+  },
+  { immediate: true },
+);
 
 // Layout toggle reflows every row's height (3-col grid ↔ stacked head+body).
 // scrollTop becomes meaningless across the swap; re-snap if the user was
@@ -954,7 +1055,9 @@ onMounted(() => {
     scrollerObserver = new ResizeObserver(onScrollerResize);
     scrollerObserver.observe(scroller.value);
   }
-  nowTimer = setInterval(() => { now.value = Date.now(); }, 60_000);
+  nowTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 60_000);
 });
 
 onBeforeUnmount(() => {
@@ -962,7 +1065,10 @@ onBeforeUnmount(() => {
     scrollerObserver.disconnect();
     scrollerObserver = null;
   }
-  if (nowTimer) { clearInterval(nowTimer); nowTimer = null; }
+  if (nowTimer) {
+    clearInterval(nowTimer);
+    nowTimer = null;
+  }
 });
 
 // PageUp/PageDown shortcut handler: scroll the message list by ~90% of the
@@ -985,18 +1091,21 @@ function scrollByPage(direction: number) {
 
 defineExpose({ scrollByPage });
 
-watch(() => props.pendingScrollId, async (id) => {
-  if (id == null) return;
-  await nextTick();
-  const el = scroller.value;
-  if (!el) return;
-  const target = el.querySelector(`[data-msg-id="${id}"]`);
-  if (!target) return;
-  stickToBottom.value = false;
-  target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  target.classList.add('scroll-target');
-  setTimeout(() => target.classList.remove('scroll-target'), 1500);
-});
+watch(
+  () => props.pendingScrollId,
+  async (id) => {
+    if (id == null) return;
+    await nextTick();
+    const el = scroller.value;
+    if (!el) return;
+    const target = el.querySelector(`[data-msg-id="${id}"]`);
+    if (!target) return;
+    stickToBottom.value = false;
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    target.classList.add('scroll-target');
+    setTimeout(() => target.classList.remove('scroll-target'), 1500);
+  },
+);
 </script>
 
 <style scoped>
@@ -1049,9 +1158,17 @@ watch(() => props.pendingScrollId, async (id) => {
    rows apart in a dense column. In compact mode, message groups already
    visually separate via the head/gap rhythm, so striping individual lines
    inside a group fights the grouping signal — drop it. */
-.message-list:not(.compact) .line.alt { background: var(--alt-bg); color: var(--alt-fg); }
-.line:hover { background: var(--bg-soft); }
-.message-list:not(.compact) .line.alt:hover { background: var(--bg-soft); color: var(--fg); }
+.message-list:not(.compact) .line.alt {
+  background: var(--alt-bg);
+  color: var(--alt-fg);
+}
+.line:hover {
+  background: var(--bg-soft);
+}
+.message-list:not(.compact) .line.alt:hover {
+  background: var(--bg-soft);
+  color: var(--fg);
+}
 
 /* Hover-revealed three-dots button on eligible rows (desktop only). Sits in
    the gutter on the right edge of the line. Hidden on touch viewports;
@@ -1085,7 +1202,9 @@ watch(() => props.pendingScrollId, async (id) => {
   background: var(--bg-soft);
 }
 @media (hover: none), (max-width: 768px) {
-  .row-actions { display: none; }
+  .row-actions {
+    display: none;
+  }
 }
 
 /* Matched highlight (rule fired): warm background tint. Sits above .alt so
@@ -1101,8 +1220,12 @@ watch(() => props.pendingScrollId, async (id) => {
   animation: scroll-target-pulse 1.5s ease-out;
 }
 @keyframes scroll-target-pulse {
-  0%   { background: color-mix(in srgb, var(--accent) 30%, transparent); }
-  100% { background: transparent; }
+  0% {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
 }
 
 .time {
@@ -1115,20 +1238,32 @@ watch(() => props.pendingScrollId, async (id) => {
   white-space: nowrap;
   padding-right: 1ch;
 }
-.prefix.italic { font-style: italic; }
-.prefix.action-marker { color: var(--fg-muted); }
-.prefix.p-join  { color: var(--good); }
+.prefix.italic {
+  font-style: italic;
+}
+.prefix.action-marker {
+  color: var(--fg-muted);
+}
+.prefix.p-join {
+  color: var(--good);
+}
 .prefix.p-part,
-.prefix.p-quit  { color: var(--fg-muted); }
+.prefix.p-quit {
+  color: var(--fg-muted);
+}
 .prefix.p-kick,
-.prefix.p-error { color: var(--bad); }
+.prefix.p-error {
+  color: var(--bad);
+}
 .prefix.p-nick,
 .prefix.p-mode,
 .prefix.p-topic,
 .prefix.p-motd,
 .prefix.p-away,
 .prefix.p-back,
-.prefix.p-cons  { color: var(--fg-muted); }
+.prefix.p-cons {
+  color: var(--fg-muted);
+}
 
 .body {
   position: relative;
@@ -1149,8 +1284,13 @@ watch(() => props.pendingScrollId, async (id) => {
   width: 1px;
   background: var(--border);
 }
-.body.meta-body { color: var(--fg-muted); font-style: italic; }
-.body.italic { font-style: italic; }
+.body.meta-body {
+  color: var(--fg-muted);
+  font-style: italic;
+}
+.body.italic {
+  font-style: italic;
+}
 /* .msg-link styling lives in src/assets/main.css (shared with the topic bar). */
 
 /* Mobile + standard layout: phone widths can't spare the time column or the
@@ -1165,9 +1305,15 @@ watch(() => props.pendingScrollId, async (id) => {
     grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
     padding: 4px 8px;
   }
-  .message-list:not(.compact) .time { display: none; }
-  .message-list:not(.compact) .prefix { padding-right: 0.5ch; }
-  .message-list:not(.compact) .body { padding-left: 0.5ch; }
+  .message-list:not(.compact) .time {
+    display: none;
+  }
+  .message-list:not(.compact) .prefix {
+    padding-right: 0.5ch;
+  }
+  .message-list:not(.compact) .body {
+    padding-left: 0.5ch;
+  }
 }
 
 /* Compact layout (look.message.layout = compact, or = auto on mobile):
@@ -1189,8 +1335,8 @@ watch(() => props.pendingScrollId, async (id) => {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    "head   head head"
-    "prefix body time";
+    'head   head head'
+    'prefix body time';
   align-items: baseline;
   column-gap: 0.75ch;
   row-gap: 0;

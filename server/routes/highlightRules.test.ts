@@ -4,7 +4,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 
 const ctx = setupTestDb('routes-highlight-rules');
@@ -34,7 +39,7 @@ describe('GET /api/highlight-rules', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns the caller\'s rules only', async () => {
+  it("returns the caller's rules only", async () => {
     await aliceAgent.post('/api/highlight-rules').send({ pattern: 'alice' });
     await bobAgent.post('/api/highlight-rules').send({ pattern: 'bob' });
 
@@ -63,14 +68,16 @@ describe('POST /api/highlight-rules', () => {
 
   it('rejects an invalid kind', async () => {
     const res = await aliceAgent.post('/api/highlight-rules').send({
-      pattern: 'x', kind: 'fuzzy',
+      pattern: 'x',
+      kind: 'fuzzy',
     });
     expect(res.status).toBe(400);
   });
 
   it('rejects an unparseable regex up-front', async () => {
     const res = await aliceAgent.post('/api/highlight-rules').send({
-      pattern: '[invalid', kind: 'regex',
+      pattern: '[invalid',
+      kind: 'regex',
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/invalid regex/);
@@ -88,7 +95,9 @@ describe('PATCH /api/highlight-rules/:id', () => {
 
   it('returns 404 when the rule is not owned by the caller', async () => {
     const created = await bobAgent.post('/api/highlight-rules').send({ pattern: 'not-yours' });
-    const res = await aliceAgent.patch(`/api/highlight-rules/${created.body.rule.id}`).send({ enabled: false });
+    const res = await aliceAgent
+      .patch(`/api/highlight-rules/${created.body.rule.id}`)
+      .send({ enabled: false });
     expect(res.status).toBe(404);
   });
 
@@ -109,7 +118,7 @@ describe('DELETE /api/highlight-rules/:id', () => {
     expect(list.body.rules.find((r: { id: number }) => r.id === id)).toBeUndefined();
   });
 
-  it('returns 404 for a rule that isn\'t the caller\'s', async () => {
+  it("returns 404 for a rule that isn't the caller's", async () => {
     const created = await bobAgent.post('/api/highlight-rules').send({ pattern: 'still-bobs' });
     const res = await aliceAgent.delete(`/api/highlight-rules/${created.body.rule.id}`);
     expect(res.status).toBe(404);

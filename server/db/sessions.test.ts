@@ -53,8 +53,10 @@ describe('createSession / findSession / deleteSession', () => {
     const u = createUser('s-expired');
     const { token } = sessions.createSession(u.id);
     // Force expiry into the past.
-    db.prepare(`UPDATE sessions SET expires_at = ? WHERE token = ?`)
-      .run(new Date(Date.now() - 60_000).toISOString(), token);
+    db.prepare(`UPDATE sessions SET expires_at = ? WHERE token = ?`).run(
+      new Date(Date.now() - 60_000).toISOString(),
+      token,
+    );
     expect(sessions.findSession(token)).toBeNull();
     // And the row is gone from disk.
     expect(db.prepare(`SELECT 1 FROM sessions WHERE token = ?`).get(token)).toBeUndefined();
@@ -71,8 +73,11 @@ describe('purgeExpiredSessions', () => {
     // SQL silently mis-handled (lexical compare of ISO 8601 vs SQLite-local
     // format leaves 'T' > ' ' so same-day rows looked "newer" than now).
     // Both formats now round-trip through datetime() in the query.
-    db.prepare(`UPDATE sessions SET expires_at = ? WHERE token IN (?, ?)`)
-      .run(new Date(Date.now() - 1000).toISOString(), stale1, stale2);
+    db.prepare(`UPDATE sessions SET expires_at = ? WHERE token IN (?, ?)`).run(
+      new Date(Date.now() - 1000).toISOString(),
+      stale1,
+      stale2,
+    );
     sessions.purgeExpiredSessions();
     expect(sessions.findSession(keep)).toBeTruthy();
     expect(db.prepare(`SELECT 1 FROM sessions WHERE token = ?`).get(stale1)).toBeUndefined();

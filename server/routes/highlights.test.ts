@@ -4,7 +4,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 import type { Network } from '../db/networks.js';
 
@@ -23,7 +28,13 @@ beforeAll(async () => {
   const router = (await import('./highlights.js')).default;
 
   user = createUser('hl-alice');
-  net = createNetwork(user.id, { name: 'libera', host: 'h', port: 6697, tls: true, nick: 'alice' })!;
+  net = createNetwork(user.id, {
+    name: 'libera',
+    host: 'h',
+    port: 6697,
+    tls: true,
+    nick: 'alice',
+  })!;
 
   app = createTestApp({ '/api/highlights': router });
   agent = await createAuthedAgent(app, user.id);
@@ -33,8 +44,14 @@ afterAll(() => ctx.cleanup());
 
 function chat(target: string, nick: string, text: string, matchedRuleId: number | null) {
   return insertMessage({
-    networkId: net.id, target, time: new Date().toISOString(),
-    type: 'message', nick, text, self: false, matchedRuleId,
+    networkId: net.id,
+    target,
+    time: new Date().toISOString(),
+    type: 'message',
+    nick,
+    text,
+    self: false,
+    matchedRuleId,
   });
 }
 
@@ -62,7 +79,9 @@ describe('GET /api/highlights', () => {
   it('paginates with limit + before cursor', async () => {
     const ids: Array<number | bigint> = [];
     for (let i = 0; i < 4; i += 1) ids.push(chat('#paginate', `n${i}`, `m${i}`, 7).id);
-    const page1 = await agent.get('/api/highlights?limit=2&before=' + (Number(ids[ids.length - 1]) + 1));
+    const page1 = await agent.get(
+      '/api/highlights?limit=2&before=' + (Number(ids[ids.length - 1]) + 1),
+    );
     expect(page1.body.items).toHaveLength(2);
     expect(page1.body.items[0].id).toBe(ids[3]);
     expect(page1.body.nextBefore).toBe(ids[2]);

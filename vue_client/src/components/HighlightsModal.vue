@@ -28,11 +28,9 @@
     <p v-else-if="store.items.length" class="empty">All highlights are from ignored users.</p>
     <p v-else class="empty">No highlights yet.</p>
     <footer v-if="store.hasMore || store.loading" class="foot">
-      <button
-        class="link"
-        :disabled="store.loading || !store.hasMore"
-        @click="store.loadMore()"
-      >{{ store.loading ? 'Loading…' : 'Load more' }}</button>
+      <button class="link" :disabled="store.loading || !store.hasMore" @click="store.loadMore()">
+        {{ store.loading ? 'Loading…' : 'Load more' }}
+      </button>
     </footer>
   </AppModal>
 </template>
@@ -60,7 +58,9 @@ const ignores = useIgnoresStore();
 type HighlightRow = HistoryMessage & { userhost?: string | null };
 
 const visibleItems = computed(() =>
-  (store.items as HighlightRow[]).filter((m) => !ignores.isIgnored(m.networkId, m.nick, m.userhost ?? ''))
+  (store.items as HighlightRow[]).filter(
+    (m) => !ignores.isIgnored(m.networkId, m.nick, m.userhost ?? ''),
+  ),
 );
 
 const soundEnabled = computed(() => !!settings.effective('notifications.highlight.sound.enabled'));
@@ -68,7 +68,9 @@ const soundEnabled = computed(() => !!settings.effective('notifications.highligh
 async function toggleSound(): Promise<void> {
   try {
     await settings.setValue('notifications.highlight.sound.enabled', !soundEnabled.value);
-  } catch (_) { /* setting writes are best-effort from the modal */ }
+  } catch (_) {
+    /* setting writes are best-effort from the modal */
+  }
 }
 
 onMounted(() => {
@@ -90,9 +92,16 @@ function onJump(m: HistoryMessage): void {
   font: inherit;
   padding: 0 4px;
 }
-.link:hover { color: var(--accent); }
-.link:disabled { opacity: 0.5; cursor: default; }
-.sound-toggle { font-size: 1.1em; }
+.link:hover {
+  color: var(--accent);
+}
+.link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.sound-toggle {
+  font-size: 1.1em;
+}
 
 .match-list {
   list-style: none;

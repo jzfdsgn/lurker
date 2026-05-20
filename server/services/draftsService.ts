@@ -13,7 +13,13 @@ import { upsertDraft, clearDraft, listForUser } from '../db/drafts.js';
 // expect "no draft" rather than "draft with empty string" so the pencil chip
 // can drive itself off `hasDraft` without extra trim checks.
 class DraftsService extends EventEmitter {
-  set(userId: number, networkId: number, target: string, body: unknown, originWs: unknown = null): void {
+  set(
+    userId: number,
+    networkId: number,
+    target: string,
+    body: unknown,
+    originWs: unknown = null,
+  ): void {
     const text = typeof body === 'string' ? body : '';
     if (text.length === 0) {
       this.clear(userId, networkId, target, originWs);

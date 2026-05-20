@@ -6,7 +6,13 @@ import type { DisplayRow } from './collapseDisplay.js';
 import { collapseDisplay } from './collapseDisplay.js';
 
 // Build a chat row with the same shape MessageList's renderRows emits.
-function msg({ id, nick, time, type = 'message', self = false }: {
+function msg({
+  id,
+  nick,
+  time,
+  type = 'message',
+  self = false,
+}: {
   id: number;
   nick: string;
   time: string;
@@ -23,7 +29,10 @@ function consolidation({ time, key = 'cons:k' }: { time: string; key?: string })
   return { consolidation: true, time, key };
 }
 
-function divider({ kind = 'unread', key = 'd:k' }: { kind?: string; key?: string } = {}): DisplayRow {
+function divider({
+  kind = 'unread',
+  key = 'd:k',
+}: { kind?: string; key?: string } = {}): DisplayRow {
   return { divider: kind, key };
 }
 
@@ -50,7 +59,7 @@ describe('collapseDisplay — author collapsing', () => {
   it('does not collapse across different nicks', () => {
     const rows = [
       msg({ id: 1, nick: 'alice', time: '2026-05-16T10:00:00Z' }),
-      msg({ id: 2, nick: 'bob',   time: '2026-05-16T10:00:30Z' }),
+      msg({ id: 2, nick: 'bob', time: '2026-05-16T10:00:30Z' }),
       msg({ id: 3, nick: 'alice', time: '2026-05-16T10:01:00Z' }),
     ];
     collapseDisplay(rows, {
@@ -103,7 +112,7 @@ describe('collapseDisplay — author collapsing', () => {
   it('breaks the run on a system event between two messages', () => {
     const rows = [
       msg({ id: 1, nick: 'alice', time: '2026-05-16T10:00:00Z' }),
-      msg({ id: 2, nick: 'bob',   time: '2026-05-16T10:00:05Z', type: 'join' }),
+      msg({ id: 2, nick: 'bob', time: '2026-05-16T10:00:05Z', type: 'join' }),
       msg({ id: 3, nick: 'alice', time: '2026-05-16T10:00:10Z' }),
     ];
     collapseDisplay(rows, {
@@ -144,9 +153,9 @@ describe('collapseDisplay — timestamp collapsing', () => {
   it('hides repeated formatted time strings across consecutive rows', () => {
     const rows = [
       msg({ id: 1, nick: 'alice', time: '2026-05-16T10:00:05Z' }),
-      msg({ id: 2, nick: 'bob',   time: '2026-05-16T10:00:30Z' }),
+      msg({ id: 2, nick: 'bob', time: '2026-05-16T10:00:30Z' }),
       msg({ id: 3, nick: 'carol', time: '2026-05-16T10:00:55Z' }),
-      msg({ id: 4, nick: 'dave',  time: '2026-05-16T10:01:10Z' }),
+      msg({ id: 4, nick: 'dave', time: '2026-05-16T10:01:10Z' }),
     ];
     collapseDisplay(rows, {
       collapseTimestamps: true,
@@ -161,7 +170,7 @@ describe('collapseDisplay — timestamp collapsing', () => {
   it('also applies across system rows and consolidation rows', () => {
     const rows = [
       msg({ id: 1, nick: 'alice', time: '2026-05-16T10:00:00Z' }),
-      msg({ id: 2, nick: 'bob',   time: '2026-05-16T10:00:10Z', type: 'join' }),
+      msg({ id: 2, nick: 'bob', time: '2026-05-16T10:00:10Z', type: 'join' }),
       consolidation({ time: '2026-05-16T10:00:30Z' }),
       msg({ id: 3, nick: 'carol', time: '2026-05-16T10:00:45Z' }),
     ];
@@ -194,7 +203,7 @@ describe('collapseDisplay — timestamp collapsing', () => {
     // collapse flag from firing in that case.
     const rows = [
       msg({ id: 1, nick: 'alice', time: '2026-05-16T10:00:00Z' }),
-      msg({ id: 2, nick: 'bob',   time: '2026-05-16T10:00:10Z' }),
+      msg({ id: 2, nick: 'bob', time: '2026-05-16T10:00:10Z' }),
     ];
     collapseDisplay(rows, {
       collapseTimestamps: true,
@@ -214,7 +223,7 @@ describe('collapseDisplay — compact-mode time-chain skip', () => {
     const rows = [
       msg({ id: 1, nick: 'alice', time: '2026-05-16T10:00:00Z' }),
       msg({ id: 2, nick: 'alice', time: '2026-05-16T10:00:30Z' }),
-      msg({ id: 3, nick: 'bob',   time: '2026-05-16T10:00:45Z' }),
+      msg({ id: 3, nick: 'bob', time: '2026-05-16T10:00:45Z' }),
     ];
     collapseDisplay(rows, {
       collapseAuthors: true,
@@ -243,7 +252,7 @@ describe('collapseDisplay — compact-mode time-chain skip', () => {
     const rows = [
       msg({ id: 1, nick: 'alice', time: '2026-05-16T10:00:00Z' }),
       msg({ id: 2, nick: 'alice', time: '2026-05-16T10:00:30Z' }),
-      msg({ id: 3, nick: 'bob',   time: '2026-05-16T10:00:45Z' }),
+      msg({ id: 3, nick: 'bob', time: '2026-05-16T10:00:45Z' }),
     ];
     collapseDisplay(rows, {
       collapseAuthors: true,

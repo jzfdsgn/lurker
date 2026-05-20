@@ -66,7 +66,10 @@ export function compileRules(rules: HighlightRule[]): CompiledRule[] {
   return compiled;
 }
 
-export function matchEvent(event: MatchableEvent | null | undefined, compiled: CompiledRule[]): { matched: boolean; ruleId: number | null } {
+export function matchEvent(
+  event: MatchableEvent | null | undefined,
+  compiled: CompiledRule[],
+): { matched: boolean; ruleId: number | null } {
   if (!event || !ELIGIBLE_TYPES.has(event.type)) return { matched: false, ruleId: null };
   if (event.self) return { matched: false, ruleId: null };
   const text = event.text || '';

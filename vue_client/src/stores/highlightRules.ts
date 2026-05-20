@@ -55,7 +55,9 @@ export const useHighlightRulesStore = defineStore('highlightRules', {
     },
     applyServerChanged() {
       // Re-fetch when the server signals rules changed (rare; another tab edited).
-      this.fetchAll().catch(() => { /* ignore */ });
+      this.fetchAll().catch(() => {
+        /* ignore */
+      });
     },
   },
 });

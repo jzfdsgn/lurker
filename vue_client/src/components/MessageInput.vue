@@ -12,7 +12,12 @@
     @dragleave.prevent="onDragLeave"
     @drop.prevent="onDrop"
   >
-    <span class="prompt"><template v-if="!isMobile">{{ promptLabel }}<span v-if="awayLabel" class="away">&nbsp;{{ awayLabel }}</span>&nbsp;</template>&gt;</span>
+    <span class="prompt"
+      ><template v-if="!isMobile"
+        >{{ promptLabel }}<span v-if="awayLabel" class="away">&nbsp;{{ awayLabel }}</span
+        >&nbsp;</template
+      >&gt;</span
+    >
     <textarea
       ref="inputEl"
       v-model="text"
@@ -39,7 +44,9 @@
       :disabled="!sendable"
       title="upload image"
       @click="onPickFile"
-    ><i class="fa-solid fa-paperclip"></i></button>
+    >
+      <i class="fa-solid fa-paperclip"></i>
+    </button>
     <!-- mIRC color picker trigger. Opt-in via `input.show_format_button`
          (off by default) — the Cmd/Ctrl+B/I/U shortcuts remain active either
          way, so hiding the icon only removes the mouse-driven path.
@@ -54,7 +61,9 @@
       title="mIRC formatting (Cmd/Ctrl+B/I/U for bold/italic/underline)"
       @mousedown.prevent
       @click="onToggleColorPicker"
-    ><i class="fa-solid fa-palette"></i></div>
+    >
+      <i class="fa-solid fa-palette"></i>
+    </div>
     <MircColorPicker
       v-if="showFormatButton"
       :open="colorPickerOpen"
@@ -156,9 +165,9 @@ const text = computed({
     onInput();
   },
 });
-const buffer = computed(() => (active.value
-  ? buffers.byKey(`${active.value.networkId}::${active.value.target}`)
-  : null));
+const buffer = computed(() =>
+  active.value ? buffers.byKey(`${active.value.networkId}::${active.value.target}`) : null,
+);
 const ownNick = computed(() => {
   const a = active.value;
   if (!a) return '';
@@ -185,8 +194,8 @@ const showFormatButton = computed(() => settings.effective('input.show_format_bu
 // keyboard can still get phone-typing assistance back.
 const systemFeatures = computed(() => {
   const baseAutocorrect = settings.effective('input.autocorrect') !== false;
-  const forceMobile = isMobile.value
-    && settings.effective('input.autocorrect_force_mobile') === true;
+  const forceMobile =
+    isMobile.value && settings.effective('input.autocorrect_force_mobile') === true;
   const autocorrectOn = baseAutocorrect || forceMobile;
   return {
     spellcheck: settings.effective('input.spellcheck') !== false,
@@ -268,7 +277,12 @@ function clearInactivityTimer(): void {
 
 function endTypingTo(target: { networkId: number; target: string } | null | undefined): void {
   if (!target) return;
-  if (typingState && typingTarget && typingTarget.target === target.target && typingTarget.networkId === target.networkId) {
+  if (
+    typingState &&
+    typingTarget &&
+    typingTarget.target === target.target &&
+    typingTarget.networkId === target.networkId
+  ) {
     sendTyping(target.networkId, target.target, 'done');
   }
   typingState = null;
@@ -289,7 +303,7 @@ interface CompletionState {
   caret: number;
 }
 let completion: CompletionState | null = null;
-let cycling = false;  // true while we're programmatically rewriting `text`
+let cycling = false; // true while we're programmatically rewriting `text`
 
 // Input history walking state. `historyIndex` is null when we're not in a
 // recall walk; otherwise it points into the per-buffer history slice.
@@ -370,7 +384,10 @@ function handleHistoryNav(e: KeyboardEvent): void {
   }
 }
 
-function tokenAtCursor(value: string, cursor: number): { token: string; start: number; end: number } {
+function tokenAtCursor(
+  value: string,
+  cursor: number,
+): { token: string; start: number; end: number } {
   let start = cursor;
   while (start > 0 && !/\s/.test(value[start - 1])) start--;
   let end = cursor;
@@ -380,13 +397,15 @@ function tokenAtCursor(value: string, cursor: number): { token: string; start: n
 
 function buildNickMatches(buf: Buffer, networkId: number, prefix: string): string[] {
   const own = networks.states[networkId]?.nick || '';
-  const isIgnored = (nick: string, userhost: string | null) => ignores.isIgnored(networkId, nick, userhost ?? '');
+  const isIgnored = (nick: string, userhost: string | null) =>
+    ignores.isIgnored(networkId, nick, userhost ?? '');
   return buildNickCandidates(buf, own, prefix, isIgnored).map((c) => c.nick);
 }
 
 function buildChannelMatches(networkId: number, prefix: string): string[] {
   const lower = prefix.toLowerCase();
-  return buffers.forNetwork(networkId)
+  return buffers
+    .forNetwork(networkId)
     .map((b) => b.target)
     .filter((t) => t.startsWith('#') && t.toLowerCase().startsWith(lower))
     .sort((a, b) => a.localeCompare(b));
@@ -395,7 +414,7 @@ function buildChannelMatches(networkId: number, prefix: string): string[] {
 function applyCompletion() {
   if (!completion || !completion.matches.length) return;
   const pick = completion.matches[completion.index];
-  const suffix = (completion.atLineStart && !completion.isChannel) ? ': ' : '';
+  const suffix = completion.atLineStart && !completion.isChannel ? ': ' : '';
   // Tab-completion owns the input now; any open @-picker or mobile suggestion
   // strip would be stale (cycling suppresses onInput → refreshPicker doesn't
   // fire, so they wouldn't close on their own).
@@ -433,11 +452,11 @@ function onBlur() {
 // for local echo). The chunk-count gate in messageSplit.js counts bytes via
 // TextEncoder, so each control char correctly contributes one byte to the
 // SPLIT/FLOOD estimate.
-const FMT_BOLD = "\x02";
-const FMT_ITALIC = "\x1D";
-const FMT_UNDERLINE = "\x1F";
-const FMT_COLOR = "\x03";
-const FMT_RESET = "\x0F";
+const FMT_BOLD = '\x02';
+const FMT_ITALIC = '\x1D';
+const FMT_UNDERLINE = '\x1F';
+const FMT_COLOR = '\x03';
+const FMT_RESET = '\x0F';
 
 // Wrap the current selection with `opening`…`closing`, or insert `opening`
 // alone at the caret if nothing is selected (mIRC-style: a bare toggle code
@@ -602,18 +621,25 @@ function closeStrip() {
 
 function refreshPicker() {
   const el = inputEl.value;
-  if (!el) { closePicker(); closeStrip(); return; }
+  if (!el) {
+    closePicker();
+    closeStrip();
+    return;
+  }
   const value = text.value;
   const cursor = el.selectionStart ?? value.length;
   const { token, start, end } = tokenAtCursor(value, cursor);
 
   // Slash commands never trigger nick completion in either UI.
-  if (token.startsWith('/')) { closePicker(); closeStrip(); return; }
+  if (token.startsWith('/')) {
+    closePicker();
+    closeStrip();
+    return;
+  }
 
   // Desktop users can opt into the mobile-style strip via this setting;
   // mobile always uses the strip regardless.
-  const useStrip = isMobile.value
-    || !!settings.effective('input.suggestion_strip_on_desktop');
+  const useStrip = isMobile.value || !!settings.effective('input.suggestion_strip_on_desktop');
 
   if (useStrip) {
     // Strip replaces the @-popup with an always-on suggestion row.
@@ -644,7 +670,10 @@ function refreshPicker() {
 
 function onPickerSelect(nick: string): void {
   const value = text.value;
-  if (pickerTokenStart < 0) { closePicker(); return; }
+  if (pickerTokenStart < 0) {
+    closePicker();
+    return;
+  }
   const before = value.slice(0, pickerTokenStart);
   const after = value.slice(pickerTokenEnd);
   cycling = true;
@@ -662,7 +691,10 @@ function onPickerSelect(nick: string): void {
 
 function onStripSelect(nick: string): void {
   const value = text.value;
-  if (stripTokenStart < 0) { closeStrip(); return; }
+  if (stripTokenStart < 0) {
+    closeStrip();
+    return;
+  }
   const before = value.slice(0, stripTokenStart);
   const after = value.slice(stripTokenEnd);
   // Match Tab-completion's suffix rule (applyCompletion above): a nick at the
@@ -748,7 +780,12 @@ watch(active, (newActive, oldActive) => {
   // server's row reflects the latest body before the next tab sees us
   // switching away. flushBuffer is a no-op if nothing is pending.
   if (oldActive) drafts.flushBuffer(oldActive.networkId, oldActive.target);
-  if (oldActive && (!newActive || oldActive.target !== newActive.target || oldActive.networkId !== newActive.networkId)) {
+  if (
+    oldActive &&
+    (!newActive ||
+      oldActive.target !== newActive.target ||
+      oldActive.networkId !== newActive.networkId)
+  ) {
     endTypingTo(oldActive);
   }
   // Re-evaluate the outgoing-split estimate for the new buffer's draft. The
@@ -772,7 +809,10 @@ function onPagehide() {
 
 onBeforeUnmount(() => {
   if (active.value) endTypingTo(active.value);
-  if (unsubInsert) { unsubInsert(); unsubInsert = null; }
+  if (unsubInsert) {
+    unsubInsert();
+    unsubInsert = null;
+  }
   if (typeof window !== 'undefined') window.removeEventListener('pagehide', onPagehide);
 });
 
@@ -823,7 +863,9 @@ function onPaste(e: ClipboardEvent): void {
     const file = blobFromClipboardItem(item);
     if (file) {
       e.preventDefault();
-      uploads.upload(file).catch(() => { /* failure visible via status bar */ });
+      uploads.upload(file).catch(() => {
+        /* failure visible via status bar */
+      });
       return;
     }
   }
@@ -865,15 +907,16 @@ function toastSendFailure(error: string, body: string): void {
   // Translate the small set of ack/error strings into something a person can
   // act on. We keep the failed text in the toast body so the user can copy
   // it; up-arrow also recalls it from local input history.
-  const title = error === 'disconnected'
-    ? 'Disconnected — message not sent'
-    : error === 'timeout'
-      ? 'Send timed out — message may not have been delivered'
-      : error === 'not-connected'
-        ? 'Network offline — message not sent'
-        : error === 'unknown-network'
-          ? 'Network not available — message not sent'
-          : 'Message not sent';
+  const title =
+    error === 'disconnected'
+      ? 'Disconnected — message not sent'
+      : error === 'timeout'
+        ? 'Send timed out — message may not have been delivered'
+        : error === 'not-connected'
+          ? 'Network offline — message not sent'
+          : error === 'unknown-network'
+            ? 'Network not available — message not sent'
+            : 'Message not sent';
   toasts.push({ title, body, kind: 'error', ttlMs: 8000 });
 }
 
@@ -1081,8 +1124,13 @@ function sendOrToast(payload: Record<string, unknown>, body: string): boolean {
 // the await and toasts asynchronously on a non-ok ACK.
 function ackedSend(payload: Record<string, unknown>, body: string): boolean {
   const pending = socketSendWithAck(payload);
-  if (!pending) { toastSendFailure('disconnected', body); return false; }
-  pending.then((result) => { if (!result.ok) toastSendFailure(result.error ?? 'unknown', body); });
+  if (!pending) {
+    toastSendFailure('disconnected', body);
+    return false;
+  }
+  pending.then((result) => {
+    if (!result.ok) toastSendFailure(result.error ?? 'unknown', body);
+  });
   return true;
 }
 
@@ -1132,52 +1180,86 @@ function handleCommand(line: string, networkId: number, target: string): boolean
       return sendOrToast({ type: 'back' }, line);
     case 'whois': {
       const who = rest[0];
-      if (!who) { localInfo(networkId, target, 'usage: /whois <nick>'); return true; }
+      if (!who) {
+        localInfo(networkId, target, 'usage: /whois <nick>');
+        return true;
+      }
       return sendOrToast({ type: 'raw', networkId, line: `WHOIS ${who}` }, line);
     }
     case 'kick': {
       // /kick <nick> [reason]            (in a channel buffer)
       // /kick <#chan> <nick> [reason]    (anywhere)
-      let channel; let nick; let reason;
+      let channel;
+      let nick;
+      let reason;
       if (rest[0] && rest[0].startsWith('#')) {
-        channel = rest[0]; nick = rest[1]; reason = rest.slice(2).join(' ');
+        channel = rest[0];
+        nick = rest[1];
+        reason = rest.slice(2).join(' ');
       } else {
         channel = isChannelTarget(target) ? target : null;
-        nick = rest[0]; reason = rest.slice(1).join(' ');
+        nick = rest[0];
+        reason = rest.slice(1).join(' ');
       }
-      if (!channel) { localInfo(networkId, target, 'usage: /kick [#chan] <nick> [reason] — no channel context'); return true; }
-      if (!nick) { localInfo(networkId, target, 'usage: /kick [#chan] <nick> [reason]'); return true; }
+      if (!channel) {
+        localInfo(networkId, target, 'usage: /kick [#chan] <nick> [reason] — no channel context');
+        return true;
+      }
+      if (!nick) {
+        localInfo(networkId, target, 'usage: /kick [#chan] <nick> [reason]');
+        return true;
+      }
       const trailer = reason ? ` :${reason}` : '';
-      return sendOrToast({ type: 'raw', networkId, line: `KICK ${channel} ${nick}${trailer}` }, line);
+      return sendOrToast(
+        { type: 'raw', networkId, line: `KICK ${channel} ${nick}${trailer}` },
+        line,
+      );
     }
     case 'topic': {
       // /topic                        — request current topic (server buffer)
       // /topic <text>                 — set on current channel
       // /topic <#chan> [text]         — set/get on another channel
-      let channel; let body;
+      let channel;
+      let body;
       if (rest[0] && rest[0].startsWith('#')) {
         channel = rest[0];
-        body = line.slice(1 + cmd.length).trim().slice(channel.length).trim();
+        body = line
+          .slice(1 + cmd.length)
+          .trim()
+          .slice(channel.length)
+          .trim();
       } else {
         channel = isChannelTarget(target) ? target : null;
         body = argLine;
       }
-      if (!channel) { localInfo(networkId, target, 'usage: /topic [#chan] [text] — no channel context'); return true; }
+      if (!channel) {
+        localInfo(networkId, target, 'usage: /topic [#chan] [text] — no channel context');
+        return true;
+      }
       const trailer = body ? ` :${body}` : '';
       return sendOrToast({ type: 'raw', networkId, line: `TOPIC ${channel}${trailer}` }, line);
     }
     case 'nick': {
       const newNick = rest[0];
-      if (!newNick) { localInfo(networkId, target, 'usage: /nick <newnick>'); return true; }
+      if (!newNick) {
+        localInfo(networkId, target, 'usage: /nick <newnick>');
+        return true;
+      }
       return sendOrToast({ type: 'raw', networkId, line: `NICK ${newNick}` }, line);
     }
     case 'mode': {
       // /mode <flags>                  — apply to current channel
       // /mode <target> <flags...>      — apply to target (channel or self)
-      if (!rest.length) { localInfo(networkId, target, 'usage: /mode [target] <flags> [args]'); return true; }
+      if (!rest.length) {
+        localInfo(networkId, target, 'usage: /mode [target] <flags> [args]');
+        return true;
+      }
       const looksLikeFlagsOnly = /^[+-]/.test(rest[0]);
       if (looksLikeFlagsOnly && isChannelTarget(target)) {
-        return sendOrToast({ type: 'raw', networkId, line: `MODE ${target} ${rest.join(' ')}` }, line);
+        return sendOrToast(
+          { type: 'raw', networkId, line: `MODE ${target} ${rest.join(' ')}` },
+          line,
+        );
       }
       return sendOrToast({ type: 'raw', networkId, line: `MODE ${argLine}` }, line);
     }
@@ -1200,7 +1282,10 @@ function handleCommand(line: string, networkId: number, target: string): boolean
       });
       return true;
     case 'list':
-      return sendOrToast({ type: 'raw', networkId, line: argLine ? `LIST ${argLine}` : 'LIST' }, line);
+      return sendOrToast(
+        { type: 'raw', networkId, line: argLine ? `LIST ${argLine}` : 'LIST' },
+        line,
+      );
     case 'ignore': {
       // No-arg form: dump the current network's ignore list into the active
       // buffer as system messages. The store already has the list (seeded
@@ -1222,13 +1307,19 @@ function handleCommand(line: string, networkId: number, target: string): boolean
     }
     case 'unignore': {
       const mask = argLine.trim();
-      if (!mask) { localInfo(networkId, target, 'usage: /unignore <mask>'); return true; }
+      if (!mask) {
+        localInfo(networkId, target, 'usage: /unignore <mask>');
+        return true;
+      }
       ignores.removeMask(networkId, mask);
       return true;
     }
     case 'jitsi':
     case 'talk': {
-      if (isServer.value) { localInfo(networkId, target, 'usage: /jitsi — run inside a channel or DM'); return true; }
+      if (isServer.value) {
+        localInfo(networkId, target, 'usage: /jitsi — run inside a channel or DM');
+        return true;
+      }
       const url = `https://meet.jit.si/lurker-${randomRoomId()}`;
       return ackedSend({ type: 'send', networkId, target, text: url }, url);
     }
@@ -1265,7 +1356,9 @@ function handleCommand(line: string, networkId: number, target: string): boolean
      the first text line baseline-align before any growth. */
   line-height: 1.4;
 }
-.prompt .away { color: var(--warn); }
+.prompt .away {
+  color: var(--warn);
+}
 .upload-btn {
   background: none;
   border: none;
@@ -1275,8 +1368,13 @@ function handleCommand(line: string, networkId: number, target: string): boolean
   font-size: inherit;
   line-height: 1.4;
 }
-.upload-btn:hover:not(:disabled) { color: var(--accent); }
-.upload-btn:disabled { opacity: 0.4; cursor: default; }
+.upload-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+.upload-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 .format-btn {
   color: var(--fg-muted);
   cursor: pointer;
@@ -1286,9 +1384,16 @@ function handleCommand(line: string, networkId: number, target: string): boolean
   /* Avoids iOS double-tap-zoom delay so the picker opens promptly on touch. */
   touch-action: manipulation;
 }
-.format-btn:hover:not(.disabled) { color: var(--accent); }
-.format-btn.disabled { opacity: 0.4; cursor: default; }
-.file-hidden { display: none; }
+.format-btn:hover:not(.disabled) {
+  color: var(--accent);
+}
+.format-btn.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.file-hidden {
+  display: none;
+}
 textarea {
   flex: 1;
   min-width: 0;
@@ -1307,6 +1412,11 @@ textarea {
   field-sizing: content;
   max-height: calc(1.4em * 16);
 }
-textarea:focus { outline: none; }
-textarea::placeholder { color: var(--fg-muted); font-style: italic; }
+textarea:focus {
+  outline: none;
+}
+textarea::placeholder {
+  color: var(--fg-muted);
+  font-style: italic;
+}
 </style>

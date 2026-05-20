@@ -32,7 +32,7 @@ describe('update', () => {
   it('returns the first invalid key on failure without persisting anything', () => {
     const res = settingsService.update(user.id, {
       'look.font.size': 16,
-      'look.font.weight': 99999,  // out of range
+      'look.font.weight': 99999, // out of range
     });
     expect(res.ok).toBe(false);
     expect(!res.ok && res.key).toBe('look.font.weight');

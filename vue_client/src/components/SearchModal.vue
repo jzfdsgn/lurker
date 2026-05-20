@@ -18,12 +18,7 @@
       />
     </div>
     <p v-if="store.error" class="error inline">{{ store.error }}</p>
-    <ul
-      v-if="visibleResults.length"
-      ref="listEl"
-      class="match-list"
-      @scroll="onScroll"
-    >
+    <ul v-if="visibleResults.length" ref="listEl" class="match-list" @scroll="onScroll">
       <HistoryMessageRow
         v-for="(m, i) in visibleResults"
         :key="`${m.networkId}::${m.target}::${m.id}`"
@@ -62,7 +57,7 @@ const ignores = useIgnoresStore();
 // filtered after results arrive so /unignore restores the rows without
 // re-issuing the query.
 const visibleResults = computed(() =>
-  store.results.filter((m) => !ignores.isIgnored(m.networkId, m.nick, (m as any).userhost ?? ''))
+  store.results.filter((m) => !ignores.isIgnored(m.networkId, m.nick, (m as any).userhost ?? '')),
 );
 
 const inputEl = ref<HTMLInputElement | null>(null);
@@ -79,21 +74,26 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 watch(queryInput, (val) => {
   store.setQuery(val);
   if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => { store.runSearch(); }, 200);
+  debounceTimer = setTimeout(() => {
+    store.runSearch();
+  }, 200);
 });
 
 // Reset the keyboard cursor whenever the visible result set is replaced
 // (a fresh search), but leave it alone on pagination appends. Clamp to
 // in-range when the set shrinks (e.g. a result becomes ignored) so the
 // restored selectedIndex never points past the end.
-watch(() => visibleResults.value.length, (len, prev) => {
-  if (len === 0) {
-    selected.value = 0;
-    return;
-  }
-  if (len < prev || prev === 0) selected.value = 0;
-  if (selected.value >= len) selected.value = len - 1;
-});
+watch(
+  () => visibleResults.value.length,
+  (len, prev) => {
+    if (len === 0) {
+      selected.value = 0;
+      return;
+    }
+    if (len < prev || prev === 0) selected.value = 0;
+    if (selected.value >= len) selected.value = len - 1;
+  },
+);
 
 function onJump(m: HistoryMessage | SearchResult) {
   const id = typeof m.id === 'number' ? m.id : 0;
@@ -172,7 +172,10 @@ onBeforeUnmount(() => {
   padding: 8px 10px;
   font: inherit;
 }
-.filter:focus { outline: none; border-color: var(--accent); }
+.filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 
 .match-list {
   list-style: none;

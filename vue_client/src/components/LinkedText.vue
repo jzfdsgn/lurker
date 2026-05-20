@@ -12,7 +12,8 @@
       target="_blank"
       rel="noreferrer noopener"
       :style="styleFor(seg)"
-    >{{ seg.text }}</a>
+      >{{ seg.text }}</a
+    >
     <span v-else-if="hasStyle(seg)" :style="styleFor(seg)">{{ seg.text }}</span>
     <template v-else>{{ seg.text }}</template>
   </template>
@@ -30,11 +31,18 @@ import { splitTextByTokens, segmentInlineStyle, segmentHasStyle } from '../utils
 // errors, part reasons, etc.) and by the topic bar in Chat.vue. Lines that
 // DO get nick coloring (message/notice/action) call splitTextByTokens
 // directly with a real nickSet.
-const props = withDefaults(defineProps<{
-  text?: string;
-}>(), { text: '' });
+const props = withDefaults(
+  defineProps<{
+    text?: string;
+  }>(),
+  { text: '' },
+);
 
 const segments = computed(() => splitTextByTokens(props.text, null, null, null));
-function styleFor(seg: RenderSegment): CSSProperties { return segmentInlineStyle(seg, null) as CSSProperties; }
-function hasStyle(seg: RenderSegment) { return segmentHasStyle(seg); }
+function styleFor(seg: RenderSegment): CSSProperties {
+  return segmentInlineStyle(seg, null) as CSSProperties;
+}
+function hasStyle(seg: RenderSegment) {
+  return segmentHasStyle(seg);
+}
 </script>

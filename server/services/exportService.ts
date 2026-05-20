@@ -49,13 +49,17 @@ function scopeFilter(scope: string, userId: number): { where: string; params: nu
 
 function countRows(table: string, scope: string, userId: number): number {
   const { where, params } = scopeFilter(scope, userId);
-  return (db.prepare(`SELECT COUNT(*) AS n FROM ${table} ${where}`).get(...params) as { n: number }).n;
+  return (db.prepare(`SELECT COUNT(*) AS n FROM ${table} ${where}`).get(...params) as { n: number })
+    .n;
 }
 
 // Project a row into the shape that lands in the export. Strips BLOB columns
 // (they get written to thumbnails/<id>.<ext> separately) and replaces them
 // with a hasThumbnail flag so the importer knows to look for the file.
-function projectRow(row: Record<string, unknown>, def: ExportTableDefWithScope): Record<string, unknown> {
+function projectRow(
+  row: Record<string, unknown>,
+  def: ExportTableDefWithScope,
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const col of def.columns) {
     if (def.blobColumns?.includes(col)) continue;
@@ -67,7 +71,10 @@ function projectRow(row: Record<string, unknown>, def: ExportTableDefWithScope):
   return out;
 }
 
-function* messagesNdjsonGenerator(userId: number, networkIdToCount: { total: number }): Generator<string> {
+function* messagesNdjsonGenerator(
+  userId: number,
+  networkIdToCount: { total: number },
+): Generator<string> {
   const def = EXPORT_TABLES.messages as ExportTableDefWithScope;
   const { where, params } = scopeFilter(def.scope, userId);
   const cols = def.columns.join(', ');
@@ -80,14 +87,24 @@ function* messagesNdjsonGenerator(userId: number, networkIdToCount: { total: num
   }
 }
 
-function selectAll(table: string, def: ExportTableDefWithScope, userId: number): Record<string, unknown>[] {
+function selectAll(
+  table: string,
+  def: ExportTableDefWithScope,
+  userId: number,
+): Record<string, unknown>[] {
   const { where, params } = scopeFilter(def.scope, userId);
   const cols = def.columns.join(', ');
   const order = def.pk ? `ORDER BY ${def.pk} ASC` : '';
-  return db.prepare(`SELECT ${cols} FROM ${table} ${where} ${order}`).all(...params) as Record<string, unknown>[];
+  return db.prepare(`SELECT ${cols} FROM ${table} ${where} ${order}`).all(...params) as Record<
+    string,
+    unknown
+  >[];
 }
 
-export function computeExportPreview(userId: number, { includeMessages = false } = {}): Record<string, number> {
+export function computeExportPreview(
+  userId: number,
+  { includeMessages = false } = {},
+): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const [table, def] of Object.entries(EXPORT_TABLES)) {
     const d = def as ExportTableDefWithScope;
@@ -106,7 +123,9 @@ export function computeExportPreview(userId: number, { includeMessages = false }
 }
 
 function getSchemaVersion(): number {
-  const row = db.prepare(`SELECT value FROM app_meta WHERE key = 'schema_version'`).get() as { value: string } | undefined;
+  const row = db.prepare(`SELECT value FROM app_meta WHERE key = 'schema_version'`).get() as
+    | { value: string }
+    | undefined;
   return row ? parseInt(row.value, 10) || 0 : 0;
 }
 
@@ -118,7 +137,11 @@ function getSchemaVersion(): number {
 // responsible for setting Content-Type and Content-Disposition before
 // calling this. We don't set them here so the function is reusable from
 // tests that pipe into a `PassThrough`.
-export async function buildExportZip(userId: number, { includeMessages = false } = {}, destStream: Writable): Promise<void> {
+export async function buildExportZip(
+  userId: number,
+  { includeMessages = false } = {},
+  destStream: Writable,
+): Promise<void> {
   const archive = new ZipArchive({ zlib: { level: 6 } });
   const archiveDone = new Promise<void>((resolve, reject) => {
     archive.on('error', reject);
@@ -167,13 +190,18 @@ export async function buildExportZip(userId: number, { includeMessages = false }
     // We populate counts.messages from the registry preview, since the
     // generator-based count is only known after the stream drains. The
     // preview path uses COUNT(*) which is cheap for any indexed selection.
-    counts.messages = countRows('messages', (EXPORT_TABLES.messages as ExportTableDefWithScope).scope, userId);
+    counts.messages = countRows(
+      'messages',
+      (EXPORT_TABLES.messages as ExportTableDefWithScope).scope,
+      userId,
+    );
 
     // ---- bookmarks.json ----
     sections.push('bookmarks');
     const bookmarksDef = EXPORT_TABLES.user_bookmarks as ExportTableDefWithScope;
-    const bookmarkRows = selectAll('user_bookmarks', bookmarksDef, userId)
-      .map((row) => projectRow(row, bookmarksDef));
+    const bookmarkRows = selectAll('user_bookmarks', bookmarksDef, userId).map((row) =>
+      projectRow(row, bookmarksDef),
+    );
     archive.append(JSON.stringify(bookmarkRows, null, 2), { name: 'bookmarks.json' });
     counts.user_bookmarks = bookmarkRows.length;
   } else {

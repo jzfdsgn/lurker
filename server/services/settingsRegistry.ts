@@ -10,9 +10,7 @@ import { REGISTRY, getOption, defaultsAsObject } from '../../shared/settingsRegi
 
 export { REGISTRY, getOption, defaultsAsObject };
 
-type ValidateResult =
-  | { ok: true; value: SettingValue }
-  | { ok: false; error: string };
+type ValidateResult = { ok: true; value: SettingValue } | { ok: false; error: string };
 
 export function validate(key: string, raw: unknown): ValidateResult {
   const opt = getOption(key);
@@ -26,8 +24,10 @@ export function validate(key: string, raw: unknown): ValidateResult {
     case 'int': {
       const n = typeof raw === 'number' ? raw : Number(raw);
       if (!Number.isInteger(n)) return { ok: false, error: `${key} must be an integer` };
-      if (typeof opt.min === 'number' && n < opt.min) return { ok: false, error: `${key} must be >= ${opt.min}` };
-      if (typeof opt.max === 'number' && n > opt.max) return { ok: false, error: `${key} must be <= ${opt.max}` };
+      if (typeof opt.min === 'number' && n < opt.min)
+        return { ok: false, error: `${key} must be >= ${opt.min}` };
+      if (typeof opt.max === 'number' && n > opt.max)
+        return { ok: false, error: `${key} must be <= ${opt.max}` };
       return { ok: true, value: n };
     }
     case 'string':

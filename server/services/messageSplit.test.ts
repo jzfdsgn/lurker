@@ -46,13 +46,19 @@ describe('splitSay', () => {
     // Build a stream of short words that adds up past the limit. We should
     // get a break at a space boundary, not mid-word.
     const word = 'foo ';
-    const text = word.repeat(Math.ceil(MESSAGE_MAX_BYTES * 1.5 / word.length));
+    const text = word.repeat(Math.ceil((MESSAGE_MAX_BYTES * 1.5) / word.length));
     const chunks = splitSay(text);
     expect(chunks.length).toBeGreaterThan(1);
     for (const c of chunks) {
       // Each chunk should consist of whole 'foo' tokens (and spaces) — never
       // a fragment like 'fo' or 'o'.
-      expect(c.replace(/\s+/g, ' ').trim().split(' ').every((w) => w === 'foo')).toBe(true);
+      expect(
+        c
+          .replace(/\s+/g, ' ')
+          .trim()
+          .split(' ')
+          .every((w) => w === 'foo'),
+      ).toBe(true);
     }
   });
 

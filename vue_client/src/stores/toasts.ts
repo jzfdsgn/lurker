@@ -5,14 +5,7 @@ import { defineStore } from 'pinia';
 
 let nextId = 1;
 
-export type ToastKind =
-  | 'highlight'
-  | 'dm'
-  | 'always_notify'
-  | 'notify'
-  | 'info'
-  | 'warn'
-  | 'error';
+export type ToastKind = 'highlight' | 'dm' | 'always_notify' | 'notify' | 'info' | 'warn' | 'error';
 
 export interface Toast {
   id: number;
@@ -39,7 +32,15 @@ export const useToastsStore = defineStore('toasts', {
     items: [] as Toast[],
   }),
   actions: {
-    push({ title, body, networkId, target, messageId, kind = 'highlight', ttlMs = 5000 }: ToastOptions) {
+    push({
+      title,
+      body,
+      networkId,
+      target,
+      messageId,
+      kind = 'highlight',
+      ttlMs = 5000,
+    }: ToastOptions) {
       const id = nextId++;
       this.items.push({ id, title, body, networkId, target, messageId, kind });
       if (ttlMs > 0) {

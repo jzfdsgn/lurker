@@ -22,7 +22,13 @@ beforeAll(async () => {
   ({ createNetwork } = await import('../db/networks.js'));
   highlightRulesService = (await import('./highlightRulesService.js')).default;
   user = createUser('hrs-alice');
-  net = createNetwork(user.id, { name: 'libera', host: 'h', port: 6697, tls: true, nick: 'a' }) as Network;
+  net = createNetwork(user.id, {
+    name: 'libera',
+    host: 'h',
+    port: 6697,
+    tls: true,
+    nick: 'a',
+  }) as Network;
 });
 
 afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));

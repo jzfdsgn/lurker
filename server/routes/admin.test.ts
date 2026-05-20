@@ -4,15 +4,24 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 
 const ctx = setupTestDb('routes-admin');
 
 const fakeManager = {
   disposed: [] as Array<[number, string]>,
-  reset() { this.disposed = []; },
-  disposeUser(userId: number, reason: string) { this.disposed.push([userId, reason]); },
+  reset() {
+    this.disposed = [];
+  },
+  disposeUser(userId: number, reason: string) {
+    this.disposed.push([userId, reason]);
+  },
 };
 vi.mock('../services/ircManager.js', () => ({ default: fakeManager }));
 
@@ -126,7 +135,7 @@ describe('DELETE /api/admin/users/:id', () => {
     expect((await challengerAgent.delete(`/api/admin/users/${promoted.id}`)).status).toBe(200);
   });
 
-  it('disposes the user\'s IRC connections before deletion', async () => {
+  it("disposes the user's IRC connections before deletion", async () => {
     const target = (await import('../db/users.js')).createUser('to-be-removed');
     fakeManager.reset();
     const res = await adminAgent.delete(`/api/admin/users/${target.id}`);
@@ -181,7 +190,8 @@ describe('invites', () => {
     const token = create.body.invite.token as string;
     // Push expiry into the past so listInvites + derivation hit the 'expired' branch.
     db.prepare(`UPDATE invite_tokens SET expires_at = ? WHERE token = ?`).run(
-      new Date(Date.now() - 60_000).toISOString(), token,
+      new Date(Date.now() - 60_000).toISOString(),
+      token,
     );
     const list = await adminAgent.get('/api/admin/invites');
     const row = list.body.invites.find((i: { token: string }) => i.token === token);

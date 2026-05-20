@@ -14,7 +14,11 @@ export function onInsertUrl(cb: (url: string) => void) {
 }
 function emitInsert(url: string) {
   for (const cb of insertListeners) {
-    try { cb(url); } catch (_) { /* listener errors are not our problem */ }
+    try {
+      cb(url);
+    } catch (_) {
+      /* listener errors are not our problem */
+    }
   }
 }
 
@@ -37,12 +41,12 @@ export interface UploadItem {
 export const useUploadsStore = defineStore('uploads', {
   state: () => ({
     // Active upload — drives the status-bar "Uploading: NN%" segment.
-    current: null as UploadCurrent | null,         // { progress: 0-100, filename: string|null }
-    failedAt: null as number | null,        // epoch ms; status-bar renders "Upload failed" until cleared
+    current: null as UploadCurrent | null, // { progress: 0-100, filename: string|null }
+    failedAt: null as number | null, // epoch ms; status-bar renders "Upload failed" until cleared
     failedMessage: '',
 
-    recent: [] as UploadItem[],            // paginated history rows
-    cursor: null as number | null,          // smallest id seen, used as `before=` for the next page
+    recent: [] as UploadItem[], // paginated history rows
+    cursor: null as number | null, // smallest id seen, used as `before=` for the next page
     hasMore: true,
     loaded: false,
     loading: false,
@@ -54,7 +58,10 @@ export const useUploadsStore = defineStore('uploads', {
       const fd = new FormData();
       const name = filename || (file instanceof File ? file.name : null) || 'upload';
       fd.append('image', file, name);
-      this.current = { progress: 0, filename: filename || (file instanceof File ? file.name : null) || null };
+      this.current = {
+        progress: 0,
+        filename: filename || (file instanceof File ? file.name : null) || null,
+      };
       this.failedAt = null;
       this.failedMessage = '';
       try {

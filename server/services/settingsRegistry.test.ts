@@ -63,7 +63,7 @@ describe('validate', () => {
   describe('enum', () => {
     const opt = getOption(ENUM_KEY);
     it('accepts a listed choice', () => {
-      const choice = (opt && opt.type === 'enum') ? opt.choices[0] : '';
+      const choice = opt && opt.type === 'enum' ? opt.choices[0] : '';
       expect(validate(ENUM_KEY, choice).ok).toBe(true);
     });
     it('rejects a non-listed string', () => {

@@ -20,15 +20,24 @@ import { matchesAny as matchesIgnoreMask } from './maskMatch.js';
 import { listMasks as listIgnoredMasks } from '../db/ignoredMasks.js';
 import { findSession } from '../db/sessions.js';
 import { findUserById, touchUserLastSeen } from '../db/users.js';
-import { listMessages, listMessagesAround, hasOlderRow, hasNewerRow, listBufferTargets, listSpeakers, countNewer, countHighlightsNewer, maxIdByBuffer, COUNTABLE_TYPES } from '../db/messages.js';
-import { listReadStateForUser, getReadState, setReadState } from '../db/bufferReads.js';
-import { addEntry as addInputHistory, listRecent as listRecentInputHistory } from '../db/inputHistory.js';
 import {
-  closeBuffer,
-  reopenBuffer,
-  isClosed,
-  closedKeySetForUser,
-} from '../db/closedBuffers.js';
+  listMessages,
+  listMessagesAround,
+  hasOlderRow,
+  hasNewerRow,
+  listBufferTargets,
+  listSpeakers,
+  countNewer,
+  countHighlightsNewer,
+  maxIdByBuffer,
+  COUNTABLE_TYPES,
+} from '../db/messages.js';
+import { listReadStateForUser, getReadState, setReadState } from '../db/bufferReads.js';
+import {
+  addEntry as addInputHistory,
+  listRecent as listRecentInputHistory,
+} from '../db/inputHistory.js';
+import { closeBuffer, reopenBuffer, isClosed, closedKeySetForUser } from '../db/closedBuffers.js';
 import {
   pinBuffer,
   unpinBuffer,
@@ -37,10 +46,7 @@ import {
 } from '../db/pinnedBuffers.js';
 import { setNicklistCollapsed } from '../db/nicklistCollapsed.js';
 import { addBookmark, removeBookmark, listBookmarkIdsForUser } from '../db/bookmarks.js';
-import {
-  getChannelNotifyAlways,
-  setChannelNotifyAlways,
-} from '../db/channelNotify.js';
+import { getChannelNotifyAlways, setChannelNotifyAlways } from '../db/channelNotify.js';
 import { getUserAwayState } from '../db/userAwayState.js';
 import { upsertChannel, ownsNetwork } from '../db/networks.js';
 import * as chanlistDb from '../db/chanlist.js';
@@ -94,8 +100,12 @@ function wallClockParts(date: Date, timeZone: string | null): Record<string, str
   const dtf = new Intl.DateTimeFormat('en-US', {
     ...(timeZone ? { timeZone } : {}),
     hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   });
   const out: Record<string, string> = {};
   for (const p of dtf.formatToParts(date)) if (p.type !== 'literal') out[p.type] = p.value;
@@ -125,7 +135,9 @@ function fmtAwayTimestamp(date: Date, timeZone: unknown): string {
 }
 
 function buildAutoAwayMessage(userId: number): string {
-  const base = ((effectiveSetting(userId, 'away.auto.message') as string | undefined) || 'afk').trim() || 'afk';
+  const base =
+    ((effectiveSetting(userId, 'away.auto.message') as string | undefined) || 'afk').trim() ||
+    'afk';
   const tz = effectiveSetting(userId, 'system.timezone');
   return `${base} since ${fmtAwayTimestamp(new Date(), tz)}`;
 }
@@ -186,10 +198,18 @@ export function decorateMessage(userId: number, event: MessageEvent): DecoratedE
   const dm = isDirect(event) && !event.self;
   const target = event.target || '';
   const isChannel = target.startsWith('#');
-  const notifyAlways = isChannel && !event.self
-    && getChannelNotifyAlways(userId, event.networkId, target);
+  const notifyAlways =
+    isChannel && !event.self && getChannelNotifyAlways(userId, event.networkId, target);
   const notify = matched || dm || notifyAlways;
-  return { ...event, matched, matchedRuleId, dm, notifyAlways, notify, kind: event.kind ?? '' } as DecoratedEvent;
+  return {
+    ...event,
+    matched,
+    matchedRuleId,
+    dm,
+    notifyAlways,
+    notify,
+    kind: event.kind ?? '',
+  } as DecoratedEvent;
 }
 
 function computeUnreadFor(_userId: number, networkId: number, target: string, lastReadId: number) {
@@ -315,7 +335,12 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
   // counts are now." Used by mark-read echo and by the live IRC-event fan-out
   // below — the client doesn't increment locally anymore, so this is the
   // only source of badge state.
-  function broadcastReadState(userId: number, networkId: number, target: string, lastReadId: number): void {
+  function broadcastReadState(
+    userId: number,
+    networkId: number,
+    target: string,
+    lastReadId: number,
+  ): void {
     const counts = computeUnreadFor(userId, networkId, target, lastReadId);
     fanOut(userId, {
       kind: 'read-state',
@@ -347,11 +372,7 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
     // The `kind` doubles as the settings-key namespace, so picking a single
     // priority winner here means a DM that also matched a rule still
     // delivers as one notification, gated by the DM master toggle.
-    const kindKey = decorated.dm
-      ? 'dm'
-      : decorated.matched
-        ? 'highlight'
-        : 'always_notify';
+    const kindKey = decorated.dm ? 'dm' : decorated.matched ? 'highlight' : 'always_notify';
     if (!effectiveSetting(userId, `notifications.${kindKey}.enabled`)) return;
     // Suppress push while the user has a *manual* /away set. Auto-away is the
     // case where push is needed most (all tabs closed), so it's deliberately
@@ -373,16 +394,18 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
       }
     }
     const network = ircManager.getConnection(userId, decorated.networkId)?.network;
-    pushService.deliver(userId, {
-      kind: kindKey,
-      networkId: decorated.networkId,
-      networkName: network?.name || `net:${decorated.networkId}`,
-      target: decorated.target,
-      nick: decorated.nick,
-      text: decorated.text,
-      time: decorated.time,
-      messageId: decorated.id,
-    }).catch((err) => console.warn('[push] deliver failed:', err?.message || err));
+    pushService
+      .deliver(userId, {
+        kind: kindKey,
+        networkId: decorated.networkId,
+        networkName: network?.name || `net:${decorated.networkId}`,
+        target: decorated.target,
+        nick: decorated.nick,
+        text: decorated.text,
+        time: decorated.time,
+        messageId: decorated.id,
+      })
+      .catch((err) => console.warn('[push] deliver failed:', err?.message || err));
   }
 
   ircManager.on('event', (rawEvent) => {
@@ -391,8 +414,11 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
     const eventUserId = event.userId;
     const decorated = decorateMessage(eventUserId, event);
     const target = decorated.target;
-    if (target && !target.startsWith(':server:')
-        && isClosed(eventUserId, decorated.networkId, target)) {
+    if (
+      target &&
+      !target.startsWith(':server:') &&
+      isClosed(eventUserId, decorated.networkId, target)
+    ) {
       // A persisted message with a real id (DM, message, action, notice, etc.)
       // is a strong signal the buffer is wanted again — reopen it. Ephemeral
       // events (typing, away markers fanned to this target, names) shouldn't
@@ -440,8 +466,11 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
     // (after reconnect) isn't blocked by stale state.
     if (event.type === 'state' && event.state === 'disconnected' && event.networkId) {
       if (chanlistInFlight.delete(event.networkId)) {
-        try { chanlistDb.setMeta(event.networkId, { inProgress: false }); }
-        catch (_) { /* ignore */ }
+        try {
+          chanlistDb.setMeta(event.networkId, { inProgress: false });
+        } catch (_) {
+          /* ignore */
+        }
       }
     }
 
@@ -470,7 +499,8 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
     fanOut(userId, { kind: 'settings', changes: changes || {} });
     // If the user toggled / shortened auto-away while disconnected, re-evaluate
     // the pending timer with the new value.
-    const touchedAway = changes && ('away.auto.enabled' in changes || 'away.auto.delay_seconds' in changes);
+    const touchedAway =
+      changes && ('away.auto.enabled' in changes || 'away.auto.delay_seconds' in changes);
     if (touchedAway && (socketsByUser.get(userId)?.size || 0) === 0) {
       clearAutoAwayTimer(userId);
       scheduleAutoAway(userId);
@@ -516,7 +546,11 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
     const set = socketsByUser.get(userId);
     if (set) {
       for (const ws of set) {
-        try { ws.close(1000, 'user removed'); } catch (_) { /* ignore */ }
+        try {
+          ws.close(1000, 'user removed');
+        } catch (_) {
+          /* ignore */
+        }
       }
       socketsByUser.delete(userId);
     }
@@ -592,7 +626,11 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
     ws.on('error', () => removeSocket(user.id, ws));
   }
 
-  function sendSnapshot(ws: LurkerWebSocket, userId: number, freshNetworkId: number | null = null): void {
+  function sendSnapshot(
+    ws: LurkerWebSocket,
+    userId: number,
+    freshNetworkId: number | null = null,
+  ): void {
     const networks = ircManager.snapshotForUser(userId);
     send(ws, { kind: 'snapshot', networks });
     // Drafts ship once per snapshot, separate from per-buffer backlog frames —
@@ -628,8 +666,10 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
       for (const target of targets) {
         if (target.startsWith(':server:')) {
           // Server pseudo-buffer is uncloseable — never filter.
-        } else if (closed.has(`${conn.network.id}::${target}`)
-            && !conn.channels.has(target.toLowerCase())) {
+        } else if (
+          closed.has(`${conn.network.id}::${target}`) &&
+          !conn.channels.has(target.toLowerCase())
+        ) {
           continue;
         }
         // Resume cursor: ship only the gap (id > sinceId) when the client has
@@ -690,7 +730,12 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         // Surface the failure on the originating send/action so the client
         // can stop pretending the message succeeded.
         if (msg.clientId && (msg.type === 'send' || msg.type === 'action')) {
-          send(ws, { kind: 'send-result', clientId: msg.clientId, ok: false, error: 'unknown-network' });
+          send(ws, {
+            kind: 'send-result',
+            clientId: msg.clientId,
+            ok: false,
+            error: 'unknown-network',
+          });
         }
         return;
       }
@@ -708,16 +753,24 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         const verbName = msg.type === 'send' ? 'send_message' : 'send_action';
         let result: { ok: boolean; error?: string };
         try {
-          result = callVerb(verbName, { userId, scope: 'read-write', transport: 'ws' }, {
-            networkId: msg.networkId, target: msg.target, text: msg.text,
-          }) as { ok: boolean; error?: string };
+          result = callVerb(
+            verbName,
+            { userId, scope: 'read-write', transport: 'ws' },
+            {
+              networkId: msg.networkId,
+              target: msg.target,
+              text: msg.text,
+            },
+          ) as { ok: boolean; error?: string };
         } catch (err) {
           result = { ok: false, error: (err as NodeJS.ErrnoException).code || 'error' };
         }
         if (msg.clientId) {
           send(ws, {
-            kind: 'send-result', clientId: msg.clientId,
-            ok: !!result.ok, error: result.ok ? undefined : result.error,
+            kind: 'send-result',
+            clientId: msg.clientId,
+            ok: !!result.ok,
+            error: result.ok ? undefined : result.error,
           });
         }
         break;
@@ -726,7 +779,12 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         ircManager.joinChannel(userId, msg.networkId as number, msg.channel as string);
         break;
       case 'part':
-        ircManager.partChannel(userId, msg.networkId as number, msg.channel as string, msg.reason as string | undefined);
+        ircManager.partChannel(
+          userId,
+          msg.networkId as number,
+          msg.channel as string,
+          msg.reason as string | undefined,
+        );
         break;
       case 'close-buffer': {
         const networkId = Number(msg.networkId);
@@ -739,7 +797,9 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
           // If disconnected, partChannel is a no-op, so explicitly mark the
           // channel as not-joined here to keep it from auto-rejoining the
           // next time the network connects.
-          if (!ircManager.partChannel(userId, networkId, target, msg.reason as string | undefined)) {
+          if (
+            !ircManager.partChannel(userId, networkId, target, msg.reason as string | undefined)
+          ) {
             upsertChannel(networkId, target, false);
           }
         } else {
@@ -799,8 +859,11 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
           break;
         }
         chanlistInFlight.add(networkId);
-        try { conn.raw('LIST'); }
-        catch (_) { chanlistInFlight.delete(networkId); }
+        try {
+          conn.raw('LIST');
+        } catch (_) {
+          chanlistInFlight.delete(networkId);
+        }
         send(ws, { kind: 'chanlist-state', networkId, ...chanlistDb.getMeta(networkId) });
         break;
       }
@@ -816,7 +879,11 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         const offset = Math.max(Number(msg.offset) || 0, 0);
         const limit = Math.min(Math.max(Number(msg.limit) || 200, 1), 500);
         const { rows, total } = chanlistDb.searchChannels(networkId, {
-          query, sortBy, sortDir, offset, limit,
+          query,
+          sortBy,
+          sortDir,
+          offset,
+          limit,
         });
         const meta = chanlistDb.getMeta(networkId);
         send(ws, {
@@ -846,7 +913,12 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         ircManager.clearAwayAll(userId, { autoSet: false });
         break;
       case 'typing':
-        ircManager.typing(userId, msg.networkId as number, msg.target as string, msg.state as string);
+        ircManager.typing(
+          userId,
+          msg.networkId as number,
+          msg.target as string,
+          msg.state as string,
+        );
         break;
       case 'mark-read': {
         const networkId = Number(msg.networkId);
@@ -922,7 +994,9 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
       case 'reorder-pins': {
         const networkId = Number(msg.networkId);
         if (!networkId || !Array.isArray(msg.targets)) break;
-        const targets = (msg.targets as unknown[]).filter((t): t is string => typeof t === 'string' && !!t);
+        const targets = (msg.targets as unknown[]).filter(
+          (t): t is string => typeof t === 'string' && !!t,
+        );
         const next = reorderPins(userId, networkId, targets);
         if (next === null) {
           // Set mismatch (concurrent pin/unpin from another tab landed before
@@ -970,10 +1044,18 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         // fanOut to other open tabs. WS handler is now a thin delegator —
         // identical behavior whether the change came from this tab or MCP.
         try {
-          callVerb('set_nick_note', { userId, scope: 'read-write', transport: 'ws' }, {
-            networkId: msg.networkId, nick: msg.nick, note: msg.note,
-          });
-        } catch (_) { /* boundary already filtered bad networkId; ignore */ }
+          callVerb(
+            'set_nick_note',
+            { userId, scope: 'read-write', transport: 'ws' },
+            {
+              networkId: msg.networkId,
+              nick: msg.nick,
+              note: msg.note,
+            },
+          );
+        } catch (_) {
+          /* boundary already filtered bad networkId; ignore */
+        }
         break;
       }
       case 'set-bookmark': {
@@ -1077,8 +1159,9 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
             send(ws, { kind: 'error', text: 'invalid afterId' });
             break;
           }
-          const events = listMessages(histNetworkId, histTarget, { afterId, limit })
-            .map((e) => decorateMessage(userId, e));
+          const events = listMessages(histNetworkId, histTarget, { afterId, limit }).map((e) =>
+            decorateMessage(userId, e),
+          );
           const newestId = events.length ? events[events.length - 1].id : afterId;
           send(ws, {
             ...baseReply,
@@ -1096,8 +1179,9 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
           // Return-to-present reattach. Equivalent to the implicit initial
           // backlog (`limit` rows, newest, no `before`); ships hasMoreOlder so
           // the client can resume upward paging cleanly.
-          const events = listMessages(histNetworkId, histTarget, { limit })
-            .map((e) => decorateMessage(userId, e));
+          const events = listMessages(histNetworkId, histTarget, { limit }).map((e) =>
+            decorateMessage(userId, e),
+          );
           const oldestId = events.length ? events[0].id : 0;
           send(ws, {
             ...baseReply,
@@ -1116,9 +1200,16 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         const before = msg.before ? Number(msg.before) : undefined;
         let result: { messages: WsPayload[]; hasOlder: boolean };
         try {
-          result = callVerb('recent_messages', { userId, scope: 'read-write', transport: 'ws' }, {
-            networkId: msg.networkId, target: msg.target, before, limit,
-          }) as { messages: WsPayload[]; hasOlder: boolean };
+          result = callVerb(
+            'recent_messages',
+            { userId, scope: 'read-write', transport: 'ws' },
+            {
+              networkId: msg.networkId,
+              target: msg.target,
+              before,
+              limit,
+            },
+          ) as { messages: WsPayload[]; hasOlder: boolean };
         } catch (_) {
           send(ws, { kind: 'error', text: 'history fetch failed' });
           break;
@@ -1140,14 +1231,18 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         // caller's networks via its SQL join.
         let result: { messages: WsPayload[]; hasMore: boolean };
         try {
-          result = callVerb('search_messages', { userId, scope: 'read-write', transport: 'ws' }, {
-            query: msg.query,
-            networkId: msg.networkId || undefined,
-            target: typeof msg.target === 'string' && msg.target ? msg.target : undefined,
-            nick: typeof msg.nick === 'string' && msg.nick ? msg.nick : undefined,
-            before: msg.before ? Number(msg.before) : undefined,
-            limit: msg.limit,
-          }) as { messages: WsPayload[]; hasMore: boolean };
+          result = callVerb(
+            'search_messages',
+            { userId, scope: 'read-write', transport: 'ws' },
+            {
+              query: msg.query,
+              networkId: msg.networkId || undefined,
+              target: typeof msg.target === 'string' && msg.target ? msg.target : undefined,
+              nick: typeof msg.nick === 'string' && msg.nick ? msg.nick : undefined,
+              before: msg.before ? Number(msg.before) : undefined,
+              limit: msg.limit,
+            },
+          ) as { messages: WsPayload[]; hasMore: boolean };
         } catch (_) {
           send(ws, { kind: 'error', text: 'search failed' });
           break;

@@ -7,8 +7,8 @@
   <section id="users" class="settings-pane">
     <h2>users</h2>
     <p class="section-desc">
-      Invite friends with a one-time link, or remove an account. The last admin
-      and your own account can't be deleted.
+      Invite friends with a one-time link, or remove an account. The last admin and your own account
+      can't be deleted.
     </p>
     <p v-if="adminError" class="error inline">{{ adminError }}</p>
 
@@ -19,7 +19,10 @@
           {{ u.username }}
           <span v-if="u.role === 'admin'" class="role-tag">admin</span>
         </span>
-        <span class="last-seen" :title="`joined ${u.createdAt}${u.lastSeenAt ? ` · last seen ${u.lastSeenAt}` : ''}`">
+        <span
+          class="last-seen"
+          :title="`joined ${u.createdAt}${u.lastSeenAt ? ` · last seen ${u.lastSeenAt}` : ''}`"
+        >
           <template v-if="u.lastSeenAt">last seen {{ formatRelative(u.lastSeenAt) }}</template>
           <template v-else>joined {{ formatRelative(u.createdAt) }}</template>
         </span>
@@ -28,7 +31,9 @@
           :disabled="u.id === auth.user?.id || adminBusy"
           :title="u.id === auth.user?.id ? 'cannot delete yourself' : 'delete user'"
           @click="onDeleteUser(u)"
-        >delete</button>
+        >
+          delete
+        </button>
       </li>
     </ul>
     <p v-else-if="adminStore.usersLoaded" class="muted small">No users.</p>
@@ -51,7 +56,9 @@
           <span v-if="inv.usedByUsername" class="invite-used"> → {{ inv.usedByUsername }}</span>
         </span>
         <span class="last-seen" :title="inv.expiresAt ?? undefined">
-          <template v-if="inv.status === 'consumed' && inv.usedAt">used {{ formatRelative(inv.usedAt) }}</template>
+          <template v-if="inv.status === 'consumed' && inv.usedAt"
+            >used {{ formatRelative(inv.usedAt) }}</template
+          >
           <template v-else-if="inv.expiresAt">expires {{ formatRelative(inv.expiresAt) }}</template>
           <template v-else>no expiry</template>
         </span>
@@ -60,13 +67,12 @@
           class="link danger"
           :disabled="adminBusy"
           @click="onRevokeInvite(inv)"
-        >revoke</button>
-        <button
-          v-else
-          class="link"
-          disabled
-          title="consumed invites are kept as an audit trail"
-        >—</button>
+        >
+          revoke
+        </button>
+        <button v-else class="link" disabled title="consumed invites are kept as an audit trail">
+          —
+        </button>
       </li>
     </ul>
     <p v-else-if="adminStore.invitesLoaded" class="muted small">No invites yet.</p>
@@ -108,8 +114,12 @@ const adminBusy = ref(false);
 const lastCreatedInviteUrl = ref('');
 
 onMounted(() => {
-  adminStore.fetchUsers().catch((e: any) => { adminError.value = e.message; });
-  adminStore.fetchInvites().catch((e: any) => { adminError.value = e.message; });
+  adminStore.fetchUsers().catch((e: any) => {
+    adminError.value = e.message;
+  });
+  adminStore.fetchInvites().catch((e: any) => {
+    adminError.value = e.message;
+  });
 });
 
 async function onCreateInvite() {
@@ -117,10 +127,12 @@ async function onCreateInvite() {
   adminBusy.value = true;
   lastCreatedInviteUrl.value = '';
   try {
-    const invite = await adminStore.createInvite() as AdminInviteRow;
+    const invite = (await adminStore.createInvite()) as AdminInviteRow;
     lastCreatedInviteUrl.value = invite.url;
     if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(invite.url).catch(() => { /* clipboard is best-effort */ });
+      navigator.clipboard.writeText(invite.url).catch(() => {
+        /* clipboard is best-effort */
+      });
     }
   } catch (e: any) {
     adminError.value = e.message || 'failed to create invite';
@@ -157,7 +169,9 @@ async function onDeleteUser(user: AdminUserRow) {
 
 function copyInviteUrl(url: string) {
   if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(url).catch(() => { /* ignore */ });
+    navigator.clipboard.writeText(url).catch(() => {
+      /* ignore */
+    });
   }
 }
 </script>
@@ -209,8 +223,18 @@ function copyInviteUrl(url: string) {
   padding: 0 4px;
   border: 1px solid var(--border);
 }
-.invite-status.status-pending { color: var(--accent); border-color: var(--accent); }
-.invite-status.status-consumed { color: var(--fg-muted); }
-.invite-status.status-expired { color: var(--bad); border-color: var(--bad); }
-.invite-used { color: var(--fg-muted); }
+.invite-status.status-pending {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.invite-status.status-consumed {
+  color: var(--fg-muted);
+}
+.invite-status.status-expired {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.invite-used {
+  color: var(--fg-muted);
+}
 </style>

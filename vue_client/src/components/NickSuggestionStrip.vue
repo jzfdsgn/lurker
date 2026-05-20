@@ -29,7 +29,9 @@
       :style="row.color ? { color: row.color } : null"
       @mousedown.prevent
       @click="emit('select', row.nick)"
-    >{{ row.nick }}</div>
+    >
+      {{ row.nick }}
+    </div>
   </div>
 </template>
 
@@ -40,15 +42,18 @@ import { useIgnoresStore } from '../stores/ignores.js';
 import { useNickColors } from '../composables/useNickColors.js';
 import type { Buffer } from '../stores/buffers.js';
 
-const props = withDefaults(defineProps<{
-  query?: string;
-  buffer?: Buffer | null;
-  selfNick?: string;
-}>(), {
-  query: '',
-  buffer: null,
-  selfNick: '',
-});
+const props = withDefaults(
+  defineProps<{
+    query?: string;
+    buffer?: Buffer | null;
+    selfNick?: string;
+  }>(),
+  {
+    query: '',
+    buffer: null,
+    selfNick: '',
+  },
+);
 
 const emit = defineEmits<{
   select: [nick: string];
@@ -98,7 +103,9 @@ const rows = computed(() => {
   pointer-events: none;
   transition: opacity 80ms linear;
 }
-.nick-suggestion-strip::-webkit-scrollbar { display: none; }
+.nick-suggestion-strip::-webkit-scrollbar {
+  display: none;
+}
 .nick-suggestion-strip.visible {
   opacity: 1;
   pointer-events: auto;

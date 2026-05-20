@@ -21,9 +21,21 @@ export interface MessageContext {
 }
 
 export interface MessageActionsAPI {
-  buildItems(message: MessageLike | null | undefined, ctx: MessageContext | null | undefined): ContextMenuItem[];
-  openMenuFor(message: MessageLike | null | undefined, ctx: MessageContext | null | undefined, x: number, y: number): void;
-  openMenuFromButton(message: MessageLike | null | undefined, ctx: MessageContext | null | undefined, buttonEl: Element | null): void;
+  buildItems(
+    message: MessageLike | null | undefined,
+    ctx: MessageContext | null | undefined,
+  ): ContextMenuItem[];
+  openMenuFor(
+    message: MessageLike | null | undefined,
+    ctx: MessageContext | null | undefined,
+    x: number,
+    y: number,
+  ): void;
+  openMenuFromButton(
+    message: MessageLike | null | undefined,
+    ctx: MessageContext | null | undefined,
+    buttonEl: Element | null,
+  ): void;
 }
 
 // Shared per-message context menu actions. Right-click, mobile long-press, and
@@ -37,7 +49,10 @@ export function useMessageActions(): MessageActionsAPI {
   const bookmarks = useBookmarksStore();
   const menu = useContextMenu();
 
-  function buildItems(message: MessageLike | null | undefined, ctx: MessageContext | null | undefined): ContextMenuItem[] {
+  function buildItems(
+    message: MessageLike | null | undefined,
+    ctx: MessageContext | null | undefined,
+  ): ContextMenuItem[] {
     if (!message || !ctx) return [];
     const items: ContextMenuItem[] = [];
 
@@ -78,13 +93,22 @@ export function useMessageActions(): MessageActionsAPI {
     return items;
   }
 
-  function openMenuFor(message: MessageLike | null | undefined, ctx: MessageContext | null | undefined, x: number, y: number): void {
+  function openMenuFor(
+    message: MessageLike | null | undefined,
+    ctx: MessageContext | null | undefined,
+    x: number,
+    y: number,
+  ): void {
     const items = buildItems(message, ctx);
     if (items.length === 0) return;
     menu.open(items, x, y);
   }
 
-  function openMenuFromButton(message: MessageLike | null | undefined, ctx: MessageContext | null | undefined, buttonEl: Element | null): void {
+  function openMenuFromButton(
+    message: MessageLike | null | undefined,
+    ctx: MessageContext | null | undefined,
+    buttonEl: Element | null,
+  ): void {
     if (!buttonEl) return;
     const items = buildItems(message, ctx);
     if (items.length === 0) return;

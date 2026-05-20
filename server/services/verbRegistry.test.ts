@@ -48,9 +48,15 @@ describe('verbRegistry', () => {
 
   it('registerVerb rejects duplicates, invalid scope, missing handler', () => {
     registerVerb({ name: 'dup', scope: 'read', handler: () => null });
-    expect(() => registerVerb({ name: 'dup', scope: 'read', handler: () => null })).toThrow(/duplicate verb/);
-    expect(() => registerVerb({ name: 'bad', scope: 'admin', handler: () => null })).toThrow(/invalid scope/);
-    expect(() => registerVerb({ name: 'no-handler', scope: 'read' } as Parameters<typeof registerVerb>[0])).toThrow(/handler required/);
+    expect(() => registerVerb({ name: 'dup', scope: 'read', handler: () => null })).toThrow(
+      /duplicate verb/,
+    );
+    expect(() => registerVerb({ name: 'bad', scope: 'admin', handler: () => null })).toThrow(
+      /invalid scope/,
+    );
+    expect(() =>
+      registerVerb({ name: 'no-handler', scope: 'read' } as Parameters<typeof registerVerb>[0]),
+    ).toThrow(/handler required/);
   });
 
   it('callVerb throws unknown_verb when the name is not registered', () => {
@@ -69,15 +75,23 @@ describe('verbRegistry', () => {
       scope: 'read-write',
       handler: () => 'wrote',
     });
-    expect(() => callVerb('mutate', { userId: 1, scope: 'read', transport: 'ws' }, {})).toThrow(/scope insufficient/);
-    expect(callVerb('mutate', { userId: 1, scope: 'read-write', transport: 'ws' }, {})).toBe('wrote');
+    expect(() => callVerb('mutate', { userId: 1, scope: 'read', transport: 'ws' }, {})).toThrow(
+      /scope insufficient/,
+    );
+    expect(callVerb('mutate', { userId: 1, scope: 'read-write', transport: 'ws' }, {})).toBe(
+      'wrote',
+    );
   });
 
   it('callVerb rejects unknown networkId at the boundary (other-user ownership leak)', () => {
     const owner = createUser('vr-owner') as User;
     const intruder = createUser('vr-intruder') as User;
     const net = createNetwork(owner.id, {
-      name: 'libera', host: 'h', port: 6697, tls: true, nick: 'o',
+      name: 'libera',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'o',
     }) as Network;
     registerVerb({
       name: 'read-net',
@@ -85,12 +99,21 @@ describe('verbRegistry', () => {
       handler: (_ctx, input) => ({ saw: input.networkId }),
     });
     // Owner can call against their own network.
-    expect(callVerb('read-net', { userId: owner.id, scope: 'read', transport: 'ws' }, { networkId: net.id }))
-      .toEqual({ saw: net.id });
+    expect(
+      callVerb(
+        'read-net',
+        { userId: owner.id, scope: 'read', transport: 'ws' },
+        { networkId: net.id },
+      ),
+    ).toEqual({ saw: net.id });
     // Intruder cannot.
     let caughtErr: unknown;
     try {
-      callVerb('read-net', { userId: intruder.id, scope: 'read', transport: 'ws' }, { networkId: net.id });
+      callVerb(
+        'read-net',
+        { userId: intruder.id, scope: 'read', transport: 'ws' },
+        { networkId: net.id },
+      );
     } catch (err) {
       caughtErr = err;
     }
@@ -108,7 +131,13 @@ describe('verbRegistry', () => {
 
   it('listVerbs entries carry the inputSchema declared at registration', () => {
     const schema = { type: 'object', properties: { x: { type: 'integer' } } };
-    registerVerb({ name: 'sch', description: 'with schema', scope: 'read', input: schema, handler: () => null });
+    registerVerb({
+      name: 'sch',
+      description: 'with schema',
+      scope: 'read',
+      input: schema,
+      handler: () => null,
+    });
     const entry = listVerbs('read').find((v) => v.name === 'sch');
     expect(entry!.inputSchema).toEqual(schema);
   });
@@ -117,7 +146,11 @@ describe('verbRegistry', () => {
     registerVerb({
       name: 'req-net',
       scope: 'read',
-      input: { type: 'object', properties: { networkId: { type: 'integer' } }, required: ['networkId'] },
+      input: {
+        type: 'object',
+        properties: { networkId: { type: 'integer' } },
+        required: ['networkId'],
+      },
       handler: () => 'should-not-run',
     });
     let caughtErr: unknown;
@@ -137,7 +170,11 @@ describe('verbRegistry', () => {
     registerVerb({
       name: 'needs-net',
       scope: 'read',
-      input: { type: 'object', properties: { networkId: { type: 'integer' } }, required: ['networkId'] },
+      input: {
+        type: 'object',
+        properties: { networkId: { type: 'integer' } },
+        required: ['networkId'],
+      },
       handler: () => 'never',
     });
     let caughtErr: unknown;

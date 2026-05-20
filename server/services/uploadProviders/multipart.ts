@@ -35,16 +35,19 @@ export function buildMultipart(parts: MultipartPart[]): MultipartResult {
   for (const part of parts) {
     chunks.push(Buffer.from(`--${boundary}${CRLF}`));
     if (part.filename) {
-      chunks.push(Buffer.from(
-        `Content-Disposition: form-data; name="${part.name}"; filename="${encodeFilename(part.filename)}"${CRLF}` +
-        `Content-Type: ${part.contentType || 'application/octet-stream'}${CRLF}${CRLF}`,
-      ));
+      chunks.push(
+        Buffer.from(
+          `Content-Disposition: form-data; name="${part.name}"; filename="${encodeFilename(part.filename)}"${CRLF}` +
+            `Content-Type: ${part.contentType || 'application/octet-stream'}${CRLF}${CRLF}`,
+        ),
+      );
       chunks.push(Buffer.isBuffer(part.value) ? part.value : Buffer.from(part.value));
     } else {
-      chunks.push(Buffer.from(
-        `Content-Disposition: form-data; name="${part.name}"${CRLF}${CRLF}` +
-        String(part.value),
-      ));
+      chunks.push(
+        Buffer.from(
+          `Content-Disposition: form-data; name="${part.name}"${CRLF}${CRLF}` + String(part.value),
+        ),
+      );
     }
     chunks.push(Buffer.from(CRLF));
   }
@@ -74,38 +77,50 @@ function encodeFilename(name: string): string {
 export function postBuffer(
   urlString: string,
   body: Buffer,
-  { headers = {}, timeoutMs = 60_000 }: { headers?: Record<string, string>; timeoutMs?: number } = {},
+  {
+    headers = {},
+    timeoutMs = 60_000,
+  }: { headers?: Record<string, string>; timeoutMs?: number } = {},
 ): Promise<PostBufferResult> {
   return new Promise((resolve, reject) => {
     let url: URL;
-    try { url = new URL(urlString); } catch (err) { return reject(err); }
+    try {
+      url = new URL(urlString);
+    } catch (err) {
+      return reject(err);
+    }
     const isHttps = url.protocol === 'https:';
     const lib = isHttps ? https : http;
 
-    const req = lib.request({
-      method: 'POST',
-      hostname: url.hostname,
-      port: url.port || (isHttps ? 443 : 80),
-      path: `${url.pathname}${url.search}`,
-      headers: {
-        'Content-Length': String(body.length),
-        'Connection': 'close',
-        ...headers,
+    const req = lib.request(
+      {
+        method: 'POST',
+        hostname: url.hostname,
+        port: url.port || (isHttps ? 443 : 80),
+        path: `${url.pathname}${url.search}`,
+        headers: {
+          'Content-Length': String(body.length),
+          Connection: 'close',
+          ...headers,
+        },
       },
-    }, (res) => {
-      const chunks: Buffer[] = [];
-      res.on('data', (c: Buffer) => chunks.push(c));
-      res.on('end', () => {
-        resolve({
-          status: res.statusCode || 0,
-          headers: res.headers,
-          text: Buffer.concat(chunks).toString('utf8'),
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => {
+          resolve({
+            status: res.statusCode || 0,
+            headers: res.headers,
+            text: Buffer.concat(chunks).toString('utf8'),
+          });
         });
-      });
-    });
+      },
+    );
 
     req.setTimeout(timeoutMs, () => {
-      req.destroy(Object.assign(new Error(`request timed out after ${timeoutMs}ms`), { code: 'ETIMEDOUT' }));
+      req.destroy(
+        Object.assign(new Error(`request timed out after ${timeoutMs}ms`), { code: 'ETIMEDOUT' }),
+      );
     });
     req.on('error', reject);
     req.write(body);

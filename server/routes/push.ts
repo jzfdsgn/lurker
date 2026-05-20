@@ -46,7 +46,8 @@ router.post('/subscriptions', (req: Request, res: Response) => {
   });
   if (!result.ok) {
     res.status(409).json({
-      error: 'this browser is already registered for push under another account; disable push there first',
+      error:
+        'this browser is already registered for push under another account; disable push there first',
     });
     return;
   }

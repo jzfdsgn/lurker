@@ -42,25 +42,35 @@ export function createInvite(
     expiresInDays > 0
       ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
       : null;
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO invite_tokens (token, created_by, expires_at)
     VALUES (?, ?, ?)
-  `).run(token, createdBy, expiresAt);
+  `,
+  ).run(token, createdBy, expiresAt);
   return getInvite(token);
 }
 
 export function getInvite(token: string | null | undefined): InviteToken | null {
   if (!token) return null;
-  return (db.prepare(`
+  return (
+    (db
+      .prepare(
+        `
     SELECT token, created_by AS createdBy, expires_at AS expiresAt,
            used_by_user_id AS usedByUserId, used_at AS usedAt,
            created_at AS createdAt
     FROM invite_tokens WHERE token = ?
-  `).get(token) as InviteToken | undefined) ?? null;
+  `,
+      )
+      .get(token) as InviteToken | undefined) ?? null
+  );
 }
 
 export function listInvites(): InviteTokenWithUsers[] {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT i.token, i.created_by AS createdBy, i.expires_at AS expiresAt,
            i.used_by_user_id AS usedByUserId, i.used_at AS usedAt,
            i.created_at AS createdAt,
@@ -70,7 +80,9 @@ export function listInvites(): InviteTokenWithUsers[] {
     LEFT JOIN users c ON c.id = i.created_by
     LEFT JOIN users u ON u.id = i.used_by_user_id
     ORDER BY i.created_at DESC
-  `).all() as InviteTokenWithUsers[];
+  `,
+    )
+    .all() as InviteTokenWithUsers[];
 }
 
 export function deleteInvite(token: string): boolean {
@@ -97,10 +109,14 @@ export function inviteStatus(token: string): InviteStatusResult {
 // if it was already used or doesn't exist. The UPDATE guards on
 // used_by_user_id IS NULL so two simultaneous redemptions can't both succeed.
 export function consumeInvite(token: string, userId: number): boolean {
-  const info = db.prepare(`
+  const info = db
+    .prepare(
+      `
     UPDATE invite_tokens
     SET used_by_user_id = ?, used_at = datetime('now')
     WHERE token = ? AND used_by_user_id IS NULL
-  `).run(userId, token);
+  `,
+    )
+    .run(userId, token);
   return info.changes > 0;
 }

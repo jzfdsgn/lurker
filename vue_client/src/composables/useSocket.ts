@@ -94,8 +94,12 @@ function applyEvent(event: any): void {
       // would just clutter our own suggestions, so they don't count as
       // "people who recently spoke here."
       if (event.nick && !event.self) {
-        buffers.recordSpeaker(event.networkId, event.target, event.nick,
-          Date.parse(event.time) || Date.now());
+        buffers.recordSpeaker(
+          event.networkId,
+          event.target,
+          event.nick,
+          Date.parse(event.time) || Date.now(),
+        );
       }
       // Skipped on dedupe (above), so replayed events from a resume gap
       // can't re-fire a toast or sound for highlights we've already seen.
@@ -219,7 +223,7 @@ function applySnapshot(snapshot: any[]): void {
       const normalized = ch.members.map((m: any) =>
         typeof m === 'string'
           ? { nick: m, modes: [], away: false }
-          : { nick: m.nick, modes: m.modes || [], away: !!m.away }
+          : { nick: m.nick, modes: m.modes || [], away: !!m.away },
       );
       buffers.setMembers(net.networkId, ch.name, normalized);
       buffers.setTopic(net.networkId, ch.name, ch.topic);
@@ -230,12 +234,19 @@ function applySnapshot(snapshot: any[]): void {
 
 function applyBacklog(payload: any): void {
   const buffers = useBuffersStore();
-  buffers.replaceBacklog(payload.networkId, payload.target, payload.events, payload.speakers, {
-    lastReadId: payload.lastReadId,
-    unread: payload.unread,
-    highlights: payload.highlights,
-    highlightsCapped: payload.highlightsCapped,
-  }, payload.joined);
+  buffers.replaceBacklog(
+    payload.networkId,
+    payload.target,
+    payload.events,
+    payload.speakers,
+    {
+      lastReadId: payload.lastReadId,
+      unread: payload.unread,
+      highlights: payload.highlights,
+      highlightsCapped: payload.highlightsCapped,
+    },
+    payload.joined,
+  );
   if (payload.inputHistory) {
     const inputHistory = useInputHistoryStore();
     inputHistory.seed(payload.networkId, payload.target, payload.inputHistory);
@@ -244,7 +255,11 @@ function applyBacklog(payload: any): void {
 
 function handleMessage(raw: string): void {
   let payload;
-  try { payload = JSON.parse(raw); } catch (_) { return; }
+  try {
+    payload = JSON.parse(raw);
+  } catch (_) {
+    return;
+  }
 
   if (payload.kind === 'snapshot') {
     applySnapshot(payload.networks);
@@ -270,7 +285,11 @@ function handleMessage(raw: string): void {
       buffers.applyLatestReplace(payload.networkId, payload.target, payload);
     } else if (mode === 'after') {
       buffers.appendHistory(
-        payload.networkId, payload.target, payload.events, payload.hasMoreNewer, payload.speakers,
+        payload.networkId,
+        payload.target,
+        payload.events,
+        payload.hasMoreNewer,
+        payload.speakers,
       );
     } else {
       // 'before' or absent — historical legacy path. Pages of older events
@@ -278,7 +297,13 @@ function handleMessage(raw: string): void {
       // hasMoreOlder under the new field name and consumes either field for
       // back-compat with server response shapes.
       const hasMoreOlder = payload.hasMoreOlder != null ? payload.hasMoreOlder : payload.hasMore;
-      buffers.prependHistory(payload.networkId, payload.target, payload.events, hasMoreOlder, payload.speakers);
+      buffers.prependHistory(
+        payload.networkId,
+        payload.target,
+        payload.events,
+        hasMoreOlder,
+        payload.speakers,
+      );
     }
     return;
   }
@@ -414,7 +439,11 @@ function handleMessage(raw: string): void {
 }
 
 function open() {
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
+  if (
+    socket &&
+    (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)
+  )
+    return;
   socket = new WebSocket(wsUrl());
   socket.onopen = () => {
     connected.value = true;
@@ -432,9 +461,15 @@ function open() {
           buffers.clearDetached(buf.networkId, buf.target, { wipeMessages: true });
         }
       }
-    } catch (_) { /* store not yet initialized; nothing to clear */ }
+    } catch (_) {
+      /* store not yet initialized; nothing to clear */
+    }
     for (const handler of openHandlers) {
-      try { handler(); } catch (_) { /* ignore */ }
+      try {
+        handler();
+      } catch (_) {
+        /* ignore */
+      }
     }
   };
   socket.onmessage = (ev) => handleMessage(ev.data);
@@ -523,7 +558,11 @@ export function resetSocket(): void {
     socket.onmessage = null;
     socket.onclose = null;
     socket.onerror = null;
-    try { socket.close(); } catch (_) { /* ignore */ }
+    try {
+      socket.close();
+    } catch (_) {
+      /* ignore */
+    }
     socket = null;
   }
   connected.value = false;
@@ -572,4 +611,6 @@ export function useSocket(): SocketAPI {
   return { connected, send, reconnect: open };
 }
 
-export function socketSend(payload: Record<string, unknown>): boolean { return send(payload); }
+export function socketSend(payload: Record<string, unknown>): boolean {
+  return send(payload);
+}

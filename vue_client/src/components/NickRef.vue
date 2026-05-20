@@ -42,5 +42,7 @@ const style = computed(() => {
 </script>
 
 <style scoped>
-.nick-ref { color: inherit; }
+.nick-ref {
+  color: inherit;
+}
 </style>

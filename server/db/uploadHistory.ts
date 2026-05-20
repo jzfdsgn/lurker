@@ -100,10 +100,7 @@ export function listUploads(
     .all(userId, lim) as UploadListRow[];
 }
 
-export function getThumbnail(
-  userId: number,
-  id: number,
-): { thumbnail: Buffer | null } | undefined {
+export function getThumbnail(userId: number, id: number): { thumbnail: Buffer | null } | undefined {
   return db
     .prepare(
       `

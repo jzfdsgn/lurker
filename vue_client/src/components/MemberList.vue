@@ -23,7 +23,9 @@
           aria-label="Member actions"
           @click.stop="onActionsClick($event, m)"
           @contextmenu.stop.prevent
-        ><i class="fa-solid fa-ellipsis-vertical"></i></button>
+        >
+          <i class="fa-solid fa-ellipsis-vertical"></i>
+        </button>
       </li>
     </ul>
     <IgnoreModal
@@ -81,10 +83,18 @@ function nickStyle(m: Member): { color: string } | null {
 
 const PREFIX_ORDER = ['~', '&', '@', '%', '+', ''];
 
-function nickOf(m: Member): string { return m.nick; }
-function userOf(m: Member): string | null { return m.user ?? null; }
-function hostOf(m: Member): string | null { return m.host ?? null; }
-function modesOf(m: Member): string[] { return Array.isArray(m?.modes) ? m.modes : []; }
+function nickOf(m: Member): string {
+  return m.nick;
+}
+function userOf(m: Member): string | null {
+  return m.user ?? null;
+}
+function hostOf(m: Member): string | null {
+  return m.host ?? null;
+}
+function modesOf(m: Member): string[] {
+  return Array.isArray(m?.modes) ? m.modes : [];
+}
 
 // Click handlers funnel through one builder so right-click, row-click
 // (mobile tap, desktop click — member rows have no other action), and the
@@ -95,7 +105,9 @@ function menuContext() {
   return {
     networkId: buffer.value?.networkId ?? 0,
     isSelf,
-    onIgnore: (m: Member) => { modalMember.value = m; },
+    onIgnore: (m: Member) => {
+      modalMember.value = m;
+    },
   };
 }
 function onRowClick(e: MouseEvent, m: Member): void {
@@ -123,7 +135,9 @@ function prefixClass(m: Member): string {
   const p = prefixOf(m);
   return p ? `mode-${p}` : '';
 }
-function isAway(m: Member): boolean { return !!m?.away; }
+function isAway(m: Member): boolean {
+  return !!m?.away;
+}
 function liClass(m: Member): string[] {
   const classes: string[] = [];
   const p = prefixClass(m);
@@ -143,9 +157,7 @@ const sorted = computed(() => {
     ? list.filter((m) => {
         if (isSelf(m)) return true;
         const nick = nickOf(m);
-        const userhost = m.user && m.host
-          ? `${nick}!${m.user}@${m.host}`
-          : null;
+        const userhost = m.user && m.host ? `${nick}!${m.user}@${m.host}` : null;
         return !ignores.isIgnored(networkId, nick, userhost ?? '');
       })
     : list;
@@ -159,7 +171,12 @@ const sorted = computed(() => {
 </script>
 
 <style scoped>
-.members { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.members {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
 ul {
   list-style: none;
   margin: 0;
@@ -178,7 +195,9 @@ li {
   cursor: pointer;
   position: relative;
 }
-li:hover { background: var(--bg-soft); }
+li:hover {
+  background: var(--bg-soft);
+}
 
 /* Hover affordance — floats over the right edge of the row instead of taking
    a flex slot, so long nicks aren't pushed into a narrower column when the
@@ -204,17 +223,38 @@ li:hover { background: var(--bg-soft); }
   transition: opacity 80ms linear;
 }
 li:hover .row-actions,
-.row-actions:focus-visible { opacity: 1; }
-.row-actions:hover { color: var(--fg); }
-@media (max-width: 768px) {
-  .row-actions { display: none; }
+.row-actions:focus-visible {
+  opacity: 1;
 }
-.prefix { width: 10px; flex: 0 0 auto; text-align: center; color: var(--fg-muted); }
-li.mode-\~ .prefix { color: var(--member-owner); }
-li.mode-\& .prefix { color: var(--member-admin); }
-li.mode-\@ .prefix { color: var(--member-op); }
-li.mode-\% .prefix { color: var(--member-halfop); }
-li.mode-\+ .prefix { color: var(--member-voice); }
+.row-actions:hover {
+  color: var(--fg);
+}
+@media (max-width: 768px) {
+  .row-actions {
+    display: none;
+  }
+}
+.prefix {
+  width: 10px;
+  flex: 0 0 auto;
+  text-align: center;
+  color: var(--fg-muted);
+}
+li.mode-\~ .prefix {
+  color: var(--member-owner);
+}
+li.mode-\& .prefix {
+  color: var(--member-admin);
+}
+li.mode-\@ .prefix {
+  color: var(--member-op);
+}
+li.mode-\% .prefix {
+  color: var(--member-halfop);
+}
+li.mode-\+ .prefix {
+  color: var(--member-voice);
+}
 .nick {
   flex: 1 1 auto;
   min-width: 0;
@@ -227,5 +267,7 @@ li.mode-\+ .prefix { color: var(--member-voice); }
    rule overrides the inline nickStyle (which is suppressed for away anyway)
    and the prefix mode colors so the whole row reads as inert. */
 li.away .nick,
-li.away .prefix { color: var(--fg-muted) !important; }
+li.away .prefix {
+  color: var(--fg-muted) !important;
+}
 </style>

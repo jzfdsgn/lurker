@@ -21,12 +21,9 @@
       </p>
       <div class="actions">
         <button type="button" class="btn-secondary" @click="onClose">Cancel</button>
-        <button
-          v-if="hasExistingNote"
-          type="button"
-          class="btn-secondary danger"
-          @click="onDelete"
-        >Delete</button>
+        <button v-if="hasExistingNote" type="button" class="btn-secondary danger" @click="onDelete">
+          Delete
+        </button>
         <button type="submit" class="btn-primary" :disabled="!dirty">Save</button>
       </div>
     </form>
@@ -79,7 +76,11 @@ onMounted(() => {
     // appending, not replacing — common case for these notes is "add another
     // detail" rather than rewriting the whole thing.
     const len = el.value.length;
-    try { el.setSelectionRange(len, len); } catch (_) { /* unsupported */ }
+    try {
+      el.setSelectionRange(len, len);
+    } catch (_) {
+      /* unsupported */
+    }
   }, 0);
 });
 </script>
@@ -100,7 +101,9 @@ textarea {
   min-height: 8em;
   line-height: 1.45;
 }
-textarea:focus { outline: 1px solid var(--accent); }
+textarea:focus {
+  outline: 1px solid var(--accent);
+}
 .meta {
   margin: 0;
   color: var(--fg-muted);
@@ -132,8 +135,13 @@ textarea:focus { outline: 1px solid var(--accent); }
 .btn-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
-.btn-secondary:hover { background: var(--bg-soft); }
-.btn-secondary.danger { color: var(--bad); border-color: var(--bad); }
+.btn-secondary:hover {
+  background: var(--bg-soft);
+}
+.btn-secondary.danger {
+  color: var(--bad);
+  border-color: var(--bad);
+}
 .btn-secondary.danger:hover {
   background: color-mix(in srgb, var(--bad) 15%, transparent);
 }

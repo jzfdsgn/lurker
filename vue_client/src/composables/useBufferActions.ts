@@ -35,8 +35,16 @@ export function useBufferActions(): BufferActionsAPI {
     const pinned = pins.isPinned(buf.networkId, buf.target);
     const items: ContextMenuItem[] = [
       pinned
-        ? { label: `Unpin ${kind}`, icon: 'fa-solid fa-thumbtack-slash', onClick: () => pins.unpin(buf.networkId, buf.target) }
-        : { label: `Pin ${kind}`, icon: 'fa-solid fa-thumbtack', onClick: () => pins.pin(buf.networkId, buf.target) },
+        ? {
+            label: `Unpin ${kind}`,
+            icon: 'fa-solid fa-thumbtack-slash',
+            onClick: () => pins.unpin(buf.networkId, buf.target),
+          }
+        : {
+            label: `Pin ${kind}`,
+            icon: 'fa-solid fa-thumbtack',
+            onClick: () => pins.pin(buf.networkId, buf.target),
+          },
     ];
     if (isChannel) {
       const isAlwaysNotify = channelNotify.notifyAlways(buf.networkId, buf.target);

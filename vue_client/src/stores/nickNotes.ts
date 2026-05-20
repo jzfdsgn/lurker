@@ -36,12 +36,14 @@ export const useNickNotesStore = defineStore('nickNotes', {
     editor: { open: false, networkId: null, nick: '' } as NickNoteEditorState,
   }),
   getters: {
-    noteFor: (state) => (networkId: number | string, nick: string) => state.byKey[key(networkId, nick)]?.note || '',
+    noteFor: (state) => (networkId: number | string, nick: string) =>
+      state.byKey[key(networkId, nick)]?.note || '',
     hasNote: (state) => (networkId: number | string, nick: string) => {
       const entry = state.byKey[key(networkId, nick)];
       return !!(entry && entry.note);
     },
-    entryFor: (state) => (networkId: number | string, nick: string) => state.byKey[key(networkId, nick)] || null,
+    entryFor: (state) => (networkId: number | string, nick: string) =>
+      state.byKey[key(networkId, nick)] || null,
   },
   actions: {
     applySnapshot(networks: any[]) {

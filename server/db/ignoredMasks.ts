@@ -66,13 +66,7 @@ export function removeMask({
   return result.changes > 0;
 }
 
-export function listMasks({
-  userId,
-  networkId,
-}: {
-  userId: number;
-  networkId: number;
-}): MaskRow[] {
+export function listMasks({ userId, networkId }: { userId: number; networkId: number }): MaskRow[] {
   return listForNetworkStmt.all(userId, networkId) as MaskRow[];
 }
 

@@ -21,7 +21,10 @@ export interface LongPressHandlers {
 }
 
 export interface LongPressAPI {
-  bind<T>(callback: (coords: LongPressCoords, payload: T | undefined) => void, payload?: T): LongPressHandlers;
+  bind<T>(
+    callback: (coords: LongPressCoords, payload: T | undefined) => void,
+    payload?: T,
+  ): LongPressHandlers;
   cancel(): void;
 }
 
@@ -35,7 +38,10 @@ export interface LongPressAPI {
 // also fire. A subsequent contextmenu on the same gesture (iOS Safari fires
 // one after touchend) is also suppressed.
 
-export function useLongPress({ delay = 450, moveTolerance = 8 }: LongPressOptions = {}): LongPressAPI {
+export function useLongPress({
+  delay = 450,
+  moveTolerance = 8,
+}: LongPressOptions = {}): LongPressAPI {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let startX = 0;
   let startY = 0;
@@ -49,7 +55,10 @@ export function useLongPress({ delay = 450, moveTolerance = 8 }: LongPressOption
     }
   }
 
-  function bind<T>(callback: (coords: LongPressCoords, payload: T | undefined) => void, payload?: T): LongPressHandlers {
+  function bind<T>(
+    callback: (coords: LongPressCoords, payload: T | undefined) => void,
+    payload?: T,
+  ): LongPressHandlers {
     return {
       onTouchstart(e: TouchEvent) {
         if (!e.touches || e.touches.length !== 1) {
@@ -70,8 +79,10 @@ export function useLongPress({ delay = 450, moveTolerance = 8 }: LongPressOption
       onTouchmove(e: TouchEvent) {
         if (!timer || !e.touches || e.touches.length !== 1) return;
         const t = e.touches[0];
-        if (Math.abs(t.clientX - startX) > moveTolerance
-            || Math.abs(t.clientY - startY) > moveTolerance) {
+        if (
+          Math.abs(t.clientX - startX) > moveTolerance ||
+          Math.abs(t.clientY - startY) > moveTolerance
+        ) {
           cancel();
         }
       },

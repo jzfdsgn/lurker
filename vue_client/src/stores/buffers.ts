@@ -16,7 +16,10 @@ const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 // clicked a second jump while the first was in flight, or reattached before
 // the around-response landed). Mirrors search.js's `token` pattern.
 let historyTokenCounter = 0;
-function nextHistoryToken() { historyTokenCounter += 1; return historyTokenCounter; }
+function nextHistoryToken() {
+  historyTokenCounter += 1;
+  return historyTokenCounter;
+}
 
 function key(networkId: number | string, target: string) {
   return `${networkId}::${target}`;
@@ -88,7 +91,11 @@ export interface Buffer {
   modes?: string;
 }
 
-function ensureBuffer(state: { buffers: Record<string, Buffer> }, networkId: number | string, target: string): Buffer {
+function ensureBuffer(
+  state: { buffers: Record<string, Buffer> },
+  networkId: number | string,
+  target: string,
+): Buffer {
   const k = key(networkId, target);
   if (!state.buffers[k]) {
     state.buffers[k] = {
@@ -158,8 +165,10 @@ export const useBuffersStore = defineStore('buffers', {
     // dropped entirely (see drop()), so this is how callers tell "open" from
     // "closed/parted-away" before activating — activate() would otherwise
     // recreate an empty shell and strand the UI in a half-state.
-    isOpen: (state) => (networkId: number | string, target: string) => !!state.buffers[`${networkId}::${target}`],
-    forNetwork: (state) => (networkId: number | string) => Object.values(state.buffers).filter((b) => b.networkId === networkId),
+    isOpen: (state) => (networkId: number | string, target: string) =>
+      !!state.buffers[`${networkId}::${target}`],
+    forNetwork: (state) => (networkId: number | string) =>
+      Object.values(state.buffers).filter((b) => b.networkId === networkId),
   },
   actions: {
     ensure(networkId: number | string, target: string) {
@@ -185,7 +194,8 @@ export const useBuffersStore = defineStore('buffers', {
       // so it can skip unread/highlight side effects too.
       if (event.id != null && event.id <= prevMaxId) return false;
       buf.messages.push(event);
-      if (buf.messages.length > MAX_PER_BUFFER) buf.messages.splice(0, buf.messages.length - MAX_PER_BUFFER);
+      if (buf.messages.length > MAX_PER_BUFFER)
+        buf.messages.splice(0, buf.messages.length - MAX_PER_BUFFER);
       if (buf.oldestId == null && event.id != null) buf.oldestId = event.id;
       if (event.id != null) {
         const networks = useNetworksStore();
@@ -221,7 +231,14 @@ export const useBuffersStore = defineStore('buffers', {
       }
       return true;
     },
-    replaceBacklog(networkId: number | string, target: string, events: BufferMessage[], speakers: SpeakerEntry[] | undefined, readState: any, joined: boolean | undefined) {
+    replaceBacklog(
+      networkId: number | string,
+      target: string,
+      events: BufferMessage[],
+      speakers: SpeakerEntry[] | undefined,
+      readState: any,
+      joined: boolean | undefined,
+    ) {
       const buf = ensureBuffer(this, networkId, target);
       // Detached: snapshot resume during detach is a no-op. The gap-fill
       // events would land at id values inside or past the detached slice and
@@ -254,9 +271,8 @@ export const useBuffersStore = defineStore('buffers', {
         const fresh = filtered.filter((e) => e.id == null || e.id > existingMaxId);
         if (fresh.length > 0) {
           const combined = [...buf.messages, ...fresh];
-          buf.messages = combined.length > MAX_PER_BUFFER
-            ? combined.slice(-MAX_PER_BUFFER)
-            : combined;
+          buf.messages =
+            combined.length > MAX_PER_BUFFER ? combined.slice(-MAX_PER_BUFFER) : combined;
         }
       }
       buf.oldestId = buf.messages[0]?.id ?? null;
@@ -264,7 +280,13 @@ export const useBuffersStore = defineStore('buffers', {
       if (readState) this.applyReadState(networkId, target, readState);
       if (typeof joined === 'boolean') buf.joined = joined;
     },
-    prependHistory(networkId: number | string, target: string, events: BufferMessage[], hasMoreOlder: boolean, speakers: SpeakerEntry[] | undefined) {
+    prependHistory(
+      networkId: number | string,
+      target: string,
+      events: BufferMessage[],
+      hasMoreOlder: boolean,
+      speakers: SpeakerEntry[] | undefined,
+    ) {
       const buf = ensureBuffer(this, networkId, target);
       // Dedupe against ids we already hold AND drop legacy away/back rows
       // (no longer persisted; same rationale as replaceBacklog).
@@ -272,9 +294,8 @@ export const useBuffersStore = defineStore('buffers', {
       for (const m of buf.messages) {
         if (m.id != null) existing.add(m.id);
       }
-      const fresh = events.filter((e) =>
-        (e.id == null || !existing.has(e.id))
-        && e.type !== 'away' && e.type !== 'back',
+      const fresh = events.filter(
+        (e) => (e.id == null || !existing.has(e.id)) && e.type !== 'away' && e.type !== 'back',
       );
       buf.messages = [...fresh, ...buf.messages];
       const first = buf.messages[0];
@@ -288,20 +309,26 @@ export const useBuffersStore = defineStore('buffers', {
     // bottom edge of the loaded slice. The MAX_PER_BUFFER cap evicts from
     // the OLDER edge — the user is reading downward, so the newer rows are
     // the ones we want to keep resident.
-    appendHistory(networkId: number | string, target: string, events: BufferMessage[], hasMoreNewer: boolean, speakers: SpeakerEntry[] | undefined) {
+    appendHistory(
+      networkId: number | string,
+      target: string,
+      events: BufferMessage[],
+      hasMoreNewer: boolean,
+      speakers: SpeakerEntry[] | undefined,
+    ) {
       const buf = ensureBuffer(this, networkId, target);
       const existing = new Set<number>();
       for (const m of buf.messages) {
         if (m.id != null) existing.add(m.id);
       }
-      const fresh = events.filter((e) =>
-        (e.id == null || !existing.has(e.id))
-        && e.type !== 'away' && e.type !== 'back',
+      const fresh = events.filter(
+        (e) => (e.id == null || !existing.has(e.id)) && e.type !== 'away' && e.type !== 'back',
       );
       const combined = [...buf.messages, ...fresh];
-      buf.messages = combined.length > MAX_PER_BUFFER
-        ? combined.slice(combined.length - MAX_PER_BUFFER)
-        : combined;
+      buf.messages =
+        combined.length > MAX_PER_BUFFER
+          ? combined.slice(combined.length - MAX_PER_BUFFER)
+          : combined;
       buf.oldestId = buf.messages[0]?.id ?? buf.oldestId;
       buf.newestId = buf.messages[buf.messages.length - 1]?.id ?? buf.newestId;
       buf.hasMoreNewer = !!hasMoreNewer;
@@ -527,8 +554,8 @@ export const useBuffersStore = defineStore('buffers', {
       // A read-state broadcast can briefly carry a non-zero unread for the
       // active buffer when an IRC event lands before the mark-read echo;
       // the badge shouldn't flash on the buffer the user is reading.
-      buf.unread = isActive ? 0 : (Number(payload?.unread) || 0);
-      buf.highlighted = isActive ? 0 : (Number(payload?.highlights) || 0);
+      buf.unread = isActive ? 0 : Number(payload?.unread) || 0;
+      buf.highlighted = isActive ? 0 : Number(payload?.highlights) || 0;
       buf.highlightsCapped = isActive ? false : !!payload?.highlightsCapped;
       // Don't slide the divider out from under a user who's currently in the
       // buffer. dividerAfterId is set on activate and only cleared on
@@ -559,7 +586,8 @@ export const useBuffersStore = defineStore('buffers', {
           // to remember whether to render the slice or live). Drop it and
           // wipe the slice on switch-away — re-entry then reseeds from
           // snapshot or the next history fetch as if it were fresh.
-          if (prev.detached) this.clearDetached(prev.networkId, prev.target, { wipeMessages: true });
+          if (prev.detached)
+            this.clearDetached(prev.networkId, prev.target, { wipeMessages: true });
         }
       }
       networks.setActive(networkId, target);

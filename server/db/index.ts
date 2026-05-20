@@ -609,9 +609,11 @@ if (schemaVersion < 2) {
   // order, keeping a per-(network_id, target) parity that flips on each one;
   // system events keep alt=0. Fresh installs hit zero rows and finish instantly.
   const stripedRows = db
-    .prepare(`SELECT id, network_id, target FROM messages
+    .prepare(
+      `SELECT id, network_id, target FROM messages
               WHERE type IN ('message', 'action', 'notice')
-              ORDER BY id ASC`)
+              ORDER BY id ASC`,
+    )
     .all() as Array<{ id: number; network_id: number; target: string }>;
   const setAlt = db.prepare(`UPDATE messages SET alt = ? WHERE id = ?`);
   const backfill = db.transaction(() => {
@@ -738,9 +740,9 @@ if (schemaVersion < 6) {
   // in the sidebar after the column lands. Per-user numbering: each user's
   // networks renumber 0..n-1 independently so reorders never collide across
   // accounts. Fresh installs see no rows here.
-  const users = db
-    .prepare(`SELECT DISTINCT user_id AS userId FROM networks`)
-    .all() as Array<{ userId: number }>;
+  const users = db.prepare(`SELECT DISTINCT user_id AS userId FROM networks`).all() as Array<{
+    userId: number;
+  }>;
   const listForUser = db.prepare(`SELECT id FROM networks WHERE user_id = ? ORDER BY id ASC`);
   const setPos = db.prepare(`UPDATE networks SET position = ? WHERE id = ?`);
   const seed = db.transaction(() => {
@@ -756,9 +758,10 @@ if (schemaVersion < 6) {
 }
 
 if (schemaVersion < SCHEMA_VERSION) {
-  db.prepare(`INSERT INTO app_meta (key, value) VALUES ('schema_version', ?)
-              ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
-    .run(String(SCHEMA_VERSION));
+  db.prepare(
+    `INSERT INTO app_meta (key, value) VALUES ('schema_version', ?)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).run(String(SCHEMA_VERSION));
 }
 
 // Indexes after any potential rebuild (rebuild drops the table and all its

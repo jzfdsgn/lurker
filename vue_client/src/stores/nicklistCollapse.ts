@@ -16,7 +16,8 @@ export const useNicklistCollapseStore = defineStore('nicklistCollapse', {
   getters: {
     // Returns the explicit override boolean, or undefined when the channel has
     // never been toggled (caller falls back to the global default).
-    override: (state) => (networkId: number | string, target: string) => state.byNetwork[networkId]?.[target],
+    override: (state) => (networkId: number | string, target: string) =>
+      state.byNetwork[networkId]?.[target],
   },
   actions: {
     setNetwork(networkId: number | string, map: Record<string, boolean>) {

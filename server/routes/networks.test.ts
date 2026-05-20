@@ -4,7 +4,12 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 
 const ctx = setupTestDb('routes-networks');
@@ -15,11 +20,21 @@ const ctx = setupTestDb('routes-networks');
 // flip them to false to exercise the 409 path.
 const fakeManager = {
   calls: Array<unknown[]>(),
-  reset() { this.calls = []; },
-  startNetwork(userId: number, networkId: number) { this.calls.push(['startNetwork', userId, networkId]); },
-  stopNetwork(userId: number, networkId: number, reason: string) { this.calls.push(['stopNetwork', userId, networkId, reason]); },
-  restartNetwork(userId: number, networkId: number) { this.calls.push(['restartNetwork', userId, networkId]); },
-  disposeNetwork(userId: number, networkId: number, reason: string) { this.calls.push(['disposeNetwork', userId, networkId, reason]); },
+  reset() {
+    this.calls = [];
+  },
+  startNetwork(userId: number, networkId: number) {
+    this.calls.push(['startNetwork', userId, networkId]);
+  },
+  stopNetwork(userId: number, networkId: number, reason: string) {
+    this.calls.push(['stopNetwork', userId, networkId, reason]);
+  },
+  restartNetwork(userId: number, networkId: number) {
+    this.calls.push(['restartNetwork', userId, networkId]);
+  },
+  disposeNetwork(userId: number, networkId: number, reason: string) {
+    this.calls.push(['disposeNetwork', userId, networkId, reason]);
+  },
   joinChannel(userId: number, networkId: number, channel: string) {
     this.calls.push(['joinChannel', userId, networkId, channel]);
     return this.joinReturn !== undefined ? this.joinReturn : true;
@@ -57,8 +72,13 @@ beforeEach(() => fakeManager.reset());
 
 function makeNet(agent: LurkerTestAgent, fields: Record<string, unknown> = {}) {
   return agent.post('/api/networks').send({
-    name: 'libera', host: 'irc.libera.chat', port: 6697, tls: true, nick: 'n',
-    autoconnect: false, ...fields,
+    name: 'libera',
+    host: 'irc.libera.chat',
+    port: 6697,
+    tls: true,
+    nick: 'n',
+    autoconnect: false,
+    ...fields,
   });
 }
 
@@ -68,7 +88,7 @@ describe('GET /api/networks', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns only the caller\'s networks, with secrets redacted', async () => {
+  it("returns only the caller's networks, with secrets redacted", async () => {
     await makeNet(aliceAgent, { name: 'alice-net', server_password: 'shh' });
     await makeNet(bobAgent, { name: 'bob-net' });
 
@@ -103,20 +123,26 @@ describe('POST /api/networks', () => {
 
   it('upserts default_channel into the channels list', async () => {
     const created = await makeNet(aliceAgent, { name: 'with-default', default_channel: '#dev' });
-    expect(created.body.network.channels.find((c: { name: string }) => c.name === '#dev')).toBeTruthy();
+    expect(
+      created.body.network.channels.find((c: { name: string }) => c.name === '#dev'),
+    ).toBeTruthy();
   });
 });
 
 describe('PATCH /api/networks/:id', () => {
-  it('404s on someone else\'s network', async () => {
+  it("404s on someone else's network", async () => {
     const bobNet = await makeNet(bobAgent, { name: 'bobs' });
-    const res = await aliceAgent.patch(`/api/networks/${bobNet.body.network.id}`).send({ nick: 'hacked' });
+    const res = await aliceAgent
+      .patch(`/api/networks/${bobNet.body.network.id}`)
+      .send({ nick: 'hacked' });
     expect(res.status).toBe(404);
   });
 
   it('updates allowed fields', async () => {
     const net = await makeNet(aliceAgent, { name: 'patchable' });
-    const res = await aliceAgent.patch(`/api/networks/${net.body.network.id}`).send({ nick: 'newnick' });
+    const res = await aliceAgent
+      .patch(`/api/networks/${net.body.network.id}`)
+      .send({ nick: 'newnick' });
     expect(res.status).toBe(200);
     expect(res.body.network.nick).toBe('newnick');
   });
@@ -129,10 +155,12 @@ describe('DELETE /api/networks/:id', () => {
     expect(res.status).toBe(200);
     expect(fakeManager.calls.some(([m]) => m === 'disposeNetwork')).toBe(true);
     const list = await aliceAgent.get('/api/networks');
-    expect(list.body.networks.find((n: { id: number }) => n.id === net.body.network.id)).toBeUndefined();
+    expect(
+      list.body.networks.find((n: { id: number }) => n.id === net.body.network.id),
+    ).toBeUndefined();
   });
 
-  it('404s on a network you don\'t own', async () => {
+  it("404s on a network you don't own", async () => {
     const bobNet = await makeNet(bobAgent, { name: 'mine' });
     const res = await aliceAgent.delete(`/api/networks/${bobNet.body.network.id}`);
     expect(res.status).toBe(404);
@@ -142,9 +170,15 @@ describe('DELETE /api/networks/:id', () => {
 describe('connect / disconnect / reconnect', () => {
   it('start, stop, restart all 404 for foreign networks', async () => {
     const bobNet = await makeNet(bobAgent, { name: 'bobs-conn' });
-    expect((await aliceAgent.post(`/api/networks/${bobNet.body.network.id}/connect`)).status).toBe(404);
-    expect((await aliceAgent.post(`/api/networks/${bobNet.body.network.id}/disconnect`)).status).toBe(404);
-    expect((await aliceAgent.post(`/api/networks/${bobNet.body.network.id}/reconnect`)).status).toBe(404);
+    expect((await aliceAgent.post(`/api/networks/${bobNet.body.network.id}/connect`)).status).toBe(
+      404,
+    );
+    expect(
+      (await aliceAgent.post(`/api/networks/${bobNet.body.network.id}/disconnect`)).status,
+    ).toBe(404);
+    expect(
+      (await aliceAgent.post(`/api/networks/${bobNet.body.network.id}/reconnect`)).status,
+    ).toBe(404);
   });
 
   it('start / stop / restart route into ircManager for an owned network', async () => {
@@ -172,8 +206,12 @@ describe('join / part', () => {
     const id = net.body.network.id;
     fakeManager.joinReturn = false;
     fakeManager.partReturn = false;
-    expect((await aliceAgent.post(`/api/networks/${id}/join`).send({ channel: '#x' })).status).toBe(409);
-    expect((await aliceAgent.post(`/api/networks/${id}/part`).send({ channel: '#x' })).status).toBe(409);
+    expect((await aliceAgent.post(`/api/networks/${id}/join`).send({ channel: '#x' })).status).toBe(
+      409,
+    );
+    expect((await aliceAgent.post(`/api/networks/${id}/part`).send({ channel: '#x' })).status).toBe(
+      409,
+    );
     fakeManager.joinReturn = undefined;
     fakeManager.partReturn = undefined;
   });
@@ -187,13 +225,18 @@ describe('POST /api/networks/reorder', () => {
 
   it('returns 409 + current state on mismatched ids', async () => {
     const n1 = await makeNet(aliceAgent, { name: 'r1' });
-    const res = await aliceAgent.post('/api/networks/reorder').send({ ids: [n1.body.network.id, 999999] });
+    const res = await aliceAgent
+      .post('/api/networks/reorder')
+      .send({ ids: [n1.body.network.id, 999999] });
     expect(res.status).toBe(409);
     expect(Array.isArray(res.body.networks)).toBe(true);
   });
 
   it('rewrites order on a valid set', async () => {
-    const reorderAgent = await createAuthedAgent(app, (await import('../db/users.js')).createUser('reorder-only').id);
+    const reorderAgent = await createAuthedAgent(
+      app,
+      (await import('../db/users.js')).createUser('reorder-only').id,
+    );
     const a = await makeNet(reorderAgent, { name: 'a' });
     const b = await makeNet(reorderAgent, { name: 'b' });
     const c = await makeNet(reorderAgent, { name: 'c' });

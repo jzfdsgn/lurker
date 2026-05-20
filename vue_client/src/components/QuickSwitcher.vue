@@ -17,7 +17,9 @@
           spellcheck="false"
           @keydown="onKeydown"
         />
-        <button class="link" @click="$emit('close')" title="close"><i class="fa-solid fa-xmark"></i></button>
+        <button class="link" @click="$emit('close')" title="close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </header>
       <ul v-if="rows.length" ref="listEl" class="list">
         <li
@@ -69,8 +71,12 @@ const selected = ref(0);
 const inputEl = ref<HTMLInputElement | null>(null);
 const listEl = ref<HTMLUListElement | null>(null);
 
-function isServerTarget(t: string) { return t.startsWith(':server:'); }
-function isDmTarget(t: string) { return !isServerTarget(t) && !t.startsWith('#'); }
+function isServerTarget(t: string) {
+  return t.startsWith(':server:');
+}
+function isDmTarget(t: string) {
+  return !isServerTarget(t) && !t.startsWith('#');
+}
 
 function netById(id: string | number) {
   return networks.networks.find((n) => n.id === id);
@@ -109,12 +115,13 @@ const rows = computed<Row[]>(() => {
   const q = query.value.trim().toLowerCase();
   if (!q) return allRows.value;
   return allRows.value.filter((r) => {
-    return r.label.toLowerCase().includes(q)
-      || r.networkName.toLowerCase().includes(q);
+    return r.label.toLowerCase().includes(q) || r.networkName.toLowerCase().includes(q);
   });
 });
 
-watch(rows, () => { selected.value = 0; });
+watch(rows, () => {
+  selected.value = 0;
+});
 
 function pick(row: Row) {
   buffers.activate(row.networkId, row.target);
@@ -198,7 +205,10 @@ onMounted(() => {
   padding: 4px 8px;
   font: inherit;
 }
-.filter:focus { outline: none; border-color: var(--accent); }
+.filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 .link {
   background: none;
   border: none;
@@ -207,7 +217,9 @@ onMounted(() => {
   font: inherit;
   padding: 0 4px;
 }
-.link:hover { color: var(--fg); }
+.link:hover {
+  color: var(--fg);
+}
 
 .list {
   list-style: none;
@@ -224,11 +236,22 @@ onMounted(() => {
   padding: 4px 12px;
   cursor: pointer;
 }
-.row.active { background: var(--bg-soft); }
-.row .net { color: var(--accent); }
-.row .sep { color: var(--border); }
-.row .target { flex: 1; color: var(--fg); }
-.row .badge { color: var(--accent); }
+.row.active {
+  background: var(--bg-soft);
+}
+.row .net {
+  color: var(--accent);
+}
+.row .sep {
+  color: var(--border);
+}
+.row .target {
+  flex: 1;
+  color: var(--fg);
+}
+.row .badge {
+  color: var(--accent);
+}
 
 .empty {
   text-align: center;

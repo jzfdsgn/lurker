@@ -7,9 +7,9 @@
   <section id="data" class="settings-pane">
     <h2>data</h2>
     <p class="section-desc">
-      Move your account between Lurker instances. The export contains your
-      settings, networks, and channels; message history is optional. The
-      import side restores into a fresh account on another instance.
+      Move your account between Lurker instances. The export contains your settings, networks, and
+      channels; message history is optional. The import side restores into a fresh account on
+      another instance.
     </p>
 
     <h3 class="subhead">export</h3>
@@ -36,8 +36,8 @@
 
     <h3 class="subhead">import</h3>
     <p class="section-desc">
-      Imports replace nothing — the target account must be empty. Sign in to
-      the new instance as a fresh user, then drop the .zip file here.
+      Imports replace nothing — the target account must be empty. Sign in to the new instance as a
+      fresh user, then drop the .zip file here.
     </p>
     <p v-if="importError" class="error inline">{{ importError }}</p>
     <p v-if="importNotice" class="muted small">{{ importNotice }}</p>
@@ -51,16 +51,10 @@
         <span class="muted small">({{ formatBytes(chosenFile.size) }})</span>
       </div>
       <div class="actions">
-        <button
-          class="link"
-          :disabled="importing || !confirmed"
-          @click="onImport"
-        >{{ importing ? `importing… ${progress}%` : 'import' }}</button>
-        <button
-          v-if="!importing"
-          class="link danger"
-          @click="onCancelFile"
-        >cancel</button>
+        <button class="link" :disabled="importing || !confirmed" @click="onImport">
+          {{ importing ? `importing… ${progress}%` : 'import' }}
+        </button>
+        <button v-if="!importing" class="link danger" @click="onCancelFile">cancel</button>
       </div>
       <label v-if="!importing && !importNotice" class="opt">
         <input type="checkbox" v-model="confirmed" />
@@ -147,7 +141,9 @@ async function onImport() {
     const fd = new FormData();
     fd.append('archive', chosenFile.value, chosenFile.value.name);
     const result = await apiMultipart('/api/imports', fd, {
-      onProgress: (p) => { progress.value = p; },
+      onProgress: (p) => {
+        progress.value = p;
+      },
     });
     const counts = result.counts || {};
     const summary = [
@@ -157,7 +153,10 @@ async function onImport() {
     importNotice.value = `Imported ${summary}. Reloading…`;
     // Wipe stores so the post-reset bootstrap rehydrates from the server.
     resetSession();
-    setTimeout(() => { router.replace('/'); window.location.reload(); }, 800);
+    setTimeout(() => {
+      router.replace('/');
+      window.location.reload();
+    }, 800);
   } catch (e: any) {
     importError.value = e.message || 'import failed';
   } finally {
@@ -181,7 +180,9 @@ function formatBytes(n: number): string {
   margin: 4px 0 10px;
   color: var(--fg-muted);
 }
-.counts li { padding: 2px 0; }
+.counts li {
+  padding: 2px 0;
+}
 
 .opt {
   display: flex;
@@ -197,12 +198,16 @@ function formatBytes(n: number): string {
   padding-top: 6px;
 }
 
-.picker { padding-top: 6px; }
+.picker {
+  padding-top: 6px;
+}
 .chosen-row {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 6px 0;
 }
-.chosen-row .filename { color: var(--fg); }
+.chosen-row .filename {
+  color: var(--fg);
+}
 </style>

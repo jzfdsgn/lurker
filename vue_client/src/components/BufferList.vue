@@ -18,11 +18,11 @@
           v-if="serverHighlights(net.id) > 0 && showHighlightBadge"
           class="badge highlight"
           :title="`${serverHighlights(net.id)} highlight${serverHighlights(net.id) === 1 ? '' : 's'}`"
-        >●</span>
-        <span
-          v-if="countFor(serverUnread(net.id), serverHighlights(net.id)) > 0"
-          class="badge"
-        >{{ unreadLabel(countFor(serverUnread(net.id), serverHighlights(net.id))) }}</span>
+          >●</span
+        >
+        <span v-if="countFor(serverUnread(net.id), serverHighlights(net.id)) > 0" class="badge">{{
+          unreadLabel(countFor(serverUnread(net.id), serverHighlights(net.id)))
+        }}</span>
       </div>
 
       <draggable
@@ -50,16 +50,17 @@
               class="badge draft"
               title="unsent draft"
               aria-label="unsent draft"
-            ><i class="fa-solid fa-pencil"></i></span>
+              ><i class="fa-solid fa-pencil"></i
+            ></span>
             <span
               v-if="buf.highlighted > 0 && showHighlightBadge"
               class="badge highlight"
               :title="`${buf.highlighted} highlight${buf.highlighted === 1 ? '' : 's'}`"
-            >●</span>
-            <span
-              v-if="countFor(buf.unread, buf.highlighted) > 0"
-              class="badge"
-            >{{ unreadLabel(countFor(buf.unread, buf.highlighted)) }}</span>
+              >●</span
+            >
+            <span v-if="countFor(buf.unread, buf.highlighted) > 0" class="badge">{{
+              unreadLabel(countFor(buf.unread, buf.highlighted))
+            }}</span>
             <button
               v-if="!isServerBuffer(buf)"
               type="button"
@@ -68,7 +69,9 @@
               aria-label="Buffer actions"
               @click.stop="onRowActionsClick($event, buf)"
               @contextmenu.stop.prevent
-            ><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            >
+              <i class="fa-solid fa-ellipsis-vertical"></i>
+            </button>
           </li>
         </template>
       </draggable>
@@ -95,16 +98,17 @@
             class="badge draft"
             title="unsent draft"
             aria-label="unsent draft"
-          ><i class="fa-solid fa-pencil"></i></span>
+            ><i class="fa-solid fa-pencil"></i
+          ></span>
           <span
             v-if="buf.highlighted > 0 && showHighlightBadge"
             class="badge highlight"
             :title="`${buf.highlighted} highlight${buf.highlighted === 1 ? '' : 's'}`"
-          >●</span>
-          <span
-            v-if="countFor(buf.unread, buf.highlighted) > 0"
-            class="badge"
-          >{{ unreadLabel(countFor(buf.unread, buf.highlighted)) }}</span>
+            >●</span
+          >
+          <span v-if="countFor(buf.unread, buf.highlighted) > 0" class="badge">{{
+            unreadLabel(countFor(buf.unread, buf.highlighted))
+          }}</span>
           <button
             v-if="!isServerBuffer(buf)"
             type="button"
@@ -113,11 +117,15 @@
             aria-label="Buffer actions"
             @click.stop="onRowActionsClick($event, buf)"
             @contextmenu.stop.prevent
-          ><i class="fa-solid fa-ellipsis-vertical"></i></button>
+          >
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
         </li>
       </ul>
     </div>
-    <p v-if="!networks.networks.length" class="empty">No networks yet — add one with the + button.</p>
+    <p v-if="!networks.networks.length" class="empty">
+      No networks yet — add one with the + button.
+    </p>
   </nav>
 </template>
 
@@ -130,7 +138,10 @@ import { useDraftStore } from '../stores/drafts.js';
 import { usePinsStore } from '../stores/pins.js';
 import { useSettingsStore } from '../stores/settings.js';
 import { useBufferActions } from '../composables/useBufferActions.js';
-import { isPeerOffline as derivePeerOffline, isPeerAway as derivePeerAway } from '../utils/peerPresence.js';
+import {
+  isPeerOffline as derivePeerOffline,
+  isPeerAway as derivePeerAway,
+} from '../utils/peerPresence.js';
 
 const networks = useNetworksStore();
 const buffers = useBuffersStore();
@@ -260,7 +271,10 @@ watch(
 function onPinDragEnd(networkId: number): void {
   dragging.value = false;
   const list = pinnedBufsByNet[networkId] || [];
-  pins.reorder(networkId, list.map((b) => b.target));
+  pins.reorder(
+    networkId,
+    list.map((b) => b.target),
+  );
 }
 
 function onBufferContextMenu(e: MouseEvent, buf: Buffer): void {
@@ -334,8 +348,13 @@ function dmTitle(buf: Buffer): string | undefined {
   overflow: auto;
   padding: 4px 0;
 }
-.net { padding: 4px 0 6px; }
-.net + .net { border-top: 1px solid var(--border); margin-top: 4px; }
+.net {
+  padding: 4px 0 6px;
+}
+.net + .net {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
 .net-head {
   display: flex;
   align-items: center;
@@ -347,12 +366,17 @@ function dmTitle(buf: Buffer): string | undefined {
   cursor: pointer;
   border-left: 2px solid transparent;
 }
-.net-head:hover { background: var(--bg-soft); }
+.net-head:hover {
+  background: var(--bg-soft);
+}
 .net-head.active {
   background: var(--bg-soft);
   border-left-color: var(--accent);
 }
-.name { flex: 1; color: var(--fg); }
+.name {
+  flex: 1;
+  color: var(--fg);
+}
 .indicator {
   width: 7px;
   height: 7px;
@@ -360,11 +384,21 @@ function dmTitle(buf: Buffer): string | undefined {
   background: var(--bad);
   flex: 0 0 auto;
 }
-.indicator.good { background: var(--good); }
-.indicator.warn { background: var(--warn); }
-.indicator.bad { background: var(--bad); }
+.indicator.good {
+  background: var(--good);
+}
+.indicator.warn {
+  background: var(--warn);
+}
+.indicator.bad {
+  background: var(--bad);
+}
 
-.channels { list-style: none; margin: 0; padding: 0; }
+.channels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .channels li {
   display: flex;
   align-items: center;
@@ -378,7 +412,7 @@ function dmTitle(buf: Buffer): string | undefined {
 /* Tree guide: top-half vertical + horizontal arm. The arm meets the row's
    vertical centerline and stops short of the label, producing ├─ / └─. */
 .channels li::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 12px;
   top: 0;
@@ -390,7 +424,7 @@ function dmTitle(buf: Buffer): string | undefined {
 }
 /* Bottom-half vertical: only when there's a sibling below — turns └─ into ├─. */
 .channels li:not(:last-child)::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 12px;
   top: 50%;
@@ -404,7 +438,7 @@ function dmTitle(buf: Buffer): string | undefined {
    divider — otherwise the └─ terminator would break the line. :has() scopes
    the override so an all-pinned network still terminates with └─ correctly. */
 .channels.pinned:has(+ .pin-divider) li:last-child::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 12px;
   top: 50%;
@@ -413,26 +447,38 @@ function dmTitle(buf: Buffer): string | undefined {
   border-left: 1px solid var(--border);
   pointer-events: none;
 }
-.channels li:hover { background: var(--bg-soft); }
+.channels li:hover {
+  background: var(--bg-soft);
+}
 .channels li.active {
   background: var(--bg-soft);
   border-left-color: var(--accent);
 }
-.channels li.unread .label { color: var(--buffer-unread); }
-.channels li.highlighted .label { color: var(--buffer-highlight); }
+.channels li.unread .label {
+  color: var(--buffer-unread);
+}
+.channels li.highlighted .label {
+  color: var(--buffer-highlight);
+}
 /* Bold is opt-in via look.buffer_list.unread_bold — applies to plain unread
    and highlighted rows alike (highlighted implies unread on the data side). */
 .buffer-list.unread-bold .channels li.unread .label,
-.buffer-list.unread-bold .channels li.highlighted .label { font-weight: 600; }
+.buffer-list.unread-bold .channels li.highlighted .label {
+  font-weight: 600;
+}
 /* Parted/disconnected channels render as a history view rather than a live
    buffer. Apply opacity to the whole row so badges, labels, and tree guides
    all dim together; unread/highlight colors still come through. */
-.channels li.not-joined { opacity: 0.5; }
+.channels li.not-joined {
+  opacity: 0.5;
+}
 /* DM peer state. Away nicks render in the muted gray used by away members in
    the channel nicklist; offline nicks also pick up the asterisk marker
    (`.peer-mark`). */
 .channels li.peer-away .label,
-.channels li.peer-offline .label { color: var(--fg-muted); }
+.channels li.peer-offline .label {
+  color: var(--fg-muted);
+}
 .peer-mark {
   color: var(--fg-muted);
   font-weight: 600;
@@ -448,7 +494,9 @@ function dmTitle(buf: Buffer): string | undefined {
   color: var(--accent);
   padding: 0 2px;
 }
-.badge.highlight { color: var(--buffer-highlight); }
+.badge.highlight {
+  color: var(--buffer-highlight);
+}
 /* Draft pencil is a passive "you've got unsent text here" cue, not an alert —
    render it in the muted text color so it doesn't compete with unread/
    highlight badges for attention. */
@@ -480,13 +528,23 @@ function dmTitle(buf: Buffer): string | undefined {
   transition: opacity 80ms linear;
 }
 .channels li:hover .row-actions,
-.channels .row-actions:focus-visible { opacity: 1; }
-.channels .row-actions:hover { color: var(--fg); }
+.channels .row-actions:focus-visible {
+  opacity: 1;
+}
+.channels .row-actions:hover {
+  color: var(--fg);
+}
 @media (max-width: 768px) {
-  .channels .row-actions { display: none; }
+  .channels .row-actions {
+    display: none;
+  }
 }
 
-.empty { padding: 12px; color: var(--fg-muted); font-style: italic; }
+.empty {
+  padding: 12px;
+  color: var(--fg-muted);
+  font-style: italic;
+}
 
 /* Separator between the pinned section and the auto-sorted section. The
    vertical tree spine continues through the divider (so pinned and unpinned
@@ -502,7 +560,7 @@ function dmTitle(buf: Buffer): string | undefined {
   border-left: 2px solid transparent;
 }
 .pin-divider::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 12px;
   top: 0;
@@ -510,7 +568,7 @@ function dmTitle(buf: Buffer): string | undefined {
   border-left: 1px solid var(--border);
 }
 .pin-divider::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 12px;
   right: 12px;

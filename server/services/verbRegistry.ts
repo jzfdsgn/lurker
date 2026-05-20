@@ -72,7 +72,9 @@ export function getVerb(name: string): VerbEntry | null {
 // Lists verbs the caller can actually invoke. A read-only token sees only
 // read verbs in tools/list — there's no point advertising a tool the agent
 // will be 403'd on.
-export function listVerbs(callerScope: string): Array<{ name: string; description: string; inputSchema: VerbInputSchema }> {
+export function listVerbs(
+  callerScope: string,
+): Array<{ name: string; description: string; inputSchema: VerbInputSchema }> {
   const out: Array<{ name: string; description: string; inputSchema: VerbInputSchema }> = [];
   for (const verb of verbs.values()) {
     if (verb.scope === 'read-write' && callerScope !== 'read-write') continue;
@@ -97,7 +99,11 @@ function codeError(message: string, code: string): CodeError {
 // here rather than at each call site; verbs are still free to do additional
 // structural validation in their handlers (e.g. rejecting empty-after-trim
 // strings that the JSON Schema can't express).
-export function callVerb(name: string, ctx: VerbContext, input: Record<string, unknown> | null | undefined): unknown {
+export function callVerb(
+  name: string,
+  ctx: VerbContext,
+  input: Record<string, unknown> | null | undefined,
+): unknown {
   const verb = verbs.get(name);
   if (!verb) {
     throw codeError(`unknown verb: ${name}`, 'unknown_verb');

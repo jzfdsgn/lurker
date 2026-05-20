@@ -81,22 +81,18 @@ export function collapseDisplay(rows: DisplayRow[], options: CollapseOptions = {
     }
 
     const iso = row.consolidation ? row.time : row.m?.time;
-    const timeMs = iso ? (Date.parse(iso) || 0) : 0;
+    const timeMs = iso ? Date.parse(iso) || 0 : 0;
     const timeStr = collapseTimestamps ? formatTime(iso) : '';
 
-    if (
-      collapseAuthors
-      && !row.consolidation
-      && row.m?.type === 'message'
-    ) {
+    if (collapseAuthors && !row.consolidation && row.m?.type === 'message') {
       // Self flag is part of the visual identity (self color vs. nick color),
       // so a self message after a non-self message from the same nick must
       // not collapse — even though that's a deeply unusual case.
       const key = `${row.m.self ? '1' : '0'}:${row.m.nick || ''}`;
       if (
-        prevAuthorKey === key
-        && prevAuthorTimeMs != null
-        && timeMs - prevAuthorTimeMs <= authorWindowMs
+        prevAuthorKey === key &&
+        prevAuthorTimeMs != null &&
+        timeMs - prevAuthorTimeMs <= authorWindowMs
       ) {
         row.continuationAuthor = true;
       }

@@ -12,14 +12,13 @@
 -->
 
 <template>
-  <li
-    :class="{ row: true, active }"
-    @click="$emit('jump', message)"
-    @mouseenter="$emit('hover')"
-  >
+  <li :class="{ row: true, active }" @click="$emit('jump', message)" @mouseenter="$emit('hover')">
     <div class="head">
       <div class="where">
-        <template v-if="targetLabel"><span class="net">{{ networkLabel }}/</span><span class="target">{{ targetLabel }}</span></template>
+        <template v-if="targetLabel"
+          ><span class="net">{{ networkLabel }}/</span
+          ><span class="target">{{ targetLabel }}</span></template
+        >
         <span v-else class="net">{{ networkLabel }}</span>
       </div>
       <span class="time">{{ time }}</span>
@@ -36,7 +35,9 @@
       title="Remove"
       aria-label="Remove"
       @click.stop="$emit('remove', message)"
-    ><i class="fa-solid fa-xmark"></i></button>
+    >
+      <i class="fa-solid fa-xmark"></i>
+    </button>
   </li>
 </template>
 
@@ -63,11 +64,14 @@ export interface HistoryMessage {
   [key: string]: unknown;
 }
 
-const props = withDefaults(defineProps<{
-  message: HistoryMessage;
-  active?: boolean;
-  removable?: boolean;
-}>(), { active: false, removable: false });
+const props = withDefaults(
+  defineProps<{
+    message: HistoryMessage;
+    active?: boolean;
+    removable?: boolean;
+  }>(),
+  { active: false, removable: false },
+);
 
 defineEmits<{
   jump: [message: HistoryMessage];
@@ -97,7 +101,11 @@ const time = computed(() => {
 
 const networkLabel = computed((): string => {
   const m = props.message;
-  return (m.networkName as string | undefined) || networks.networks.find((n) => n.id === m.networkId)?.name || `net:${m.networkId}`;
+  return (
+    (m.networkName as string | undefined) ||
+    networks.networks.find((n) => n.id === m.networkId)?.name ||
+    `net:${m.networkId}`
+  );
 });
 
 // Drop the `:server:<id>` pseudo-target so server messages render as just
@@ -123,7 +131,9 @@ const nickStyle = computed((): CSSProperties | null => {
   cursor: pointer;
 }
 .row:hover,
-.row.active { background: var(--bg-soft); }
+.row.active {
+  background: var(--bg-soft);
+}
 
 .remove {
   position: absolute;
@@ -142,10 +152,16 @@ const nickStyle = computed((): CSSProperties | null => {
   padding: 0;
   border-radius: 3px;
 }
-.row:hover .remove { opacity: 1; }
-.remove:hover { color: var(--bad); }
+.row:hover .remove {
+  opacity: 1;
+}
+.remove:hover {
+  color: var(--bad);
+}
 @media (hover: none) {
-  .remove { opacity: 1; }
+  .remove {
+    opacity: 1;
+  }
 }
 
 .head {
@@ -162,15 +178,23 @@ const nickStyle = computed((): CSSProperties | null => {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.net { color: var(--fg-muted); }
-.target { color: var(--accent); }
-.time { flex-shrink: 0; }
+.net {
+  color: var(--fg-muted);
+}
+.target {
+  color: var(--accent);
+}
+.time {
+  flex-shrink: 0;
+}
 
 .body {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.nick { font-weight: 600; }
+.nick {
+  font-weight: 600;
+}
 .sep {
   color: var(--border);
   margin: 0 0.5ch;

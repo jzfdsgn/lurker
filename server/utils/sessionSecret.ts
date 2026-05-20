@@ -21,9 +21,11 @@ function defaultDataDir(): string {
   return path.join(import.meta.dirname, '../../data');
 }
 
-export function resolveSessionSecret(
-  { dataDir = defaultDataDir() }: { dataDir?: string } = {},
-): { secret: string; source: 'env' | 'file' | 'generated'; path?: string } {
+export function resolveSessionSecret({ dataDir = defaultDataDir() }: { dataDir?: string } = {}): {
+  secret: string;
+  source: 'env' | 'file' | 'generated';
+  path?: string;
+} {
   const fromEnv = process.env.SESSION_SECRET;
   if (fromEnv && fromEnv.length > 0) return { secret: fromEnv, source: 'env' };
 

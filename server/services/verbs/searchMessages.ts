@@ -13,7 +13,8 @@ interface VerbContext {
 
 registerVerb({
   name: 'search_messages',
-  description: 'Full-text search across the caller\'s message history. Returns matches newest-first; paginate by passing the lowest id as `before`.',
+  description:
+    "Full-text search across the caller's message history. Returns matches newest-first; paginate by passing the lowest id as `before`.",
   scope: 'read',
   input: {
     type: 'object',
@@ -24,7 +25,8 @@ registerVerb({
       },
       networkId: {
         type: 'integer',
-        description: 'Optional. Restrict the search to a single network. Omit to search every network the caller owns.',
+        description:
+          'Optional. Restrict the search to a single network. Omit to search every network the caller owns.',
       },
       target: {
         type: 'string',

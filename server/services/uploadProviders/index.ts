@@ -31,7 +31,10 @@ export function getProvider(id: string): UploadProvider | null {
 // Lift the relevant per-user settings into a flat secrets object for the
 // chosen provider. The router calls this rather than passing the raw settings
 // object so each provider only sees what it needs.
-export function secretsForProvider(id: string, userSettings: Record<string, string>): Record<string, string> {
+export function secretsForProvider(
+  id: string,
+  userSettings: Record<string, string>,
+): Record<string, string> {
   switch (id) {
     case 'catbox':
       return { userhash: userSettings['uploads.catbox.userhash'] || '' };

@@ -72,23 +72,21 @@ export function listForUser(userId: number): Array<WebAuthnCredential | null> {
 
 export function findByCredentialId(credentialId: string): WebAuthnCredential | null {
   return rowToCred(
-    db
-      .prepare('SELECT * FROM webauthn_credentials WHERE credential_id = ?')
-      .get(credentialId) as WebAuthnCredentialRow | undefined,
+    db.prepare('SELECT * FROM webauthn_credentials WHERE credential_id = ?').get(credentialId) as
+      | WebAuthnCredentialRow
+      | undefined,
   );
 }
 
 export function countAll(): number {
-  return (
-    db.prepare('SELECT COUNT(*) AS n FROM webauthn_credentials').get() as { n: number }
-  ).n;
+  return (db.prepare('SELECT COUNT(*) AS n FROM webauthn_credentials').get() as { n: number }).n;
 }
 
 export function countForUser(userId: number): number {
   return (
-    db
-      .prepare('SELECT COUNT(*) AS n FROM webauthn_credentials WHERE user_id = ?')
-      .get(userId) as { n: number }
+    db.prepare('SELECT COUNT(*) AS n FROM webauthn_credentials WHERE user_id = ?').get(userId) as {
+      n: number;
+    }
   ).n;
 }
 
@@ -118,18 +116,20 @@ export function insertCredential({
     label || null,
   );
   return rowToCred(
-    db
-      .prepare('SELECT * FROM webauthn_credentials WHERE id = ?')
-      .get(info.lastInsertRowid) as WebAuthnCredentialRow | undefined,
+    db.prepare('SELECT * FROM webauthn_credentials WHERE id = ?').get(info.lastInsertRowid) as
+      | WebAuthnCredentialRow
+      | undefined,
   );
 }
 
 export function updateCounter(id: number, counter: number): void {
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE webauthn_credentials
     SET counter = ?, last_used_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     WHERE id = ?
-  `).run(counter, id);
+  `,
+  ).run(counter, id);
 }
 
 export function updateLabel(id: number, userId: number, label: string | null): boolean {

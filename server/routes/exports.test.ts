@@ -4,7 +4,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 import type { Network } from '../db/networks.js';
 
@@ -26,13 +31,22 @@ beforeAll(async () => {
   alice = createUser('exports-alice');
   bob = createUser('exports-bob');
   aliceNet = createNetwork(alice.id, {
-    name: 'libera', host: 'irc.libera.chat', port: 6697, tls: true, nick: 'alice',
+    name: 'libera',
+    host: 'irc.libera.chat',
+    port: 6697,
+    tls: true,
+    nick: 'alice',
   })!;
   // Seed messages so the export has something interesting to dump.
   for (let i = 0; i < 3; i += 1) {
     insertMessage({
-      networkId: aliceNet.id, target: '#general', time: new Date().toISOString(),
-      type: 'message', nick: 'alice', text: `msg ${i}`, self: i % 2 === 0,
+      networkId: aliceNet.id,
+      target: '#general',
+      time: new Date().toISOString(),
+      type: 'message',
+      nick: 'alice',
+      text: `msg ${i}`,
+      self: i % 2 === 0,
     });
   }
   app = createTestApp({ '/api/exports': exportsRouter, '/api/imports': importRouter });
@@ -63,11 +77,14 @@ describe('GET /api/exports/preview', () => {
 
 describe('GET /api/exports', () => {
   it('streams a non-empty zip', async () => {
-    const res = await aliceAgent.get('/api/exports?include_messages=1').buffer(true).parse((stream, cb) => {
-      const chunks: Buffer[] = [];
-      stream.on('data', (c: Buffer) => chunks.push(c));
-      stream.on('end', () => cb(null, Buffer.concat(chunks)));
-    });
+    const res = await aliceAgent
+      .get('/api/exports?include_messages=1')
+      .buffer(true)
+      .parse((stream, cb) => {
+        const chunks: Buffer[] = [];
+        stream.on('data', (c: Buffer) => chunks.push(c));
+        stream.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/octet-stream/);
     expect(res.body.length).toBeGreaterThan(50);
@@ -92,11 +109,14 @@ describe('POST /api/imports', () => {
 
   it('refuses import when the account already has data', async () => {
     // Alice has networks → not empty. Export her data then try to re-import.
-    const exp = await aliceAgent.get('/api/exports?include_messages=1').buffer(true).parse((stream, cb) => {
-      const chunks: Buffer[] = [];
-      stream.on('data', (c: Buffer) => chunks.push(c));
-      stream.on('end', () => cb(null, Buffer.concat(chunks)));
-    });
+    const exp = await aliceAgent
+      .get('/api/exports?include_messages=1')
+      .buffer(true)
+      .parse((stream, cb) => {
+        const chunks: Buffer[] = [];
+        stream.on('data', (c: Buffer) => chunks.push(c));
+        stream.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
     const res = await aliceAgent
       .post('/api/imports')
       .attach('archive', exp.body, { filename: 'export.lurk' });
@@ -105,11 +125,14 @@ describe('POST /api/imports', () => {
   });
 
   it('round-trips an export into a fresh account', async () => {
-    const exp = await aliceAgent.get('/api/exports?include_messages=1').buffer(true).parse((stream, cb) => {
-      const chunks: Buffer[] = [];
-      stream.on('data', (c: Buffer) => chunks.push(c));
-      stream.on('end', () => cb(null, Buffer.concat(chunks)));
-    });
+    const exp = await aliceAgent
+      .get('/api/exports?include_messages=1')
+      .buffer(true)
+      .parse((stream, cb) => {
+        const chunks: Buffer[] = [];
+        stream.on('data', (c: Buffer) => chunks.push(c));
+        stream.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
     // Bob is empty (no networks).
     const res = await bobAgent
       .post('/api/imports')

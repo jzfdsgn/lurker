@@ -44,7 +44,10 @@ describe('upsertChannels / countChannels', () => {
 
   it('skips rows missing the channel name', () => {
     // The source implementation guards against null entries at runtime
-    mod.upsertChannels(net!.id, [{ topic: 'no name' }, null as unknown as import('./chanlist.js').ChannelInput]);
+    mod.upsertChannels(net!.id, [
+      { topic: 'no name' },
+      null as unknown as import('./chanlist.js').ChannelInput,
+    ]);
     expect(mod.countChannels(net!.id)).toBe(3);
   });
 });
@@ -67,7 +70,12 @@ describe('searchChannels', () => {
   });
 
   it('honors limit + offset', () => {
-    const { rows } = mod.searchChannels(net!.id, { sortBy: 'name', sortDir: 'asc', limit: 1, offset: 1 });
+    const { rows } = mod.searchChannels(net!.id, {
+      sortBy: 'name',
+      sortDir: 'asc',
+      limit: 1,
+      offset: 1,
+    });
     expect(rows.map((r) => r.channel)).toEqual(['#b']);
   });
 });
@@ -86,7 +94,11 @@ describe('meta', () => {
 
   it('setMeta upserts the full row', () => {
     mod.setMeta(net!.id, { inProgress: true, totalCount: 9, fetchedAt: '2026-05-17T00:00:00Z' });
-    expect(mod.getMeta(net!.id)).toEqual({ inProgress: true, totalCount: 9, fetchedAt: '2026-05-17T00:00:00Z' });
+    expect(mod.getMeta(net!.id)).toEqual({
+      inProgress: true,
+      totalCount: 9,
+      fetchedAt: '2026-05-17T00:00:00Z',
+    });
   });
 
   it('setMeta is a partial patch — unset fields preserved', () => {

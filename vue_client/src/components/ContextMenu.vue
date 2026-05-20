@@ -71,7 +71,11 @@ watch(
 
 function activate(item: ContextMenuItem): void {
   if (item.disabled) return;
-  try { item.onClick?.(); } finally { menu.close(); }
+  try {
+    item.onClick?.();
+  } finally {
+    menu.close();
+  }
 }
 
 function onWindowMouseDown(e: MouseEvent): void {
@@ -150,8 +154,13 @@ onBeforeUnmount(() => {
   text-align: left;
   cursor: pointer;
 }
-.item:hover:not(:disabled) { background: var(--bg-soft); }
-.item:disabled { color: var(--fg-muted); cursor: default; }
+.item:hover:not(:disabled) {
+  background: var(--bg-soft);
+}
+.item:disabled {
+  color: var(--fg-muted);
+  cursor: default;
+}
 .icon {
   display: inline-flex;
   width: 14px;

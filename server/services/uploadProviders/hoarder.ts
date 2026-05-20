@@ -18,16 +18,14 @@ export async function upload(
   secrets: { url?: string; api_key?: string } = {},
 ): Promise<{ url: string }> {
   if (!secrets.url) {
-    throw Object.assign(
-      new Error('hoarder provider requires uploads.hoarder.url'),
-      { code: 'PROVIDER_CONFIG' },
-    );
+    throw Object.assign(new Error('hoarder provider requires uploads.hoarder.url'), {
+      code: 'PROVIDER_CONFIG',
+    });
   }
   if (!secrets.api_key) {
-    throw Object.assign(
-      new Error('hoarder provider requires uploads.hoarder.api_key'),
-      { code: 'PROVIDER_CONFIG' },
-    );
+    throw Object.assign(new Error('hoarder provider requires uploads.hoarder.api_key'), {
+      code: 'PROVIDER_CONFIG',
+    });
   }
 
   const base = secrets.url.replace(/\/+$/, '');
@@ -45,18 +43,14 @@ export async function upload(
 
   if (!resp.ok) {
     const text = (await resp.text()).slice(0, 200);
-    throw Object.assign(
-      new Error(`hoarder upload failed: ${resp.status} ${text}`),
-      { code: resp.status === 401 ? 'PROVIDER_AUTH' : 'PROVIDER_ERROR' },
-    );
+    throw Object.assign(new Error(`hoarder upload failed: ${resp.status} ${text}`), {
+      code: resp.status === 401 ? 'PROVIDER_AUTH' : 'PROVIDER_ERROR',
+    });
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const body = await resp.json().catch(() => null) as any;
+  const body = (await resp.json().catch(() => null)) as any;
   if (!body || typeof body.url !== 'string') {
-    throw Object.assign(
-      new Error('hoarder returned no url'),
-      { code: 'PROVIDER_ERROR' },
-    );
+    throw Object.assign(new Error('hoarder returned no url'), { code: 'PROVIDER_ERROR' });
   }
   return { url: body.url as string };
 }

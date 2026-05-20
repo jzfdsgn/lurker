@@ -4,7 +4,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 
 const ctx = setupTestDb('routes-push');
@@ -59,7 +64,11 @@ describe('POST /api/push/subscriptions', () => {
     expect(create.status).toBe(201);
     expect(typeof create.body.subscription.id).toBe('number');
     const list = await aliceAgent.get('/api/push/subscriptions');
-    expect(list.body.subscriptions.find((s: { endpoint: string }) => s.endpoint === 'https://example.test/a')).toBeTruthy();
+    expect(
+      list.body.subscriptions.find(
+        (s: { endpoint: string }) => s.endpoint === 'https://example.test/a',
+      ),
+    ).toBeTruthy();
   });
 
   it('refuses to rebind an endpoint that already belongs to a different user', async () => {
@@ -95,12 +104,16 @@ describe('DELETE /api/push/subscriptions', () => {
     });
     expect(res.status).toBe(200);
     const list = await aliceAgent.get('/api/push/subscriptions');
-    expect(list.body.subscriptions.find((s: { endpoint: string }) => s.endpoint === 'https://example.test/remove-me')).toBeFalsy();
+    expect(
+      list.body.subscriptions.find(
+        (s: { endpoint: string }) => s.endpoint === 'https://example.test/remove-me',
+      ),
+    ).toBeFalsy();
   });
 });
 
 describe('POST /api/push/heartbeat', () => {
-  it('reports present=false for an endpoint we don\'t own', async () => {
+  it("reports present=false for an endpoint we don't own", async () => {
     const res = await aliceAgent.post('/api/push/heartbeat').send({
       endpoint: 'https://example.test/no-such',
     });

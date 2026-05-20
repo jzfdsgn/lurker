@@ -49,7 +49,10 @@ export function parseServerTimestamp(iso: string): number {
 // so a single module-level instance is safe.
 const RTF = new Intl.RelativeTimeFormat(undefined, { numeric: 'always', style: 'narrow' });
 const DTF_DAY = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
-const DTF_DATETIME = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+const DTF_DATETIME = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
 // Render a server timestamp as a locale-aware relative phrase (e.g. "5m ago"
 // in en-US, "vor 5 Min." in de). Returns the raw string back if it doesn't
@@ -63,10 +66,19 @@ export function formatRelative(iso: string): string {
   const absMs = Math.abs(diffMs);
   let value: number;
   let unit: Intl.RelativeTimeFormatUnit;
-  if (absMs < 60_000) { value = Math.round(absMs / 1000); unit = 'second'; }
-  else if (absMs < 3_600_000) { value = Math.round(absMs / 60_000); unit = 'minute'; }
-  else if (absMs < 86_400_000) { value = Math.round(absMs / 3_600_000); unit = 'hour'; }
-  else { value = Math.round(absMs / 86_400_000); unit = 'day'; }
+  if (absMs < 60_000) {
+    value = Math.round(absMs / 1000);
+    unit = 'second';
+  } else if (absMs < 3_600_000) {
+    value = Math.round(absMs / 60_000);
+    unit = 'minute';
+  } else if (absMs < 86_400_000) {
+    value = Math.round(absMs / 3_600_000);
+    unit = 'hour';
+  } else {
+    value = Math.round(absMs / 86_400_000);
+    unit = 'day';
+  }
   return RTF.format(past ? -value : value, unit);
 }
 

@@ -23,13 +23,8 @@ beforeAll(async () => {
   ({ createUser, deleteUser } = await import('./users.js'));
   ({ createNetwork } = await import('./networks.js'));
   ({ insertMessage } = await import('./messages.js'));
-  ({
-    addBookmark,
-    removeBookmark,
-    isBookmarked,
-    listBookmarkIdsForUser,
-    listBookmarksForUser,
-  } = await import('./bookmarks.js'));
+  ({ addBookmark, removeBookmark, isBookmarked, listBookmarkIdsForUser, listBookmarksForUser } =
+    await import('./bookmarks.js'));
 });
 
 afterAll(() => {
@@ -38,14 +33,23 @@ afterAll(() => {
 
 function mkNetwork(userId: number, name: string) {
   return createNetwork(userId, {
-    name, host: 'h', port: 6697, tls: true, nick: name,
+    name,
+    host: 'h',
+    port: 6697,
+    tls: true,
+    nick: name,
   });
 }
 
 function chat(networkId: number, target: string, nick: string, text: string) {
   const result = insertMessage({
-    networkId, target, time: new Date().toISOString(),
-    type: 'message', nick, text, self: false,
+    networkId,
+    target,
+    time: new Date().toISOString(),
+    type: 'message',
+    nick,
+    text,
+    self: false,
   });
   return { id: Number(result.id), alt: result.alt };
 }
@@ -71,7 +75,7 @@ describe('bookmarks', () => {
     expect(listBookmarkIdsForUser(u.id)).toEqual([id]);
   });
 
-  it('rejects bookmarking another user\'s message (ownership check)', () => {
+  it("rejects bookmarking another user's message (ownership check)", () => {
     const owner = createUser('bm-owner');
     const intruder = createUser('bm-intruder');
     const net = mkNetwork(owner.id, 'libera');

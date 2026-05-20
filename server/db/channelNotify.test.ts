@@ -18,11 +18,8 @@ let setChannelNotifyAlways: typeof import('./channelNotify.js').setChannelNotify
 beforeAll(async () => {
   ({ createUser } = await import('./users.js'));
   ({ createNetwork } = await import('./networks.js'));
-  ({
-    getChannelNotifyAlways,
-    listChannelNotifyForUser,
-    setChannelNotifyAlways,
-  } = await import('./channelNotify.js'));
+  ({ getChannelNotifyAlways, listChannelNotifyForUser, setChannelNotifyAlways } =
+    await import('./channelNotify.js'));
 });
 
 afterAll(() => {
@@ -31,7 +28,11 @@ afterAll(() => {
 
 function mkNetwork(userId: number, name: string) {
   return createNetwork(userId, {
-    name, host: 'irc.libera.chat', port: 6697, tls: true, nick: name,
+    name,
+    host: 'irc.libera.chat',
+    port: 6697,
+    tls: true,
+    nick: name,
   });
 }
 

@@ -6,21 +6,46 @@
 <template>
   <div v-if="active" class="status-bar" :class="{ compact }">
     <span v-if="!compact" class="seg clock">{{ clock }}</span>
-    <span v-if="!compact" class="seg buffer"><template v-if="targetLabel"><span v-if="networkLabel" class="net">{{ networkLabel }}/</span><span class="name">{{ targetLabel }}</span></template><span v-else class="name">{{ networkLabel }}</span><span v-if="modeSuffix" class="modes">{{ modeSuffix }}</span></span>
-    <span v-if="compact" class="seg self"><span class="name">{{ promptLabel }}</span><span v-if="awayLabel" class="away">&nbsp;{{ awayLabel }}</span></span>
+    <span v-if="!compact" class="seg buffer"
+      ><template v-if="targetLabel"
+        ><span v-if="networkLabel" class="net">{{ networkLabel }}/</span
+        ><span class="name">{{ targetLabel }}</span></template
+      ><span v-else class="name">{{ networkLabel }}</span
+      ><span v-if="modeSuffix" class="modes">{{ modeSuffix }}</span></span
+    >
+    <span v-if="compact" class="seg self"
+      ><span class="name">{{ promptLabel }}</span
+      ><span v-if="awayLabel" class="away">&nbsp;{{ awayLabel }}</span></span
+    >
     <!-- Detached-jump indicator. Sits adjacent to the self/nick segment on
          compact (mobile) per agreed placement, where it's the only exit
          from a detached buffer back to live. On desktop seg.self is hidden,
          so this lands right after the buffer name — also a natural spot.
          Unlike [N new ↓] (which is hidden on compact), this button renders
          in both modes. -->
-    <button v-if="detached" class="seg return-present" type="button" @click="onReturnToPresent">Return to present<template v-if="liveDuringDetach > 0"> ({{ liveDuringDetach }} new)</template> ↓</button>
-    <span v-if="peerStatusLabel" class="seg peer-status" :class="peerStatusClass">{{ peerStatusLabel }}</span>
+    <button v-if="detached" class="seg return-present" type="button" @click="onReturnToPresent">
+      Return to present<template v-if="liveDuringDetach > 0">
+        ({{ liveDuringDetach }} new)</template
+      >
+      ↓
+    </button>
+    <span v-if="peerStatusLabel" class="seg peer-status" :class="peerStatusClass">{{
+      peerStatusLabel
+    }}</span>
     <span v-if="lagLabel && !compact" class="seg lag" :class="lagClass">{{ lagLabel }}</span>
-    <span v-if="uploadLabel" class="seg upload" :class="{ failed: uploads.failedAt }">{{ uploadLabel }}</span>
-    <button v-if="newBelow > 0 && !compact" class="seg jump" type="button" @click="onJumpToBottom">{{ newBelow }} new ↓</button>
+    <span v-if="uploadLabel" class="seg upload" :class="{ failed: uploads.failedAt }">{{
+      uploadLabel
+    }}</span>
+    <button v-if="newBelow > 0 && !compact" class="seg jump" type="button" @click="onJumpToBottom">
+      {{ newBelow }} new ↓
+    </button>
     <span v-if="splitLabel" class="seg split" :class="splitClass">{{ splitLabel }}</span>
-    <span v-if="typingSegments.length" class="seg typing">Typing: <template v-for="(seg, i) in typingSegments" :key="i"><span :style="seg.color ? { color: seg.color } : null">{{ seg.text }}</span></template></span>
+    <span v-if="typingSegments.length" class="seg typing"
+      >Typing:
+      <template v-for="(seg, i) in typingSegments" :key="i"
+        ><span :style="seg.color ? { color: seg.color } : null">{{ seg.text }}</span></template
+      ></span
+    >
   </div>
 </template>
 
@@ -37,15 +62,18 @@ import { useSelfLabel } from '../composables/useSelfLabel.js';
 import { formatTimestamp } from '../utils/timestamp.js';
 import { isPeerOffline, isPeerAway } from '../utils/peerPresence.js';
 
-withDefaults(defineProps<{
-  // Mobile/petite mode: drops the clock and buffer-name segments entirely
-  // (the buffer name is already in the mobile header, the clock isn't worth
-  // the row), and renders the self identity (nick + channel-prefix + user
-  // modes + away) here instead — freeing the input row to be just `>`,
-  // textarea, and the paperclip. Also hides lag and the "new ↓" jump button
-  // so the typing/split/upload signals stay legible at phone widths.
-  compact?: boolean;
-}>(), { compact: false });
+withDefaults(
+  defineProps<{
+    // Mobile/petite mode: drops the clock and buffer-name segments entirely
+    // (the buffer name is already in the mobile header, the clock isn't worth
+    // the row), and renders the self identity (nick + channel-prefix + user
+    // modes + away) here instead — freeing the input row to be just `>`,
+    // textarea, and the paperclip. Also hides lag and the "new ↓" jump button
+    // so the typing/split/upload signals stay legible at phone widths.
+    compact?: boolean;
+  }>(),
+  { compact: false },
+);
 
 const networks = useNetworksStore();
 const buffers = useBuffersStore();
@@ -108,10 +136,11 @@ const modeSuffix = computed(() => {
 // has flipped them offline (their reply won't be seen live), and an
 // "<nick> is away" sub-state when they're flagged AFK but still reachable.
 // Server pseudo-buffers and channels skip this entirely.
-const isDmBuffer = computed(() =>
-  !!active.value?.target
-  && !active.value.target.startsWith('#')
-  && !active.value.target.startsWith(':server:')
+const isDmBuffer = computed(
+  () =>
+    !!active.value?.target &&
+    !active.value.target.startsWith('#') &&
+    !active.value.target.startsWith(':server:'),
 );
 const peerForActive = computed(() => {
   if (!isDmBuffer.value) return null;
@@ -128,9 +157,7 @@ const peerStatusLabel = computed(() => {
   const p = peer as { state?: string; awayMessage?: string | null };
   if (isPeerOffline(p)) return `${a.target} is offline`;
   if (isPeerAway(p)) {
-    return p.awayMessage
-      ? `${a.target} is away: ${p.awayMessage}`
-      : `${a.target} is away`;
+    return p.awayMessage ? `${a.target} is away: ${p.awayMessage}` : `${a.target} is away`;
   }
   return '';
 });
@@ -157,7 +184,8 @@ const typingSegments = computed(() => {
   if (list.length === 0) return [];
   if (list.length === 1) return [nickSeg(list[0])];
   if (list.length === 2) return [nickSeg(list[0]), sep(', '), nickSeg(list[1])];
-  if (list.length === 3) return [nickSeg(list[0]), sep(', '), nickSeg(list[1]), sep(', '), nickSeg(list[2])];
+  if (list.length === 3)
+    return [nickSeg(list[0]), sep(', '), nickSeg(list[1]), sep(', '), nickSeg(list[2])];
   return [nickSeg(list[0]), sep(', '), nickSeg(list[1]), sep(`, +${list.length - 2}`)];
 });
 
@@ -194,7 +222,9 @@ const lagClass = computed(() => {
 
 // Clock lives in the status bar now. Same 1s tick + same format setting as
 // the input bar used to have, so existing look.bar.time_format keeps working.
-const tsFormat = computed(() => (settings.effective('look.bar.time_format') as string) || 'HH:mm:ss');
+const tsFormat = computed(
+  () => (settings.effective('look.bar.time_format') as string) || 'HH:mm:ss',
+);
 const now = ref(new Date());
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 let clockAlignTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -206,7 +236,9 @@ onMounted(() => {
   const delay = 1000 - (Date.now() % 1000);
   clockAlignTimeout = setTimeout(() => {
     now.value = new Date();
-    clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
+    clockTimer = setInterval(() => {
+      now.value = new Date();
+    }, 1000);
   }, delay);
 });
 onBeforeUnmount(() => {
@@ -246,7 +278,9 @@ function onReturnToPresent() {
   white-space: nowrap;
   overflow: hidden;
 }
-.seg { flex: 0 0 auto; }
+.seg {
+  flex: 0 0 auto;
+}
 /* Pipe separator between consecutive visible segments. v-if removes hidden
    segments from the DOM, so adjacent-sibling matching naturally skips them. */
 .seg + .seg::before {
@@ -254,25 +288,60 @@ function onReturnToPresent() {
   color: var(--border);
   margin-right: 1ch;
 }
-.seg.clock { color: var(--fg-muted); }
-.seg.buffer { color: var(--fg-muted); }
-.seg.buffer .name { color: var(--accent); }
-.seg.buffer .net { color: var(--fg-muted); }
-.seg.buffer .modes { color: var(--fg-muted); }
+.seg.clock {
+  color: var(--fg-muted);
+}
+.seg.buffer {
+  color: var(--fg-muted);
+}
+.seg.buffer .name {
+  color: var(--accent);
+}
+.seg.buffer .net {
+  color: var(--fg-muted);
+}
+.seg.buffer .modes {
+  color: var(--fg-muted);
+}
 /* Mobile-only self identity. Accent for the nick to mirror how the
    input prompt rendered it on desktop; warn-colored away tail. */
-.seg.self .name { color: var(--accent); }
-.seg.self .away { color: var(--warn); }
-.seg.lag { color: var(--fg-muted); }
-.seg.lag.warn { color: var(--warn); }
-.seg.lag.alarm { color: var(--bad); }
-.seg.peer-status.offline { color: var(--warn); }
-.seg.peer-status.away { color: var(--fg-muted); }
-.seg.upload { color: var(--accent); }
-.seg.upload.failed { color: var(--bad); }
-.seg.split { font-weight: 600; letter-spacing: 0.05em; }
-.seg.split.warn { color: var(--warn); }
-.seg.split.bad { color: var(--bad); }
+.seg.self .name {
+  color: var(--accent);
+}
+.seg.self .away {
+  color: var(--warn);
+}
+.seg.lag {
+  color: var(--fg-muted);
+}
+.seg.lag.warn {
+  color: var(--warn);
+}
+.seg.lag.alarm {
+  color: var(--bad);
+}
+.seg.peer-status.offline {
+  color: var(--warn);
+}
+.seg.peer-status.away {
+  color: var(--fg-muted);
+}
+.seg.upload {
+  color: var(--accent);
+}
+.seg.upload.failed {
+  color: var(--bad);
+}
+.seg.split {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.seg.split.warn {
+  color: var(--warn);
+}
+.seg.split.bad {
+  color: var(--bad);
+}
 .seg.jump,
 .seg.return-present {
   background: none;
@@ -283,5 +352,7 @@ function onReturnToPresent() {
   cursor: pointer;
 }
 .seg.jump:hover,
-.seg.return-present:hover { color: var(--fg); }
+.seg.return-present:hover {
+  color: var(--fg);
+}
 </style>

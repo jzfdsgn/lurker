@@ -18,7 +18,9 @@ export interface SearchQuery {
 export function parseSearchQuery(raw: unknown): SearchQuery {
   const filters: SearchQuery = { query: '', from: '', in: '', on: '' };
   const free: string[] = [];
-  for (const token of String(raw || '').trim().split(/\s+/)) {
+  for (const token of String(raw || '')
+    .trim()
+    .split(/\s+/)) {
     if (!token) continue;
     const m = /^(from|in|on):(.+)$/i.exec(token);
     if (m) {

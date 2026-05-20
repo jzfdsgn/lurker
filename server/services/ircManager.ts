@@ -4,14 +4,29 @@
 import { EventEmitter } from 'events';
 import { IrcConnection } from './ircConnection.js';
 import systemLog from './systemLog.js';
-import { listNetworksForUser, getNetwork, listChannels, upsertChannel, deleteChannel } from '../db/networks.js';
+import {
+  listNetworksForUser,
+  getNetwork,
+  listChannels,
+  upsertChannel,
+  deleteChannel,
+} from '../db/networks.js';
 import { reopenBuffer } from '../db/closedBuffers.js';
 import { getUserAwayState, writeAwayMarker, writeBackMarker } from '../db/userAwayState.js';
 import { listPinnedForUser } from '../db/pinnedBuffers.js';
 import { listCollapsedForUser } from '../db/nicklistCollapsed.js';
 import { listChannelNotifyForUser } from '../db/channelNotify.js';
-import { addMask as addIgnoreRow, removeMask as removeIgnoreRow, listMasks as listIgnoreRows, listAllForUser as listAllIgnoreRows } from '../db/ignoredMasks.js';
-import { listForUserGrouped as listNickNotesGrouped, setNote as setNickNoteRow, getNote as getNickNoteRow } from '../db/nickNotes.js';
+import {
+  addMask as addIgnoreRow,
+  removeMask as removeIgnoreRow,
+  listMasks as listIgnoreRows,
+  listAllForUser as listAllIgnoreRows,
+} from '../db/ignoredMasks.js';
+import {
+  listForUserGrouped as listNickNotesGrouped,
+  setNote as setNickNoteRow,
+  getNote as getNickNoteRow,
+} from '../db/nickNotes.js';
 import type { NoteResult } from '../db/nickNotes.js';
 import { splitSay, splitAction } from './messageSplit.js';
 import db from '../db/index.js';
@@ -72,7 +87,10 @@ class IrcManager extends EventEmitter {
   }
 
   initAll(): void {
-    const userIds = db.prepare('SELECT DISTINCT user_id AS id FROM networks').all().map((r) => (r as { id: number }).id);
+    const userIds = db
+      .prepare('SELECT DISTINCT user_id AS id FROM networks')
+      .all()
+      .map((r) => (r as { id: number }).id);
     for (const id of userIds) this.initForUser(id);
   }
 
@@ -100,7 +118,9 @@ class IrcManager extends EventEmitter {
 
     const connRef = conn;
     conn.client.on('registered', () => {
-      const names = listChannels(networkId).filter((c) => c.joined).map((c) => c.name);
+      const names = listChannels(networkId)
+        .filter((c) => c.joined)
+        .map((c) => c.name);
       if (names.length > 0) {
         systemLog.log({
           userId,
@@ -160,7 +180,11 @@ class IrcManager extends EventEmitter {
   // explicit "reconnect" action and after editing connection-relevant fields,
   // since startNetwork is a no-op when a connection object already exists in
   // the map (even if it's in a disconnected state).
-  restartNetwork(userId: number, networkId: number, reason: string = 'reconnecting'): IrcConnection | null {
+  restartNetwork(
+    userId: number,
+    networkId: number,
+    reason: string = 'reconnecting',
+  ): IrcConnection | null {
     this.disposeNetwork(userId, networkId, reason);
     return this.startNetwork(userId, networkId);
   }
@@ -311,7 +335,11 @@ class IrcManager extends EventEmitter {
     const userMap = this.byUser.get(userId);
     if (userMap) {
       for (const conn of userMap.values()) {
-        try { conn.dispose(reason); } catch (_) { /* ignore */ }
+        try {
+          conn.dispose(reason);
+        } catch (_) {
+          /* ignore */
+        }
       }
       this.byUser.delete(userId);
     }
@@ -321,7 +349,11 @@ class IrcManager extends EventEmitter {
   shutdown(): void {
     for (const userMap of this.byUser.values()) {
       for (const conn of userMap.values()) {
-        try { conn.disconnect(); } catch (_) { /* ignore */ }
+        try {
+          conn.disconnect();
+        } catch (_) {
+          /* ignore */
+        }
       }
     }
     this.byUser.clear();
@@ -373,7 +405,8 @@ function ignoresGrouped(userId: number): Map<number, { mask: string; createdAt: 
   for (const row of listAllIgnoreRows(userId)) {
     const list = out.get(row.networkId);
     const entry = { mask: row.mask, createdAt: row.createdAt };
-    if (list) list.push(entry); else out.set(row.networkId, [entry]);
+    if (list) list.push(entry);
+    else out.set(row.networkId, [entry]);
   }
   return out;
 }

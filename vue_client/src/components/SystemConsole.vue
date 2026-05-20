@@ -29,7 +29,9 @@ const systemLog = useSystemLogStore();
 const settings = useSettingsStore();
 
 const lines = computed(() => systemLog.lines);
-const tsFormat = computed(() => (settings.effective('look.buffer.time_format') as string) || 'HH:mm:ss');
+const tsFormat = computed(
+  () => (settings.effective('look.buffer.time_format') as string) || 'HH:mm:ss',
+);
 
 function formatTime(iso: unknown) {
   return formatTimestamp((iso as string) || '', tsFormat.value);
@@ -88,9 +90,22 @@ watch(
   gap: 8px;
   align-items: baseline;
 }
-.time { color: var(--fg-muted); white-space: nowrap; }
-.scope { color: var(--accent); white-space: nowrap; }
-.text { color: var(--fg); word-break: break-word; }
-.row.lvl-warn .text { color: var(--warn, #d9a300); }
-.row.lvl-error .text { color: var(--bad, #d33); }
+.time {
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+.scope {
+  color: var(--accent);
+  white-space: nowrap;
+}
+.text {
+  color: var(--fg);
+  word-break: break-word;
+}
+.row.lvl-warn .text {
+  color: var(--warn, #d9a300);
+}
+.row.lvl-error .text {
+  color: var(--bad, #d33);
+}
 </style>

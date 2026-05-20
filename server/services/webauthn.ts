@@ -32,7 +32,10 @@ export function rpConfig(): { rpID: string; rpName: string; expectedOrigin: stri
   const rpID = process.env.WEBAUTHN_RP_ID || 'irc.local.bradroot.me';
   const rpName = process.env.WEBAUTHN_RP_NAME || 'Lurker';
   const rawOrigins = process.env.WEBAUTHN_ORIGIN || 'https://irc.local.bradroot.me:5173';
-  const expectedOrigin = rawOrigins.split(',').map((s) => s.trim()).filter(Boolean);
+  const expectedOrigin = rawOrigins
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   return { rpID, rpName, expectedOrigin };
 }
 

@@ -26,7 +26,10 @@ afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 describe('upsertSubscription', () => {
   it('inserts a new subscription and surfaces it via listAllForUser', () => {
     const out = mod.upsertSubscription(alice.id, {
-      endpoint: 'https://example.test/a', p256dh: 'k1', auth: 'a1', userAgent: 'UA',
+      endpoint: 'https://example.test/a',
+      p256dh: 'k1',
+      auth: 'a1',
+      userAgent: 'UA',
     });
     expect(out.ok).toBe(true);
     expect((out as Extract<typeof out, { ok: true }>).sub!.endpoint).toBe('https://example.test/a');
@@ -35,15 +38,22 @@ describe('upsertSubscription', () => {
 
   it('refuses to rebind a foreign-owned endpoint', () => {
     const conflict = mod.upsertSubscription(bob.id, {
-      endpoint: 'https://example.test/a', p256dh: 'k2', auth: 'a2',
+      endpoint: 'https://example.test/a',
+      p256dh: 'k2',
+      auth: 'a2',
     });
     expect(conflict.ok).toBe(false);
-    expect((conflict as Extract<typeof conflict, { ok: false }>).error).toBe('endpoint_owned_by_other_user');
+    expect((conflict as Extract<typeof conflict, { ok: false }>).error).toBe(
+      'endpoint_owned_by_other_user',
+    );
   });
 
   it('updates p256dh/auth for the same owner', () => {
     const out = mod.upsertSubscription(alice.id, {
-      endpoint: 'https://example.test/a', p256dh: 'k1-new', auth: 'a1-new', userAgent: null,
+      endpoint: 'https://example.test/a',
+      p256dh: 'k1-new',
+      auth: 'a1-new',
+      userAgent: null,
     });
     expect(out.ok).toBe(true);
     const sub = mod.getByEndpoint('https://example.test/a');
@@ -76,10 +86,14 @@ describe('listEnabledForUser', () => {
   it('filters by enabled=1', async () => {
     const db = (await import('./index.js')).default;
     mod.upsertSubscription(alice.id, {
-      endpoint: 'https://example.test/on', p256dh: 'k', auth: 'a',
+      endpoint: 'https://example.test/on',
+      p256dh: 'k',
+      auth: 'a',
     });
     const off = mod.upsertSubscription(alice.id, {
-      endpoint: 'https://example.test/off', p256dh: 'k', auth: 'a',
+      endpoint: 'https://example.test/off',
+      p256dh: 'k',
+      auth: 'a',
     });
     db.prepare('UPDATE push_subscriptions SET enabled = 0 WHERE id = ?').run(
       (off as Extract<typeof off, { ok: true }>).sub!.id,

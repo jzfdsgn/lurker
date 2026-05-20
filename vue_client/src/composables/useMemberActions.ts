@@ -19,9 +19,21 @@ export interface MemberContext {
 }
 
 export interface MemberActionsAPI {
-  buildItems(member: MemberLike | string | null | undefined, ctx: MemberContext | null | undefined): ContextMenuItem[];
-  openMenuFor(member: MemberLike | string | null | undefined, ctx: MemberContext | null | undefined, x: number, y: number): void;
-  openMenuFromButton(member: MemberLike | string | null | undefined, ctx: MemberContext | null | undefined, buttonEl: Element | null): void;
+  buildItems(
+    member: MemberLike | string | null | undefined,
+    ctx: MemberContext | null | undefined,
+  ): ContextMenuItem[];
+  openMenuFor(
+    member: MemberLike | string | null | undefined,
+    ctx: MemberContext | null | undefined,
+    x: number,
+    y: number,
+  ): void;
+  openMenuFromButton(
+    member: MemberLike | string | null | undefined,
+    ctx: MemberContext | null | undefined,
+    buttonEl: Element | null,
+  ): void;
 }
 
 // Shared menu items for a member of a channel. Exposed as a composable so
@@ -41,7 +53,10 @@ export function useMemberActions(): MemberActionsAPI {
     return typeof m === 'string' ? m : m.nick;
   }
 
-  function buildItems(member: MemberLike | string | null | undefined, ctx: MemberContext | null | undefined): ContextMenuItem[] {
+  function buildItems(
+    member: MemberLike | string | null | undefined,
+    ctx: MemberContext | null | undefined,
+  ): ContextMenuItem[] {
     if (!member || !ctx || ctx.isSelf(member)) return [];
     const nick = nickOf(member);
     const hasNote = nickNotes.hasNote(ctx.networkId, nick);
@@ -65,7 +80,12 @@ export function useMemberActions(): MemberActionsAPI {
     return items;
   }
 
-  function openMenuFor(member: MemberLike | string | null | undefined, ctx: MemberContext | null | undefined, x: number, y: number): void {
+  function openMenuFor(
+    member: MemberLike | string | null | undefined,
+    ctx: MemberContext | null | undefined,
+    x: number,
+    y: number,
+  ): void {
     const items = buildItems(member, ctx);
     if (items.length === 0) return;
     menu.open(items, x, y);
@@ -74,7 +94,11 @@ export function useMemberActions(): MemberActionsAPI {
   // Hand buttonEl to useContextMenu so re-clicking the same trigger toggles
   // the menu closed instead of letting the click-outside listener close and
   // the trigger's own handler reopen on the same gesture.
-  function openMenuFromButton(member: MemberLike | string | null | undefined, ctx: MemberContext | null | undefined, buttonEl: Element | null): void {
+  function openMenuFromButton(
+    member: MemberLike | string | null | undefined,
+    ctx: MemberContext | null | undefined,
+    buttonEl: Element | null,
+  ): void {
     if (!buttonEl) return;
     const items = buildItems(member, ctx);
     if (items.length === 0) return;

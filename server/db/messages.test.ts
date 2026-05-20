@@ -19,7 +19,8 @@ let searchMessages: typeof import('./messages.js').searchMessages;
 beforeAll(async () => {
   ({ createUser } = await import('./users.js'));
   ({ createNetwork } = await import('./networks.js'));
-  ({ insertMessage, listMessages, listMessagesAround, searchMessages } = await import('./messages.js'));
+  ({ insertMessage, listMessages, listMessagesAround, searchMessages } =
+    await import('./messages.js'));
 });
 
 afterAll(() => {
@@ -59,7 +60,11 @@ describe('messages.alt parity', () => {
   it('alternates alt for chat-shaped types within a buffer', () => {
     const user = createUser('parity-basic');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'parity-basic',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'parity-basic',
     });
     chat(net!.id, '#a', 'alice', 'one');
     chat(net!.id, '#a', 'bob', 'two');
@@ -71,7 +76,11 @@ describe('messages.alt parity', () => {
   it('does not flip parity on system events', () => {
     const user = createUser('parity-events');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'parity-events',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'parity-events',
     });
     chat(net!.id, '#a', 'alice', 'one');
     event(net!.id, '#a', 'join', 'carol');
@@ -81,16 +90,24 @@ describe('messages.alt parity', () => {
     chat(net!.id, '#a', 'alice', 'three');
 
     const events = listMessages(net!.id, '#a', { limit: 1000 });
-    const chatAlts = events.filter((m) => ['message', 'action', 'notice'].includes(m.type)).map((m) => m.alt);
+    const chatAlts = events
+      .filter((m) => ['message', 'action', 'notice'].includes(m.type))
+      .map((m) => m.alt);
     expect(chatAlts).toEqual([false, true, false]);
-    const sysAlts = events.filter((m) => !['message', 'action', 'notice'].includes(m.type)).map((m) => m.alt);
+    const sysAlts = events
+      .filter((m) => !['message', 'action', 'notice'].includes(m.type))
+      .map((m) => m.alt);
     expect(sysAlts.every((a) => a === false)).toBe(true);
   });
 
   it('tracks parity independently per buffer', () => {
     const user = createUser('parity-isolation');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'parity-isolation',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'parity-isolation',
     });
     chat(net!.id, '#a', 'alice', 'a1');
     chat(net!.id, '#b', 'alice', 'b1');
@@ -104,7 +121,11 @@ describe('messages.alt parity', () => {
   it('treats action and notice as striped types', () => {
     const user = createUser('parity-actions');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'parity-actions',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'parity-actions',
     });
     chat(net!.id, '#a', 'alice', 'one', 'message');
     chat(net!.id, '#a', 'alice', 'two', 'action');
@@ -112,14 +133,17 @@ describe('messages.alt parity', () => {
     chat(net!.id, '#a', 'alice', 'four', 'message');
     expect(altsFor(net!.id, '#a')).toEqual([false, true, false, true]);
   });
-
 });
 
 describe('searchMessages', () => {
   it('matches free text against message bodies', () => {
     const user = createUser('search-text');
     const net = createNetwork(user.id, {
-      name: 'libera', host: 'h', port: 6697, tls: true, nick: 'search-text',
+      name: 'libera',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-text',
     });
     chat(net!.id, '#a', 'alice', 'the release deadline is friday');
     chat(net!.id, '#a', 'bob', 'unrelated chatter');
@@ -135,7 +159,11 @@ describe('searchMessages', () => {
   it('ANDs multiple free-text terms', () => {
     const user = createUser('search-and');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'search-and',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-and',
     });
     chat(net!.id, '#a', 'alice', 'release deadline friday');
     chat(net!.id, '#a', 'bob', 'deadline only');
@@ -147,7 +175,11 @@ describe('searchMessages', () => {
   it('filters by nick (from:)', () => {
     const user = createUser('search-nick');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'search-nick',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-nick',
     });
     chat(net!.id, '#a', 'alice', 'hello world');
     chat(net!.id, '#a', 'bob', 'hello world');
@@ -159,7 +191,11 @@ describe('searchMessages', () => {
   it('filters by target (in:)', () => {
     const user = createUser('search-target');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'search-target',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-target',
     });
     chat(net!.id, '#a', 'alice', 'ping');
     chat(net!.id, '#b', 'alice', 'ping');
@@ -171,10 +207,18 @@ describe('searchMessages', () => {
   it('filters by networkId (on:)', () => {
     const user = createUser('search-network');
     const netA = createNetwork(user.id, {
-      name: 'a', host: 'h', port: 6697, tls: true, nick: 'search-network',
+      name: 'a',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-network',
     });
     const netB = createNetwork(user.id, {
-      name: 'b', host: 'h', port: 6697, tls: true, nick: 'search-network',
+      name: 'b',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-network',
     });
     chat(netA!.id, '#a', 'alice', 'shared word');
     chat(netB!.id, '#a', 'alice', 'shared word');
@@ -186,7 +230,11 @@ describe('searchMessages', () => {
   it('supports a structured-only query with no free text', () => {
     const user = createUser('search-structured');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'search-structured',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-structured',
     });
     chat(net!.id, '#a', 'alice', 'first');
     chat(net!.id, '#a', 'alice', 'second');
@@ -199,7 +247,11 @@ describe('searchMessages', () => {
   it('returns nothing when there is no free text and no filter', () => {
     const user = createUser('search-empty');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'search-empty',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-empty',
     });
     chat(net!.id, '#a', 'alice', 'something');
     expect(searchMessages(user.id, { query: '   ' })).toEqual([]);
@@ -208,26 +260,43 @@ describe('searchMessages', () => {
   it('excludes non-chat event types', () => {
     const user = createUser('search-types');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'search-types',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-types',
     });
     chat(net!.id, '#a', 'alice', 'topic about widgets');
     insertMessage({
-      networkId: net!.id, target: '#a', time: new Date().toISOString(),
-      type: 'topic', nick: 'alice', text: 'widgets channel topic', self: false,
+      networkId: net!.id,
+      target: '#a',
+      time: new Date().toISOString(),
+      type: 'topic',
+      nick: 'alice',
+      text: 'widgets channel topic',
+      self: false,
     });
 
     const hits = searchMessages(user.id, { query: 'widgets' });
     expect(hits.map((m) => m.type)).toEqual(['message']);
   });
 
-  it('never returns another user\'s messages', () => {
+  it("never returns another user's messages", () => {
     const userA = createUser('search-iso-a');
     const userB = createUser('search-iso-b');
     const netA = createNetwork(userA.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'search-iso-a',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-iso-a',
     });
     const netB = createNetwork(userB.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'search-iso-b',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-iso-b',
     });
     chat(netA!.id, '#a', 'alice', 'secret keyword apple');
     chat(netB!.id, '#a', 'bob', 'secret keyword apple');
@@ -241,7 +310,11 @@ describe('searchMessages', () => {
   it('paginates newest-first via the before cursor', () => {
     const user = createUser('search-page');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'search-page',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-page',
     });
     for (let i = 1; i <= 5; i += 1) chat(net!.id, '#a', 'alice', `page item ${i}`);
 
@@ -249,7 +322,9 @@ describe('searchMessages', () => {
     expect(firstPage.map((m) => m.text)).toEqual(['page item 5', 'page item 4']);
 
     const secondPage = searchMessages(user.id, {
-      query: 'item', limit: 2, before: firstPage[firstPage.length - 1].id,
+      query: 'item',
+      limit: 2,
+      before: firstPage[firstPage.length - 1].id,
     });
     expect(secondPage.map((m) => m.text)).toEqual(['page item 3', 'page item 2']);
   });
@@ -257,7 +332,11 @@ describe('searchMessages', () => {
   it('includes the network name on each result', () => {
     const user = createUser('search-netname');
     const net = createNetwork(user.id, {
-      name: 'OFTC', host: 'h', port: 6697, tls: true, nick: 'search-netname',
+      name: 'OFTC',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'search-netname',
     });
     chat(net!.id, '#a', 'alice', 'banana split');
     const hits = searchMessages(user.id, { query: 'banana' });
@@ -269,7 +348,11 @@ describe('listMessagesAround', () => {
   it('centers a slice on the anchor with hasMore=false when total fits in halfLimit', () => {
     const user = createUser('around-fits');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'around-fits',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'around-fits',
     });
     const ids = [];
     for (let i = 1; i <= 101; i += 1) ids.push(chat(net!.id, '#a', 'alice', `m${i}`).id);
@@ -285,7 +368,11 @@ describe('listMessagesAround', () => {
   it('truncates to halfLimit on each side with both hasMore flags true', () => {
     const user = createUser('around-trunc');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'around-trunc',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'around-trunc',
     });
     const ids = [];
     for (let i = 1; i <= 1001; i += 1) ids.push(chat(net!.id, '#a', 'alice', `m${i}`).id);
@@ -301,7 +388,11 @@ describe('listMessagesAround', () => {
   it('returns hasMoreOlder=false when the anchor is the oldest message', () => {
     const user = createUser('around-top');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'around-top',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'around-top',
     });
     const ids = [];
     for (let i = 1; i <= 100; i += 1) ids.push(chat(net!.id, '#a', 'alice', `m${i}`).id);
@@ -317,7 +408,11 @@ describe('listMessagesAround', () => {
   it('returns anchorMissing when the id does not exist in the buffer', () => {
     const user = createUser('around-missing');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'around-missing',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'around-missing',
     });
     chat(net!.id, '#a', 'alice', 'one');
 
@@ -333,7 +428,11 @@ describe('listMessagesAround', () => {
     // jump-to-message regardless of which buffer was queried.
     const user = createUser('around-scope');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'around-scope',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'around-scope',
     });
     const aId = chat(net!.id, '#a', 'alice', 'private').id;
     chat(net!.id, '#b', 'bob', 'unrelated');
@@ -347,19 +446,37 @@ describe('messages.alt parity (insert result)', () => {
   it('returns alt on the insert result', () => {
     const user = createUser('parity-return');
     const net = createNetwork(user.id, {
-      name: 'n', host: 'h', port: 6697, tls: true, nick: 'parity-return',
+      name: 'n',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'parity-return',
     });
     const first = insertMessage({
-      networkId: net!.id, target: '#a', time: new Date().toISOString(),
-      type: 'message', nick: 'alice', text: 'hi', self: false,
+      networkId: net!.id,
+      target: '#a',
+      time: new Date().toISOString(),
+      type: 'message',
+      nick: 'alice',
+      text: 'hi',
+      self: false,
     });
     const second = insertMessage({
-      networkId: net!.id, target: '#a', time: new Date().toISOString(),
-      type: 'message', nick: 'bob', text: 'hi', self: false,
+      networkId: net!.id,
+      target: '#a',
+      time: new Date().toISOString(),
+      type: 'message',
+      nick: 'bob',
+      text: 'hi',
+      self: false,
     });
     const sysEvt = insertMessage({
-      networkId: net!.id, target: '#a', time: new Date().toISOString(),
-      type: 'join', nick: 'carol', self: false,
+      networkId: net!.id,
+      target: '#a',
+      time: new Date().toISOString(),
+      type: 'join',
+      nick: 'carol',
+      self: false,
     });
     expect(first.alt).toBe(false);
     expect(second.alt).toBe(true);

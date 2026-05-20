@@ -13,7 +13,8 @@ interface VerbContext {
 
 registerVerb({
   name: 'list_networks',
-  description: 'List the IRC networks configured for the caller, with live connection state and current nick.',
+  description:
+    'List the IRC networks configured for the caller, with live connection state and current nick.',
   scope: 'read',
   input: {
     type: 'object',

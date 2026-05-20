@@ -36,31 +36,39 @@ describe('GET /api/auth/auth-methods (pre-setup)', () => {
 describe('POST /api/auth/setup/password', () => {
   it('rejects an invalid username', async () => {
     const res = await request(app).post('/api/auth/setup/password').send({
-      username: '!!bad!!', password: 'longenoughpw',
+      username: '!!bad!!',
+      password: 'longenoughpw',
     });
     expect(res.status).toBe(400);
   });
 
   it('rejects too-short passwords', async () => {
     const res = await request(app).post('/api/auth/setup/password').send({
-      username: 'firstadmin', password: 'short',
+      username: 'firstadmin',
+      password: 'short',
     });
     expect(res.status).toBe(400);
   });
 
   it('creates the first admin and signs them in', async () => {
     const res = await request(app).post('/api/auth/setup/password').send({
-      username: 'firstadmin', password: 'longenoughpw',
+      username: 'firstadmin',
+      password: 'longenoughpw',
     });
     expect(res.status).toBe(200);
     expect(res.body.user.username).toBe('firstadmin');
     expect(res.body.user.role).toBe('admin');
-    expect((res.headers['set-cookie'] as unknown as string[] | undefined)?.some((c: string) => c.startsWith('lurker_session='))).toBe(true);
+    expect(
+      (res.headers['set-cookie'] as unknown as string[] | undefined)?.some((c: string) =>
+        c.startsWith('lurker_session='),
+      ),
+    ).toBe(true);
   });
 
   it('subsequent setup attempts return 409', async () => {
     const res = await request(app).post('/api/auth/setup/password').send({
-      username: 'second', password: 'longenoughpw',
+      username: 'second',
+      password: 'longenoughpw',
     });
     expect(res.status).toBe(409);
   });
@@ -74,11 +82,13 @@ describe('POST /api/auth/setup/password', () => {
 describe('login / logout / me', () => {
   it('rejects unknown user + wrong password identically', async () => {
     const ghost = await request(app).post('/api/auth/login/password').send({
-      username: 'ghost', password: 'doesnotmatter',
+      username: 'ghost',
+      password: 'doesnotmatter',
     });
     expect(ghost.status).toBe(401);
     const wrong = await request(app).post('/api/auth/login/password').send({
-      username: 'firstadmin', password: 'wrong-password',
+      username: 'firstadmin',
+      password: 'wrong-password',
     });
     expect(wrong.status).toBe(401);
     expect(wrong.body.error).toBe(ghost.body.error);
@@ -86,18 +96,25 @@ describe('login / logout / me', () => {
 
   it('rejects login when fields are missing or empty', async () => {
     const r1 = await request(app).post('/api/auth/login/password').send({});
-    const r2 = await request(app).post('/api/auth/login/password').send({ username: 'firstadmin', password: '' });
+    const r2 = await request(app)
+      .post('/api/auth/login/password')
+      .send({ username: 'firstadmin', password: '' });
     expect(r1.status).toBe(400);
     expect(r2.status).toBe(400);
   });
 
   it('valid password login issues a session cookie', async () => {
     const res = await request(app).post('/api/auth/login/password').send({
-      username: 'firstadmin', password: 'longenoughpw',
+      username: 'firstadmin',
+      password: 'longenoughpw',
     });
     expect(res.status).toBe(200);
     expect(res.body.user.username).toBe('firstadmin');
-    expect((res.headers['set-cookie'] as unknown as string[] | undefined)?.some((c: string) => c.startsWith('lurker_session='))).toBe(true);
+    expect(
+      (res.headers['set-cookie'] as unknown as string[] | undefined)?.some((c: string) =>
+        c.startsWith('lurker_session='),
+      ),
+    ).toBe(true);
   });
 
   it('/me requires auth', async () => {
@@ -118,7 +135,11 @@ describe('login / logout / me', () => {
     const res = await request(app).post('/api/auth/logout');
     expect(res.status).toBe(200);
     // Should set the clearCookie header even when no token was present.
-    expect((res.headers['set-cookie'] as unknown as string[] | undefined)?.some((c: string) => c.startsWith('lurker_session='))).toBe(true);
+    expect(
+      (res.headers['set-cookie'] as unknown as string[] | undefined)?.some((c: string) =>
+        c.startsWith('lurker_session='),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -153,12 +174,14 @@ describe('password management', () => {
 
     // Old password no longer works.
     const fail = await request(app).post('/api/auth/login/password').send({
-      username: 'firstadmin', password: 'longenoughpw',
+      username: 'firstadmin',
+      password: 'longenoughpw',
     });
     expect(fail.status).toBe(401);
     // New one does.
     const ok = await request(app).post('/api/auth/login/password').send({
-      username: 'firstadmin', password: 'newerpassword',
+      username: 'firstadmin',
+      password: 'newerpassword',
     });
     expect(ok.status).toBe(200);
   });
@@ -167,7 +190,8 @@ describe('password management', () => {
     const { findUserByUsername } = await import('../db/users.js');
     const agent = await createAuthedAgent(app, findUserByUsername('firstadmin')!.id);
     const res = await agent.put('/api/auth/password').send({
-      currentPassword: 'newerpassword', password: 'short',
+      currentPassword: 'newerpassword',
+      password: 'short',
     });
     expect(res.status).toBe(400);
   });
@@ -212,7 +236,8 @@ describe('POST /api/auth/login/options', () => {
 describe('POST /api/auth/invite/:token/password', () => {
   it('404 for an invalid token', async () => {
     const res = await request(app).post('/api/auth/invite/bogus/password').send({
-      username: 'someone', password: 'longenoughpw',
+      username: 'someone',
+      password: 'longenoughpw',
     });
     expect(res.status).toBe(404);
   });
@@ -223,7 +248,8 @@ describe('POST /api/auth/invite/:token/password', () => {
     const admin = findUserByUsername('firstadmin')!;
     const invite = createInvite(admin.id, { expiresInDays: 1 })!;
     const res = await request(app).post(`/api/auth/invite/${invite.token}/password`).send({
-      username: 'invitee', password: 'longenoughpw',
+      username: 'invitee',
+      password: 'longenoughpw',
     });
     expect(res.status).toBe(200);
     expect(res.body.user.username).toBe('invitee');
@@ -236,11 +262,13 @@ describe('POST /api/auth/invite/:token/password', () => {
     const admin = findUserByUsername('firstadmin')!;
     const invite = createInvite(admin.id, { expiresInDays: 1 })!;
     const ok = await request(app).post(`/api/auth/invite/${invite.token}/password`).send({
-      username: 'one-shot', password: 'longenoughpw',
+      username: 'one-shot',
+      password: 'longenoughpw',
     });
     expect(ok.status).toBe(200);
     const reuse = await request(app).post(`/api/auth/invite/${invite.token}/password`).send({
-      username: 'two-shot', password: 'longenoughpw',
+      username: 'two-shot',
+      password: 'longenoughpw',
     });
     expect(reuse.status).toBe(404);
   });

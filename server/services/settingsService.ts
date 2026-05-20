@@ -4,11 +4,7 @@
 import { EventEmitter } from 'events';
 import type { SettingValue } from '../../shared/settingsRegistry.js';
 import { validate, getOption } from './settingsRegistry.js';
-import {
-  setUserSetting,
-  deleteUserSetting,
-  getUserSettings,
-} from '../db/settings.js';
+import { setUserSetting, deleteUserSetting, getUserSettings } from '../db/settings.js';
 
 function valuesEqual(a: SettingValue, b: SettingValue): boolean {
   if (a === b) return true;
@@ -23,7 +19,10 @@ function valuesEqual(a: SettingValue, b: SettingValue): boolean {
 class SettingsService extends EventEmitter {
   // changes: { [key]: rawValue }
   // Returns { ok: true, values } on full success or { ok: false, error, key } on first invalid entry.
-  update(userId: number, changes: Record<string, unknown>): { ok: false; error: string; key: string } | { ok: true; values: Record<string, unknown> } {
+  update(
+    userId: number,
+    changes: Record<string, unknown>,
+  ): { ok: false; error: string; key: string } | { ok: true; values: Record<string, unknown> } {
     const validated: Record<string, SettingValue> = {};
     for (const [key, raw] of Object.entries(changes)) {
       const result = validate(key, raw);
@@ -46,7 +45,10 @@ class SettingsService extends EventEmitter {
     return { ok: true, values: getUserSettings(userId) };
   }
 
-  reset(userId: number, key: string): { ok: false; error: string } | { ok: true; values: Record<string, unknown> } {
+  reset(
+    userId: number,
+    key: string,
+  ): { ok: false; error: string } | { ok: true; values: Record<string, unknown> } {
     const opt = getOption(key);
     if (!opt) return { ok: false, error: `unknown setting: ${key}` };
     deleteUserSetting(userId, key);

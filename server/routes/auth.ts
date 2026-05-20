@@ -3,7 +3,10 @@
 
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import type { VerifiedRegistrationResponse, VerifiedAuthenticationResponse } from '@simplewebauthn/server';
+import type {
+  VerifiedRegistrationResponse,
+  VerifiedAuthenticationResponse,
+} from '@simplewebauthn/server';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -34,12 +37,7 @@ import {
 } from '../db/webauthnCredentials.js';
 import { createSession, deleteSession } from '../db/sessions.js';
 import { SESSION_COOKIE, getCookieOptions, requireAuth } from '../middleware/auth.js';
-import {
-  rpConfig,
-  saveChallenge,
-  consumeChallenge,
-  userIdToHandle,
-} from '../services/webauthn.js';
+import { rpConfig, saveChallenge, consumeChallenge, userIdToHandle } from '../services/webauthn.js';
 import {
   hashPassword,
   verifyPassword,
@@ -491,8 +489,7 @@ router.post('/login/verify', async (req: Request, res: Response) => {
 // against it on a username-miss costs the same scrypt work as a real verify,
 // so response time doesn't leak whether the account exists. Salt/digest are
 // fixed zero bytes — no secret value.
-const DUMMY_PASSWORD_HASH =
-  `scrypt$32768$8$1$${Buffer.alloc(16).toString('base64')}$${Buffer.alloc(64).toString('base64')}`;
+const DUMMY_PASSWORD_HASH = `scrypt$32768$8$1$${Buffer.alloc(16).toString('base64')}$${Buffer.alloc(64).toString('base64')}`;
 
 router.post('/login/password', (req: Request, res: Response) => {
   const username = (req.body?.username || '').trim();
@@ -635,7 +632,9 @@ router.delete('/passkeys/:id', requireAuth, (req: Request, res: Response) => {
   // Removing the last passkey is only safe if the user can still sign in
   // another way. Right now that's a password.
   if (countCredentialsForUser(req.user!.id) <= 1 && !userHasPassword(req.user!.id)) {
-    res.status(409).json({ error: 'cannot remove your only sign-in method — set a password first' });
+    res
+      .status(409)
+      .json({ error: 'cannot remove your only sign-in method — set a password first' });
     return;
   }
   const ok = deleteCredentialById(id, req.user!.id);

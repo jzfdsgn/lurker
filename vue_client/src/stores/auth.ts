@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { defineStore } from 'pinia';
-import {
-  startRegistration,
-  startAuthentication,
-} from '@simplewebauthn/browser';
+import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { api } from '../api.js';
 import { resetSession } from '../composables/useSessionReset.js';
 
@@ -99,7 +96,10 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
-    async setupFirstPassword({ username, password }: { username?: string; password?: string } = {}) {
+    async setupFirstPassword({
+      username,
+      password,
+    }: { username?: string; password?: string } = {}) {
       this.error = null;
       try {
         const { user } = await api('/api/auth/setup/password', {
@@ -136,18 +136,22 @@ export const useAuthStore = defineStore('auth', {
       const data = await api(`/api/auth/invite/${encodeURIComponent(token)}`);
       return data;
     },
-    async acceptInvite({ token, username, label }: { token?: string; username?: string; label?: string } = {}) {
+    async acceptInvite({
+      token,
+      username,
+      label,
+    }: { token?: string; username?: string; label?: string } = {}) {
       this.error = null;
       try {
-        const { options } = await api(
-          `/api/auth/invite/${encodeURIComponent(token!)}/options`,
-          { method: 'POST', body: { username } }
-        );
+        const { options } = await api(`/api/auth/invite/${encodeURIComponent(token!)}/options`, {
+          method: 'POST',
+          body: { username },
+        });
         const response = await startRegistration({ optionsJSON: options });
-        const { user } = await api(
-          `/api/auth/invite/${encodeURIComponent(token!)}/verify`,
-          { method: 'POST', body: { response, label } }
-        );
+        const { user } = await api(`/api/auth/invite/${encodeURIComponent(token!)}/verify`, {
+          method: 'POST',
+          body: { response, label },
+        });
         // If a prior user was logged into this browser, wipe their state
         // before the new session takes over. Clear `user` first so the WS
         // onclose reconnect arm sees no user (matches the logout pattern).
@@ -161,13 +165,17 @@ export const useAuthStore = defineStore('auth', {
         throw err;
       }
     },
-    async acceptInviteWithPassword({ token, username, password }: { token?: string; username?: string; password?: string } = {}) {
+    async acceptInviteWithPassword({
+      token,
+      username,
+      password,
+    }: { token?: string; username?: string; password?: string } = {}) {
       this.error = null;
       try {
-        const { user } = await api(
-          `/api/auth/invite/${encodeURIComponent(token!)}/password`,
-          { method: 'POST', body: { username, password } }
-        );
+        const { user } = await api(`/api/auth/invite/${encodeURIComponent(token!)}/password`, {
+          method: 'POST',
+          body: { username, password },
+        });
         this.user = null;
         resetSession();
         this.user = user;
@@ -205,7 +213,10 @@ export const useAuthStore = defineStore('auth', {
         return false;
       }
     },
-    async setPassword({ password, currentPassword }: { password?: string; currentPassword?: string } = {}) {
+    async setPassword({
+      password,
+      currentPassword,
+    }: { password?: string; currentPassword?: string } = {}) {
       await api('/api/auth/password', {
         method: 'PUT',
         body: { password, currentPassword },

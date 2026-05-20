@@ -39,7 +39,9 @@ export interface TestDbContext {
 // parallel by default, and each one is a separate process — collisions are
 // rare but the suffix makes the intent explicit).
 export function setupTestDb(suffix = ''): TestDbContext {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `lurker-test${suffix ? '-' + suffix : ''}-`));
+  const tmpDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), `lurker-test${suffix ? '-' + suffix : ''}-`),
+  );
   process.env.DATABASE_PATH = path.join(tmpDir, 'test.db');
   // Required by middleware/auth.js getCookieOptions (signed cookies).
   process.env.SESSION_SECRET = TEST_SESSION_SECRET;

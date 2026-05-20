@@ -137,7 +137,9 @@ function rowToEvent(row: MessageRow): MessageEvent {
   if (row.extra) {
     try {
       Object.assign(event, JSON.parse(row.extra));
-    } catch (_) { /* ignore malformed */ }
+    } catch (_) {
+      /* ignore malformed */
+    }
   }
   return event;
 }
@@ -149,17 +151,15 @@ function rowToEvent(row: MessageRow): MessageEvent {
 export function listMessages(
   networkId: number,
   target: string,
-  {
-    before,
-    afterId,
-    limit = 50,
-  }: { before?: number; afterId?: number; limit?: number } = {},
+  { before, afterId, limit = 50 }: { before?: number; afterId?: number; limit?: number } = {},
 ): MessageEvent[] {
   if (afterId) {
-    const rows = db.prepare(
-      `SELECT * FROM messages WHERE network_id = ? AND target = ? AND id > ?
-       ORDER BY id ASC LIMIT ?`
-    ).all(networkId, target, afterId, limit) as MessageRow[];
+    const rows = db
+      .prepare(
+        `SELECT * FROM messages WHERE network_id = ? AND target = ? AND id > ?
+       ORDER BY id ASC LIMIT ?`,
+      )
+      .all(networkId, target, afterId, limit) as MessageRow[];
     return rows.map(rowToEvent);
   }
   const sql = before
@@ -183,9 +183,9 @@ export function listMessagesAround(
 ):
   | { events: MessageEvent[]; hasMoreOlder: boolean; hasMoreNewer: boolean }
   | { events: []; hasMoreOlder: false; hasMoreNewer: false; anchorMissing: true } {
-  const anchorRow = db.prepare(
-    `SELECT * FROM messages WHERE id = ? AND network_id = ? AND target = ?`
-  ).get(anchorId, networkId, target) as MessageRow | undefined;
+  const anchorRow = db
+    .prepare(`SELECT * FROM messages WHERE id = ? AND network_id = ? AND target = ?`)
+    .get(anchorId, networkId, target) as MessageRow | undefined;
   if (!anchorRow) {
     return { events: [], hasMoreOlder: false, hasMoreNewer: false, anchorMissing: true };
   }
@@ -205,15 +205,15 @@ export function listMessagesAround(
 // LIMIT 1 EXISTS-shaped query (rather than COUNT(*)) keeps this O(index seek)
 // regardless of how much history is in the buffer.
 function hasOlderThan(networkId: number, target: string, id: number): boolean {
-  return !!db.prepare(
-    `SELECT 1 FROM messages WHERE network_id = ? AND target = ? AND id < ? LIMIT 1`
-  ).get(networkId, target, id);
+  return !!db
+    .prepare(`SELECT 1 FROM messages WHERE network_id = ? AND target = ? AND id < ? LIMIT 1`)
+    .get(networkId, target, id);
 }
 
 function hasNewerThan(networkId: number, target: string, id: number): boolean {
-  return !!db.prepare(
-    `SELECT 1 FROM messages WHERE network_id = ? AND target = ? AND id > ? LIMIT 1`
-  ).get(networkId, target, id);
+  return !!db
+    .prepare(`SELECT 1 FROM messages WHERE network_id = ? AND target = ? AND id > ? LIMIT 1`)
+    .get(networkId, target, id);
 }
 
 // Public wrappers so wsHub can compute hasMoreOlder/Newer for the 'before',
@@ -258,7 +258,7 @@ export function listBuffersForNetwork(networkId: number): BufferSummary[] {
         WHERE network_id = ?
           AND target NOT LIKE ':server:%'
         GROUP BY target
-        ORDER BY lastMessageAt DESC`
+        ORDER BY lastMessageAt DESC`,
     )
     .all(networkId) as BufferSummary[];
 }
@@ -284,9 +284,11 @@ export function hasMessageForTarget(networkId: number, target: string): boolean 
 }
 
 export function countOlder(networkId: number, target: string, beforeId: number): number {
-  return (db.prepare(
-    `SELECT COUNT(*) AS n FROM messages WHERE network_id = ? AND target = ? AND id < ?`
-  ).get(networkId, target, beforeId) as { n: number }).n;
+  return (
+    db
+      .prepare(`SELECT COUNT(*) AS n FROM messages WHERE network_id = ? AND target = ? AND id < ?`)
+      .get(networkId, target, beforeId) as { n: number }
+  ).n;
 }
 
 // Types that count as "real content" for the unread badge. Membership churn
@@ -299,22 +301,30 @@ export const COUNTABLE_TYPES = new Set(['message', 'action', 'notice']);
 const COUNTABLE_TYPES_SQL = `('${[...COUNTABLE_TYPES].join("','")}')`;
 
 export function countNewer(networkId: number, target: string, afterId: number): number {
-  return (db.prepare(
-    `SELECT COUNT(*) AS n FROM messages
+  return (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM messages
      WHERE network_id = ? AND target = ? AND id > ?
-       AND type IN ${COUNTABLE_TYPES_SQL}`
-  ).get(networkId, target, afterId || 0) as { n: number }).n;
+       AND type IN ${COUNTABLE_TYPES_SQL}`,
+      )
+      .get(networkId, target, afterId || 0) as { n: number }
+  ).n;
 }
 
 // Cheap indexed count of unread highlights since `afterId`. Uses the partial
 // idx_messages_matched index — the old scan+decorate approach was replaced
 // once match state moved to insert time.
 export function countHighlightsNewer(networkId: number, target: string, afterId: number): number {
-  return (db.prepare(
-    `SELECT COUNT(*) AS n FROM messages
+  return (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM messages
      WHERE network_id = ? AND target = ? AND id > ?
-       AND matched_rule_id IS NOT NULL`
-  ).get(networkId, target, afterId || 0) as { n: number }).n;
+       AND matched_rule_id IS NOT NULL`,
+      )
+      .get(networkId, target, afterId || 0) as { n: number }
+  ).n;
 }
 
 // Highlight history feed for the /api/highlights endpoint. Scoped to a single
@@ -402,10 +412,22 @@ export function searchMessages(
     where.push('messages_fts MATCH ?');
     params.push(match);
   }
-  if (networkId) { where.push('m.network_id = ?'); params.push(networkId); }
-  if (target) { where.push('m.target = ? COLLATE NOCASE'); params.push(target); }
-  if (nick) { where.push('m.nick = ? COLLATE NOCASE'); params.push(nick); }
-  if (before) { where.push('m.id < ?'); params.push(before); }
+  if (networkId) {
+    where.push('m.network_id = ?');
+    params.push(networkId);
+  }
+  if (target) {
+    where.push('m.target = ? COLLATE NOCASE');
+    params.push(target);
+  }
+  if (nick) {
+    where.push('m.nick = ? COLLATE NOCASE');
+    params.push(nick);
+  }
+  if (before) {
+    where.push('m.id < ?');
+    params.push(before);
+  }
 
   const sql = `SELECT m.*, n.name AS network_name
                FROM ${from}
@@ -439,7 +461,9 @@ export function listSpeakers(
   target: string,
   limit = 128,
 ): Array<{ nick: string; lastTime: number }> {
-  return (listSpeakersStmt.all(networkId, target, limit) as Array<{ nick: string; last_time: string }>)
+  return (
+    listSpeakersStmt.all(networkId, target, limit) as Array<{ nick: string; last_time: string }>
+  )
     .map((r) => ({ nick: r.nick, lastTime: Date.parse(r.last_time) || 0 }))
     .filter((s) => s.lastTime > 0);
 }

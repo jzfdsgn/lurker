@@ -4,7 +4,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 import type { Network } from '../db/networks.js';
 
@@ -26,8 +31,20 @@ beforeAll(async () => {
 
   alice = createUser('drafts-alice');
   bob = createUser('drafts-bob');
-  aliceNet = createNetwork(alice.id, { name: 'libera', host: 'h', port: 6697, tls: true, nick: 'alice' })!;
-  bobNet = createNetwork(bob.id, { name: 'libera', host: 'h', port: 6697, tls: true, nick: 'bob' })!;
+  aliceNet = createNetwork(alice.id, {
+    name: 'libera',
+    host: 'h',
+    port: 6697,
+    tls: true,
+    nick: 'alice',
+  })!;
+  bobNet = createNetwork(bob.id, {
+    name: 'libera',
+    host: 'h',
+    port: 6697,
+    tls: true,
+    nick: 'bob',
+  })!;
 
   app = createTestApp({ '/api/drafts': router });
   aliceAgent = await createAuthedAgent(app, alice.id);
@@ -66,25 +83,31 @@ describe('POST /api/drafts/flush', () => {
     await aliceAgent
       .post('/api/drafts/flush')
       .set('Content-Type', 'text/plain')
-      .send(JSON.stringify({ drafts: [{ networkId: aliceNet.id, target: '#clear-me', body: 'tmp' }] }));
+      .send(
+        JSON.stringify({ drafts: [{ networkId: aliceNet.id, target: '#clear-me', body: 'tmp' }] }),
+      );
     expect(listForUser(alice.id).some((r) => r.target === '#clear-me')).toBe(true);
     await aliceAgent
       .post('/api/drafts/flush')
       .set('Content-Type', 'text/plain')
-      .send(JSON.stringify({ drafts: [{ networkId: aliceNet.id, target: '#clear-me', body: '' }] }));
+      .send(
+        JSON.stringify({ drafts: [{ networkId: aliceNet.id, target: '#clear-me', body: '' }] }),
+      );
     expect(listForUser(alice.id).some((r) => r.target === '#clear-me')).toBe(false);
   });
 
-  it('silently skips entries that point at another user\'s network', async () => {
+  it("silently skips entries that point at another user's network", async () => {
     await aliceAgent
       .post('/api/drafts/flush')
       .set('Content-Type', 'text/plain')
-      .send(JSON.stringify({
-        drafts: [
-          { networkId: bobNet.id, target: '#nope', body: 'should not save' },
-          { networkId: aliceNet.id, target: '#ok', body: 'should save' },
-        ],
-      }));
+      .send(
+        JSON.stringify({
+          drafts: [
+            { networkId: bobNet.id, target: '#nope', body: 'should not save' },
+            { networkId: aliceNet.id, target: '#ok', body: 'should save' },
+          ],
+        }),
+      );
     const aliceRows = listForUser(alice.id);
     expect(aliceRows.some((r) => r.target === '#nope')).toBe(false);
     expect(aliceRows.some((r) => r.target === '#ok')).toBe(true);
@@ -95,9 +118,11 @@ describe('POST /api/drafts/flush', () => {
     await aliceAgent
       .post('/api/drafts/flush')
       .set('Content-Type', 'text/plain')
-      .send(JSON.stringify({
-        drafts: [{ networkId: aliceNet.id, target: ':server:libera', body: 'pseudo' }],
-      }));
+      .send(
+        JSON.stringify({
+          drafts: [{ networkId: aliceNet.id, target: ':server:libera', body: 'pseudo' }],
+        }),
+      );
     expect(listForUser(alice.id).some((r) => r.target === ':server:libera')).toBe(false);
   });
 

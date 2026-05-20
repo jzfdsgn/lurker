@@ -34,7 +34,9 @@ export function useChatBootstrap({ onJump }: ChatBootstrapOptions = {}): void {
     // Register unconditionally so a previously-subscribed device can still
     // receive push events without re-opening Settings. Per-client subscribe
     // is gated by an explicit Settings button (see usePush.enable()).
-    registerSW().catch(() => { /* ignore */ });
+    registerSW().catch(() => {
+      /* ignore */
+    });
     if (onJump) {
       onSWPushMessage((data) => {
         const d = data as any;

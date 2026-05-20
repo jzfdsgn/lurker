@@ -15,12 +15,7 @@ const listRecentStmt = db.prepare(`
   LIMIT ?
 `);
 
-export function addEntry(
-  userId: number,
-  networkId: number,
-  target: string,
-  text: string,
-): void {
+export function addEntry(userId: number, networkId: number, target: string, text: string): void {
   insertStmt.run(userId, networkId, target, text);
 }
 

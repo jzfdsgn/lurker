@@ -32,19 +32,25 @@ afterAll(() => {
 });
 
 function liveTables(): string[] {
-  return (db
-    .prepare(`
+  return (
+    db
+      .prepare(
+        `
       SELECT name FROM sqlite_master
        WHERE type IN ('table', 'view')
          AND name NOT LIKE 'sqlite_%'
-    `)
-    .all() as Array<{ name: string }>)
+    `,
+      )
+      .all() as Array<{ name: string }>
+  )
     .map((r) => r.name)
     .filter((name) => !FTS_SHADOW_PREFIXES.some((prefix) => name.startsWith(prefix)));
 }
 
 function liveColumns(table: string): string[] {
-  return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((c) => c.name);
+  return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
+    (c) => c.name,
+  );
 }
 
 describe('exportSchema registry', () => {
@@ -70,7 +76,9 @@ describe('exportSchema registry', () => {
       if (def['mode'] !== 'export' && def['mode'] !== 'partial') continue;
       const cols = liveColumns(table);
       const exported = new Set((def['columns'] as string[] | undefined) ?? []);
-      const skipped = new Set(Object.keys((def['skippedColumns'] as Record<string, string> | undefined) ?? {}));
+      const skipped = new Set(
+        Object.keys((def['skippedColumns'] as Record<string, string> | undefined) ?? {}),
+      );
       for (const col of cols) {
         if (!exported.has(col) && !skipped.has(col)) {
           problems.push(`${table}.${col} is not in columns or skippedColumns`);
@@ -81,7 +89,9 @@ describe('exportSchema registry', () => {
           problems.push(`${table}.${col} declared in exportSchema but not present in DB`);
         }
       }
-      for (const col of Object.keys((def['skippedColumns'] as Record<string, string> | undefined) ?? {})) {
+      for (const col of Object.keys(
+        (def['skippedColumns'] as Record<string, string> | undefined) ?? {},
+      )) {
         if (!cols.includes(col)) {
           problems.push(`${table}.${col} listed in skippedColumns but not present in DB`);
         }
@@ -109,7 +119,9 @@ describe('exportSchema registry', () => {
     for (const [table, defRaw] of Object.entries(EXPORT_TABLES)) {
       const def = defRaw as Record<string, unknown>;
       if (def['mode'] !== 'partial') continue;
-      for (const [col, reason] of Object.entries((def['skippedColumns'] as Record<string, unknown> | undefined) ?? {})) {
+      for (const [col, reason] of Object.entries(
+        (def['skippedColumns'] as Record<string, unknown> | undefined) ?? {},
+      )) {
         if (!reason || typeof reason !== 'string' || reason.trim() === '') {
           problems.push(`${table}.${col}: missing reason`);
         }
@@ -124,7 +136,8 @@ describe('exportSchema registry', () => {
     const problems: string[] = [];
     for (const [table, defRaw] of Object.entries(EXPORT_TABLES)) {
       const def = defRaw as Record<string, unknown>;
-      if (!valid.has(def['mode'] as string)) problems.push(`${table}: unknown mode "${def['mode']}"`);
+      if (!valid.has(def['mode'] as string))
+        problems.push(`${table}: unknown mode "${def['mode']}"`);
     }
     expect(problems).toEqual([]);
   });

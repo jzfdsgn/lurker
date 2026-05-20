@@ -34,7 +34,10 @@ interface NickColorOptions {
   stopChars: string;
 }
 
-export function nickColor(nick: string | null | undefined, { palette, stopChars }: NickColorOptions): string | null {
+export function nickColor(
+  nick: string | null | undefined,
+  { palette, stopChars }: NickColorOptions,
+): string | null {
   if (!nick) return null;
   if (!palette || palette.length === 0) return null;
   const normalized = trimForColor(nick, stopChars || '').toLowerCase();
@@ -73,7 +76,7 @@ function trimUrlTail(s: string): string {
   let end = s.length;
   while (end > 0) {
     const ch = s[end - 1];
-    if (".,;:!?'\"".includes(ch)) {
+    if ('.,;:!?\'"'.includes(ch)) {
       end--;
       continue;
     }
@@ -182,7 +185,7 @@ function colorNicksInText(
     const isSelf = selfLower && lower === selfLower;
     out.push({
       text: matched,
-      color: isSelf ? null : (colorFn ? colorFn(matched) : null),
+      color: isSelf ? null : colorFn ? colorFn(matched) : null,
       self: !!isSelf,
     });
     lastIdx = start + matched.length;
@@ -196,10 +199,22 @@ function colorNicksInText(
 // so we don't render those — we just consume the escape so the digits don't
 // leak into the output.
 const MIRC_PALETTE: Record<number, string> = {
-  0: '#ffffff', 1: '#000000', 2: '#00007f', 3: '#009300',
-  4: '#ff0000', 5: '#7f0000', 6: '#9c009c', 7: '#fc7f00',
-  8: '#ffff00', 9: '#00fc00', 10: '#009393', 11: '#00ffff',
-  12: '#0000fc', 13: '#ff00ff', 14: '#7f7f7f', 15: '#d2d2d2',
+  0: '#ffffff',
+  1: '#000000',
+  2: '#00007f',
+  3: '#009300',
+  4: '#ff0000',
+  5: '#7f0000',
+  6: '#9c009c',
+  7: '#fc7f00',
+  8: '#ffff00',
+  9: '#00fc00',
+  10: '#009393',
+  11: '#00ffff',
+  12: '#0000fc',
+  13: '#ff00ff',
+  14: '#7f7f7f',
+  15: '#d2d2d2',
 };
 
 interface IrcRun {
@@ -222,7 +237,10 @@ interface IrcRun {
 //   \x04[hex6[,hex6]] truecolour                         — consumed, dropped
 function parseIrcFormatting(text: string): IrcRun[] {
   const runs: IrcRun[] = [];
-  let bold = false, italic = false, underline = false, strike = false;
+  let bold = false,
+    italic = false,
+    underline = false,
+    strike = false;
   let fg: number | null = null;
   let buf = '';
   const flush = (): void => {
@@ -233,12 +251,36 @@ function parseIrcFormatting(text: string): IrcRun[] {
   let i = 0;
   while (i < text.length) {
     const code = text.charCodeAt(i);
-    if (code === 0x02) { flush(); bold = !bold; i++; continue; }
-    if (code === 0x1D) { flush(); italic = !italic; i++; continue; }
-    if (code === 0x1F) { flush(); underline = !underline; i++; continue; }
-    if (code === 0x1E) { flush(); strike = !strike; i++; continue; }
-    if (code === 0x11 || code === 0x16) { flush(); i++; continue; }
-    if (code === 0x0F) {
+    if (code === 0x02) {
+      flush();
+      bold = !bold;
+      i++;
+      continue;
+    }
+    if (code === 0x1d) {
+      flush();
+      italic = !italic;
+      i++;
+      continue;
+    }
+    if (code === 0x1f) {
+      flush();
+      underline = !underline;
+      i++;
+      continue;
+    }
+    if (code === 0x1e) {
+      flush();
+      strike = !strike;
+      i++;
+      continue;
+    }
+    if (code === 0x11 || code === 0x16) {
+      flush();
+      i++;
+      continue;
+    }
+    if (code === 0x0f) {
       flush();
       bold = italic = underline = strike = false;
       fg = null;
@@ -329,8 +371,15 @@ export function segmentInlineStyle(seg: RenderSegment, selfColor: string | null)
 }
 
 export function segmentHasStyle(seg: RenderSegment): boolean {
-  return !!(seg.color || seg.self || seg.fg != null
-    || seg.bold || seg.italic || seg.underline || seg.strike);
+  return !!(
+    seg.color ||
+    seg.self ||
+    seg.fg != null ||
+    seg.bold ||
+    seg.italic ||
+    seg.underline ||
+    seg.strike
+  );
 }
 
 function splitRunIntoSegments(

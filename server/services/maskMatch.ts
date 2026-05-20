@@ -92,7 +92,11 @@ function compileMask(mask: string): CompiledMask {
 
 type MaskEntry = string | { mask?: string };
 
-export function matchesAny(masks: MaskEntry[] | null | undefined, nick: string | null | undefined, userhost?: string | null): boolean {
+export function matchesAny(
+  masks: MaskEntry[] | null | undefined,
+  nick: string | null | undefined,
+  userhost?: string | null,
+): boolean {
   if (!masks || masks.length === 0 || !nick) return false;
   for (const mask of masks) {
     const m = typeof mask === 'string' ? mask : mask?.mask;

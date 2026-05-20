@@ -61,8 +61,11 @@ export function notifyForEvent(event: NotifyEvent | null | undefined): void {
   // wsHub.maybePush since push fires while no client is open and a
   // client-side filter can't intercept it.
   const ignores = useIgnoresStore();
-  if (event.nick && event.networkId
-      && ignores.isIgnored(event.networkId, event.nick, event.userhost ?? '')) {
+  if (
+    event.nick &&
+    event.networkId &&
+    ignores.isIgnored(event.networkId, event.nick, event.userhost ?? '')
+  ) {
     return;
   }
 
@@ -73,9 +76,8 @@ export function notifyForEvent(event: NotifyEvent | null | undefined): void {
   const toasts = useToastsStore();
 
   const netName = (networks.networkById(event.networkId!) as any)?.name || `net:${event.networkId}`;
-  const where = event.target && !event.target.startsWith(':server:')
-    ? `${netName} · ${event.target}`
-    : netName;
+  const where =
+    event.target && !event.target.startsWith(':server:') ? `${netName} · ${event.target}` : netName;
   toasts.push({
     kind: kindKey,
     title: `${event.nick || '?'} in ${where}`,
@@ -107,5 +109,8 @@ export function playSound(choice: string, volume: unknown): void {
   // the devtools console because the promise itself logs an unhandled
   // rejection if we don't catch — keeping the catch keeps the console
   // clean during the very common pre-gesture replay.
-  if (p && typeof p.catch === 'function') p.catch(() => { /* autoplay blocked */ });
+  if (p && typeof p.catch === 'function')
+    p.catch(() => {
+      /* autoplay blocked */
+    });
 }

@@ -30,19 +30,22 @@ import { buildNickCandidates } from '../utils/nickCompletion.js';
 import { useIgnoresStore } from '../stores/ignores.js';
 import type { Buffer } from '../stores/buffers.js';
 
-const props = withDefaults(defineProps<{
-  open?: boolean;
-  query?: string;
-  buffer?: Buffer | null;
-  selfNick?: string;
-  anchor?: HTMLElement | null;
-}>(), {
-  open: false,
-  query: '',
-  buffer: null,
-  selfNick: '',
-  anchor: null,
-});
+const props = withDefaults(
+  defineProps<{
+    open?: boolean;
+    query?: string;
+    buffer?: Buffer | null;
+    selfNick?: string;
+    anchor?: HTMLElement | null;
+  }>(),
+  {
+    open: false,
+    query: '',
+    buffer: null,
+    selfNick: '',
+    anchor: null,
+  },
+);
 
 const emit = defineEmits<{
   select: [nick: string];
@@ -117,7 +120,12 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKey);
 });
 
-watch(() => props.open, (v) => { if (v) recomputePosition(); });
+watch(
+  () => props.open,
+  (v) => {
+    if (v) recomputePosition();
+  },
+);
 </script>
 
 <style scoped>
@@ -145,10 +153,18 @@ watch(() => props.open, (v) => { if (v) recomputePosition(); });
   border-bottom: 1px solid var(--border);
   user-select: none;
 }
-.row:last-child { border-bottom: none; }
-.row:hover { background: var(--bg); }
-.row.recent .nick { color: var(--accent); }
-.nick { font-weight: 500; }
+.row:last-child {
+  border-bottom: none;
+}
+.row:hover {
+  background: var(--bg);
+}
+.row.recent .nick {
+  color: var(--accent);
+}
+.nick {
+  font-weight: 500;
+}
 .badge {
   font-size: 0.85em;
   color: var(--fg-muted);

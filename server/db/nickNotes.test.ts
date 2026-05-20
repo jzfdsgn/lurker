@@ -29,17 +29,28 @@ afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
 describe('setNote / getNote', () => {
   it('upserts and reads back', () => {
-    const out = mod.setNote({ userId: user.id, networkId: net!.id, nick: 'bob', note: 'lives in Berlin' });
+    const out = mod.setNote({
+      userId: user.id,
+      networkId: net!.id,
+      nick: 'bob',
+      note: 'lives in Berlin',
+    });
     expect(out!.note).toBe('lives in Berlin');
-    expect(mod.getNote({ userId: user.id, networkId: net!.id, nick: 'bob' })!.note).toBe('lives in Berlin');
+    expect(mod.getNote({ userId: user.id, networkId: net!.id, nick: 'bob' })!.note).toBe(
+      'lives in Berlin',
+    );
   });
 
   it('case-insensitive lookup', () => {
-    expect(mod.getNote({ userId: user.id, networkId: net!.id, nick: 'BOB' })!.note).toBe('lives in Berlin');
+    expect(mod.getNote({ userId: user.id, networkId: net!.id, nick: 'BOB' })!.note).toBe(
+      'lives in Berlin',
+    );
   });
 
   it('empty/whitespace body deletes the row', () => {
-    expect(mod.setNote({ userId: user.id, networkId: net!.id, nick: 'bob', note: '   ' })).toBeNull();
+    expect(
+      mod.setNote({ userId: user.id, networkId: net!.id, nick: 'bob', note: '   ' }),
+    ).toBeNull();
     expect(mod.getNote({ userId: user.id, networkId: net!.id, nick: 'bob' })).toBeNull();
   });
 

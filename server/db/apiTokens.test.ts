@@ -20,14 +20,8 @@ let touchLastUsed: typeof import('./apiTokens.js').touchLastUsed;
 
 beforeAll(async () => {
   ({ createUser, deleteUser } = await import('./users.js'));
-  ({
-    createToken,
-    findActiveByHash,
-    hashToken,
-    listForUser,
-    revoke,
-    touchLastUsed,
-  } = await import('./apiTokens.js'));
+  ({ createToken, findActiveByHash, hashToken, listForUser, revoke, touchLastUsed } =
+    await import('./apiTokens.js'));
 });
 
 afterAll(() => {
@@ -46,7 +40,9 @@ describe('apiTokens', () => {
 
   it('rejects invalid scope and empty name', () => {
     const u = createUser('tok-bob');
-    expect(() => createToken({ userId: u.id, name: 'x', scope: 'admin' })).toThrow(/invalid scope/i);
+    expect(() => createToken({ userId: u.id, name: 'x', scope: 'admin' })).toThrow(
+      /invalid scope/i,
+    );
     expect(() => createToken({ userId: u.id, name: '   ', scope: 'read' })).toThrow(/name/i);
   });
 
@@ -75,7 +71,7 @@ describe('apiTokens', () => {
     expect(row!.revokedAt).not.toBeNull();
   });
 
-  it('revoke is scoped to the owning user (cannot revoke someone else\'s token)', () => {
+  it("revoke is scoped to the owning user (cannot revoke someone else's token)", () => {
     const owner = createUser('tok-eve');
     const intruder = createUser('tok-intruder');
     const t = createToken({ userId: owner.id, name: 'ev', scope: 'read' });

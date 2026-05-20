@@ -107,30 +107,44 @@ export function searchChannels(
   const orderBy = `${col} ${dir}, name ASC`;
 
   if (!q) {
-    const rows = db.prepare(`
+    const rows = db
+      .prepare(
+        `
       SELECT name, topic, num_users
       FROM chanlist_channels
       WHERE network_id = ?
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
-    `).all(networkId, lim, off) as ChanlistChannel[];
+    `,
+      )
+      .all(networkId, lim, off) as ChanlistChannel[];
     return { rows: rows.map(rowToJson), total: countChannels(networkId) };
   }
 
   const like = `%${q}%`;
-  const total = (db.prepare(`
+  const total = (
+    db
+      .prepare(
+        `
     SELECT COUNT(*) AS n FROM chanlist_channels
     WHERE network_id = ?
       AND (name LIKE ? COLLATE NOCASE OR topic LIKE ? COLLATE NOCASE)
-  `).get(networkId, like, like) as { n: number }).n;
-  const rows = db.prepare(`
+  `,
+      )
+      .get(networkId, like, like) as { n: number }
+  ).n;
+  const rows = db
+    .prepare(
+      `
     SELECT name, topic, num_users
     FROM chanlist_channels
     WHERE network_id = ?
       AND (name LIKE ? COLLATE NOCASE OR topic LIKE ? COLLATE NOCASE)
     ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
-  `).all(networkId, like, like, lim, off) as ChanlistChannel[];
+  `,
+    )
+    .all(networkId, like, like, lim, off) as ChanlistChannel[];
   return { rows: rows.map(rowToJson), total };
 }
 

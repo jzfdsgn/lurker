@@ -25,12 +25,18 @@ import { IRC_VERSION, APP_VERSION } from '../utils/userAgent.js';
 // announcement — gives operators a quick read on what client + version is
 // being used. Per-disconnect overrides (network removal, no-nick failure,
 // etc.) pass their own reason and bypass this default.
-const DEFAULT_QUIT_MESSAGE =
-  `Lurker ${APP_VERSION} (the truth is out there) https://github.com/amiantos/lurker`;
+const DEFAULT_QUIT_MESSAGE = `Lurker ${APP_VERSION} (the truth is out there) https://github.com/amiantos/lurker`;
 
 const NON_PERSISTED_TYPES = new Set([
-  'state', 'names', 'channel-joined', 'channel-parted', 'typing', 'away-state',
-  'channel-modes', 'lag', 'peer-presence',
+  'state',
+  'names',
+  'channel-joined',
+  'channel-parted',
+  'typing',
+  'away-state',
+  'channel-modes',
+  'lag',
+  'peer-presence',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -96,10 +102,14 @@ function isDmTargetName(target: string | undefined | null): boolean {
 
 function extractExtras(event: IrcEvent): Record<string, unknown> | null {
   switch (event.type) {
-    case 'kick': return { kicked: event.kicked };
-    case 'nick': return { newNick: event.newNick };
-    case 'mode': return { modes: event.modes };
-    default: return null;
+    case 'kick':
+      return { kicked: event.kicked };
+    case 'nick':
+      return { newNick: event.newNick };
+    case 'mode':
+      return { modes: event.modes };
+    default:
+      return null;
   }
 }
 
@@ -215,7 +225,13 @@ export class IrcConnection {
     // backAt to anchor the "you came back" divider, so both timestamps must
     // ship even after the user returns.
     const away = a.since
-      ? { active: a.active, since: a.since, message: a.message, autoSet: a.autoSet, backAt: a.backAt }
+      ? {
+          active: a.active,
+          since: a.since,
+          message: a.message,
+          autoSet: a.autoSet,
+          backAt: a.backAt,
+        }
       : null;
     this.publish({ type: 'away-state', target: this.serverTarget(), away });
   }
@@ -285,16 +301,27 @@ export class IrcConnection {
     this._logState(state, extra);
   }
 
-  _scope(): string { return `net:${this.network.name}`; }
+  _scope(): string {
+    return `net:${this.network.name}`;
+  }
 
   _logState(state: string, extra: Record<string, unknown>): void {
     let text;
     switch (state) {
-      case 'connecting': text = 'Connecting…'; break;
-      case 'connected': text = extra?.nick ? `Connected as ${extra.nick}` : 'Connected'; break;
-      case 'reconnecting': text = 'Reconnecting'; break;
-      case 'disconnected': text = 'Disconnected'; break;
-      default: text = `State: ${state}`;
+      case 'connecting':
+        text = 'Connecting…';
+        break;
+      case 'connected':
+        text = extra?.nick ? `Connected as ${extra.nick}` : 'Connected';
+        break;
+      case 'reconnecting':
+        text = 'Reconnecting';
+        break;
+      case 'disconnected':
+        text = 'Disconnected';
+        break;
+      default:
+        text = `State: ${state}`;
     }
     systemLog.log({
       userId: this.network.user_id,
@@ -317,7 +344,11 @@ export class IrcConnection {
     c.on('raw', (event: { from_server: boolean; line: string }) => {
       if (!event?.from_server || typeof event.line !== 'string') return;
       let msg;
-      try { msg = ircLineParser(event.line); } catch (_) { return; }
+      try {
+        msg = ircLineParser(event.line);
+      } catch (_) {
+        return;
+      }
       const text = formatServerNumeric(msg);
       if (!text) return;
       this.publish({ type: 'motd', target: this.serverTarget(), text });
@@ -385,9 +416,15 @@ export class IrcConnection {
             text: `Negotiated capabilities: ${enabled.join(' ')}`,
           });
         }
-      } catch (_) { /* ignore */ }
+      } catch (_) {
+        /* ignore */
+      }
       try {
-        highlightRulesService.upsertAutoNickRule(this.network.user_id, this.network.id, registeredNick);
+        highlightRulesService.upsertAutoNickRule(
+          this.network.user_id,
+          this.network.id,
+          registeredNick,
+        );
       } catch (e) {
         console.warn('[highlight] failed to upsert auto nick rule:', (e as Error)?.message || e);
       }
@@ -397,7 +434,11 @@ export class IrcConnection {
       // clears it cleanly; if not, staying away across an IRC blip is the
       // correct behavior.
       if (this.awayState.active && this.awayState.message) {
-        try { this.client.raw('AWAY :' + this.awayState.message); } catch (_) { /* ignore */ }
+        try {
+          this.client.raw('AWAY :' + this.awayState.message);
+        } catch (_) {
+          /* ignore */
+        }
       }
       // IRCCloud-style "commands to run on connect" — newline-delimited raw
       // IRC lines fired after 001. `WAIT <seconds>` pauses before the next
@@ -451,10 +492,18 @@ export class IrcConnection {
           target: this.serverTarget(),
           text: `Nick ${this.network.nick} and all numeric fallbacks are taken; giving up. Edit the network to pick a different nick.`,
         });
-        try { this.client.quit('No available nickname'); } catch (_) { /* ignore */ }
+        try {
+          this.client.quit('No available nickname');
+        } catch (_) {
+          /* ignore */
+        }
         return;
       }
-      try { this.client.changeNick(next); } catch (_) { /* ignore */ }
+      try {
+        this.client.changeNick(next);
+      } catch (_) {
+        /* ignore */
+      }
     });
 
     // ISUPPORT (numeric 005) — irc-framework re-emits this once per line as
@@ -485,7 +534,11 @@ export class IrcConnection {
       });
       if (this.pendingRegainSetup && this.regainNick) {
         this.pendingRegainSetup = false;
-        try { this.client.addMonitor(this.regainNick); } catch (_) { /* ignore */ }
+        try {
+          this.client.addMonitor(this.regainNick);
+        } catch (_) {
+          /* ignore */
+        }
       }
       if (this.pendingMonitorSeed) {
         this.pendingMonitorSeed = false;
@@ -506,7 +559,7 @@ export class IrcConnection {
     // connects. The regain handler doesn't react to online events, so
     // there's no conflict to filter.
     c.on('users online', (event: Record<string, unknown>) => {
-      const nicks: string[] = Array.isArray(event?.nicks) ? event.nicks as string[] : [];
+      const nicks: string[] = Array.isArray(event?.nicks) ? (event.nicks as string[]) : [];
       console.log(`[presence:${this.network.id}] users online: [${nicks.join(', ')}]`);
       if (nicks.length > 0) {
         systemLog.log({
@@ -529,7 +582,7 @@ export class IrcConnection {
     //      the regain target is never one of our own DM peers, and the
     //      tracked-peer gate inside markPeerEvent filters out anything else.
     c.on('users offline', (event: Record<string, unknown>) => {
-      const nicks: string[] = Array.isArray(event?.nicks) ? event.nicks as string[] : [];
+      const nicks: string[] = Array.isArray(event?.nicks) ? (event.nicks as string[]) : [];
       console.log(`[presence:${this.network.id}] users offline: [${nicks.join(', ')}]`);
       if (nicks.length > 0) {
         systemLog.log({
@@ -541,7 +594,11 @@ export class IrcConnection {
       if (this.regainNick) {
         const target = this.regainNick.toLowerCase();
         if (nicks.some((n) => typeof n === 'string' && n.toLowerCase() === target)) {
-          try { this.client.changeNick(this.regainNick); } catch (_) { /* ignore */ }
+          try {
+            this.client.changeNick(this.regainNick);
+          } catch (_) {
+            /* ignore */
+          }
         }
       }
       for (const nick of nicks) {
@@ -584,11 +641,13 @@ export class IrcConnection {
     });
     c.on('reconnecting', (event: Record<string, unknown>) => {
       this.setState('reconnecting');
-      const wait = event && event.wait ? Math.max(1, Math.round((event.wait as number) / 1000)) : null;
+      const wait =
+        event && event.wait ? Math.max(1, Math.round((event.wait as number) / 1000)) : null;
       const attempt = event && event.attempt;
-      const text = wait != null && attempt
-        ? `Reconnecting in ${wait}s (attempt ${attempt})…`
-        : 'Reconnecting…';
+      const text =
+        wait != null && attempt
+          ? `Reconnecting in ${wait}s (attempt ${attempt})…`
+          : 'Reconnecting…';
       this.publish({
         type: 'notice',
         target: this.serverTarget(),
@@ -602,7 +661,8 @@ export class IrcConnection {
     // login or in response to /MODE <self>). irc-framework normalises it to
     // 'user info' with the raw mode string ('+iwx').
     c.on('user info', (event: Record<string, unknown>) => {
-      if (!c.user.nick || (event.nick as string).toLowerCase() !== c.user.nick.toLowerCase()) return;
+      if (!c.user.nick || (event.nick as string).toLowerCase() !== c.user.nick.toLowerCase())
+        return;
       this.userModes = new Set(((event.raw_modes as string) || '').replace(/^[+-]/, '').split(''));
       this.publishUserModes();
     });
@@ -613,7 +673,12 @@ export class IrcConnection {
     // cap (see the client constructor). Surface self changes in the server
     // buffer so users see "your host became X" the way other clients do.
     c.on('user updated', (event: Record<string, unknown>) => {
-      if (!event || !c.user.nick || (event.nick as string | undefined)?.toLowerCase() !== c.user.nick.toLowerCase()) return;
+      if (
+        !event ||
+        !c.user.nick ||
+        (event.nick as string | undefined)?.toLowerCase() !== c.user.nick.toLowerCase()
+      )
+        return;
       if (event.new_hostname || event.new_ident) {
         const ident = (event.new_ident as string) || (event.ident as string) || '';
         const host = (event.new_hostname as string) || (event.hostname as string) || '';
@@ -632,7 +697,7 @@ export class IrcConnection {
       // irc-framework also fires 'motd' for ERR_NOMOTD (no MOTD configured)
       // with `error` instead of `motd`, and for servers with an empty MOTD
       // file `motd` is just ''. Skip the blank-line publish either way.
-      const text = ((event.motd as string) || (event.error as string) || '');
+      const text = (event.motd as string) || (event.error as string) || '';
       if (!text.trim()) return;
       this.publish({ type: 'motd', target: this.serverTarget(), text });
     });
@@ -672,15 +737,16 @@ export class IrcConnection {
         // target so we don't accidentally split history across "ChanServ"
         // and "chanserv".
         const dmLower = (eventNick as string).toLowerCase();
-        const existingTarget = listBufferTargets(this.network.id)
-          .find((t) => t.toLowerCase() === dmLower);
-        const hasOpenDm = existingTarget
-          && !isBufferClosed(this.network.user_id, this.network.id, existingTarget);
+        const existingTarget = listBufferTargets(this.network.id).find(
+          (t) => t.toLowerCase() === dmLower,
+        );
+        const hasOpenDm =
+          existingTarget && !isBufferClosed(this.network.user_id, this.network.id, existingTarget);
         target = hasOpenDm ? existingTarget : `:server:${this.network.id}`;
-      }
-      else target = eventNick as string;
+      } else target = eventNick as string;
 
-      const type = eventType === 'action' ? 'action' : eventType === 'notice' ? 'notice' : 'message';
+      const type =
+        eventType === 'action' ? 'action' : eventType === 'notice' ? 'notice' : 'message';
       const nick = eventNick || eventHostname || 'server';
 
       this.publish({
@@ -737,7 +803,11 @@ export class IrcConnection {
         });
         // Most servers volunteer 324 on join, but a few don't. Request it so
         // the channel's mode flags reach the status bar consistently.
-        try { c.raw('MODE', eventChannel); } catch (_) { /* ignore */ }
+        try {
+          c.raw('MODE', eventChannel);
+        } catch (_) {
+          /* ignore */
+        }
       }
     });
 
@@ -759,7 +829,9 @@ export class IrcConnection {
         systemLog.log({
           userId: this.network.user_id,
           scope: this._scope(),
-          text: event.message ? `Parted ${eventChannel}: ${event.message as string}` : `Parted ${eventChannel}`,
+          text: event.message
+            ? `Parted ${eventChannel}: ${event.message as string}`
+            : `Parted ${eventChannel}`,
         });
       }
     });
@@ -783,7 +855,11 @@ export class IrcConnection {
       // Persisting joined=false here also prevents auto-rejoin on reconnect.
       if (eventKicked && c.user.nick && eventKicked.toLowerCase() === c.user.nick.toLowerCase()) {
         this.channels.delete(eventChannel.toLowerCase());
-        try { upsertChannel(this.network.id, eventChannel, false); } catch (_) { /* ignore */ }
+        try {
+          upsertChannel(this.network.id, eventChannel, false);
+        } catch (_) {
+          /* ignore */
+        }
         this.publish({ type: 'channel-parted', target: eventChannel });
       }
     });
@@ -822,7 +898,11 @@ export class IrcConnection {
       const isSelfNick = !!c.user.nick && c.user.nick.toLowerCase() === oldLower;
       if (isSelfNick) {
         try {
-          highlightRulesService.upsertAutoNickRule(this.network.user_id, this.network.id, eventNewNick);
+          highlightRulesService.upsertAutoNickRule(
+            this.network.user_id,
+            this.network.id,
+            eventNewNick,
+          );
         } catch (e) {
           console.warn('[highlight] failed to update auto nick rule:', (e as Error)?.message || e);
         }
@@ -832,7 +912,11 @@ export class IrcConnection {
         // silently). Either way the watch is now stale.
         if (this.regainNick) {
           const reclaimed = newLower === this.regainNick.toLowerCase();
-          try { this.client.removeMonitor(this.regainNick); } catch (_) { /* ignore */ }
+          try {
+            this.client.removeMonitor(this.regainNick);
+          } catch (_) {
+            /* ignore */
+          }
           if (reclaimed) {
             this.publish({
               type: 'notice',
@@ -882,7 +966,12 @@ export class IrcConnection {
       ch.topic = eventTopic ?? null;
       if (event.nick) {
         // Live TOPIC change — persist + render in the message list.
-        this.publish({ type: 'topic', target: eventChannel, nick: event.nick as string, text: eventTopic });
+        this.publish({
+          type: 'topic',
+          target: eventChannel,
+          nick: event.nick as string,
+          text: eventTopic,
+        });
       } else {
         // RPL_TOPIC on join — sync the topic bar without printing a row, so
         // rejoining an already-open buffer doesn't repeat the same topic line
@@ -906,8 +995,12 @@ export class IrcConnection {
           if (!m || !m.mode) continue;
           const sign = m.mode[0];
           const letter = m.mode.slice(1);
-          if (sign === '+' && !this.userModes.has(letter)) { this.userModes.add(letter); changed = true; }
-          else if (sign === '-' && this.userModes.delete(letter)) { changed = true; }
+          if (sign === '+' && !this.userModes.has(letter)) {
+            this.userModes.add(letter);
+            changed = true;
+          } else if (sign === '-' && this.userModes.delete(letter)) {
+            changed = true;
+          }
         }
         if (changed) this.publishUserModes();
         // Solanum-style servers (Libera) send self-modes as a MODE command
@@ -950,8 +1043,12 @@ export class IrcConnection {
           // we don't surface in the status bar). We only track flag modes
           // (no param) so +b/+e/+I bans don't pollute the (+...) display.
           if (!m.param) {
-            if (sign === '+' && !ch.modes.has(letter)) { ch.modes.add(letter); chanModesChanged = true; }
-            else if (sign === '-' && ch.modes.delete(letter)) { chanModesChanged = true; }
+            if (sign === '+' && !ch.modes.has(letter)) {
+              ch.modes.add(letter);
+              chanModesChanged = true;
+            } else if (sign === '-' && ch.modes.delete(letter)) {
+              chanModesChanged = true;
+            }
           }
         }
       }
@@ -978,7 +1075,7 @@ export class IrcConnection {
     // requiring us to have observed the +/− history.
     c.on('channel info', (event: Record<string, unknown>) => {
       const eventChannel = event.channel as string | undefined;
-      const eventModes = (event.modes as ModeEntry[] | undefined);
+      const eventModes = event.modes as ModeEntry[] | undefined;
       if (!eventChannel || !eventModes) return;
       const ch = this.channels.get(eventChannel.toLowerCase());
       if (!ch) return;
@@ -1006,7 +1103,8 @@ export class IrcConnection {
       // most ircds — the JOIN event and WHO reply do — so we hold onto
       // whatever we already learned.
       const prev = new Map<string, { away: boolean; user: string | null; host: string | null }>();
-      for (const [k, v] of ch.members) prev.set(k, { away: !!v.away, user: v.user || null, host: v.host || null });
+      for (const [k, v] of ch.members)
+        prev.set(k, { away: !!v.away, user: v.user || null, host: v.host || null });
       ch.members.clear();
       for (const u of eventUsers) {
         const nick = u.nick as string;
@@ -1027,7 +1125,11 @@ export class IrcConnection {
       });
       // Issue a WHO so we learn the current away state for everyone in the
       // channel. away-notify keeps it live after this initial sync.
-      try { c.who(eventChannel); } catch (_) { /* ignore */ }
+      try {
+        c.who(eventChannel);
+      } catch (_) {
+        /* ignore */
+      }
     });
 
     c.on('wholist', (event: Record<string, unknown>) => {
@@ -1035,7 +1137,7 @@ export class IrcConnection {
       const ch = this.channels.get(eventTarget?.toLowerCase() ?? '');
       if (!ch) return;
       let changed = false;
-      for (const u of ((event.users as Record<string, unknown>[]) || [])) {
+      for (const u of (event.users as Record<string, unknown>[]) || []) {
         if (!u || !u.nick) continue;
         const m = ch.members.get((u.nick as string).toLowerCase());
         if (!m) continue;
@@ -1048,8 +1150,14 @@ export class IrcConnection {
         // nicklist's right-click "Ignore…" modal has a hostmask to suggest
         // even for members whose join we never observed (e.g. they were
         // already in the channel when we joined).
-        if (u.ident && m.user !== (u.ident as string)) { m.user = u.ident as string; changed = true; }
-        if (u.hostname && m.host !== (u.hostname as string)) { m.host = u.hostname as string; changed = true; }
+        if (u.ident && m.user !== (u.ident as string)) {
+          m.user = u.ident as string;
+          changed = true;
+        }
+        if (u.hostname && m.host !== (u.hostname as string)) {
+          m.host = u.hostname as string;
+          changed = true;
+        }
       }
       if (!changed) return;
       this.publish({
@@ -1074,10 +1182,10 @@ export class IrcConnection {
     });
 
     // irc-framework aggregates RPL_WHOIS* (311/312/317/319/330/...) into a
-     // single 'whois' event when RPL_ENDOFWHOIS arrives. We fan it out as
-     // motd-style lines on the server buffer so the user actually sees the
-     // result of /whois (raw fall-through alone hides everything because the
-     // numerics are consumed by irc-framework instead of becoming messages).
+    // single 'whois' event when RPL_ENDOFWHOIS arrives. We fan it out as
+    // motd-style lines on the server buffer so the user actually sees the
+    // result of /whois (raw fall-through alone hides everything because the
+    // numerics are consumed by irc-framework instead of becoming messages).
     // irc-framework aggregates RPL_WHOIS* (311/312/317/319/330/...) into a
     // single 'whois' event when RPL_ENDOFWHOIS arrives. WHOIS is now purely
     // user-driven output — presence comes from MONITOR + away-notify, not
@@ -1145,8 +1253,7 @@ export class IrcConnection {
       const tag = (event?.error as string) || 'irc error';
       const reason = event?.reason as string | undefined;
       const eventNick = event?.nick as string | undefined;
-      const isDmMiss = tag === 'no_such_nick' && eventNick
-        && isDmTargetName(eventNick);
+      const isDmMiss = tag === 'no_such_nick' && eventNick && isDmTargetName(eventNick);
       // For ERR_NOSUCHNICK against a nick the user has any DM history with,
       // route the error into that DM buffer so the failure surfaces where
       // they sent the message instead of getting lost in the server buffer.
@@ -1245,24 +1352,30 @@ export class IrcConnection {
   markPeerEvent(nick: string, state: PeerState, awayMessage: string | null = null): void {
     const canonical = this._eligiblePeer(nick);
     if (!canonical) {
-      console.log(`[presence:${this.network.id}] markPeerEvent ${nick} → ${state} SKIP (not tracked)`);
+      console.log(
+        `[presence:${this.network.id}] markPeerEvent ${nick} → ${state} SKIP (not tracked)`,
+      );
       return;
     }
     const prev = getPeerPresence(this.network.id, canonical);
     const prevState = prev?.state || null;
     let allowed = false;
-    if (state === 'online') allowed = (prevState === null || prevState === 'offline');
-    else if (state === 'offline') allowed = (prevState !== 'offline');
-    else if (state === 'away') allowed = (prevState !== 'away');
-    else if (state === 'back') allowed = (prevState === 'away');
+    if (state === 'online') allowed = prevState === null || prevState === 'offline';
+    else if (state === 'offline') allowed = prevState !== 'offline';
+    else if (state === 'away') allowed = prevState !== 'away';
+    else if (state === 'back') allowed = prevState === 'away';
     if (!allowed) {
-      console.log(`[presence:${this.network.id}] markPeerEvent ${canonical} → ${state} SKIP (prev=${prevState})`);
+      console.log(
+        `[presence:${this.network.id}] markPeerEvent ${canonical} → ${state} SKIP (prev=${prevState})`,
+      );
       return;
     }
     const stateAt = new Date().toISOString();
-    const message = state === 'away' ? (awayMessage || null) : null;
+    const message = state === 'away' ? awayMessage || null : null;
     const next = writePeerState(this.network.id, canonical, state, stateAt, message);
-    console.log(`[presence:${this.network.id}] markPeerEvent ${canonical} ${prevState || 'null'} → ${state}${message ? ` (${message})` : ''}`);
+    console.log(
+      `[presence:${this.network.id}] markPeerEvent ${canonical} ${prevState || 'null'} → ${state}${message ? ` (${message})` : ''}`,
+    );
     this._publishPeerPresence(canonical, next);
   }
 
@@ -1280,7 +1393,9 @@ export class IrcConnection {
     const cap = this.monitorLimit > 0 ? this.monitorLimit : peers.length;
     const watched = peers.slice(0, cap);
     const overflow = peers.length - watched.length;
-    console.log(`[presence:${this.network.id}] seeding MONITOR for ${watched.length} peer(s): [${watched.join(', ')}]${overflow ? ` (+${overflow} overflow)` : ''}`);
+    console.log(
+      `[presence:${this.network.id}] seeding MONITOR for ${watched.length} peer(s): [${watched.join(', ')}]${overflow ? ` (+${overflow} overflow)` : ''}`,
+    );
     if (overflow > 0) {
       this.publish({
         type: 'notice',
@@ -1300,7 +1415,11 @@ export class IrcConnection {
       if (chunk.length === 0) return;
       const line = 'MONITOR + ' + chunk.join(',');
       console.log(`[presence:${this.network.id}] → ${line}`);
-      try { this.client.raw(line); } catch (_) { /* ignore */ }
+      try {
+        this.client.raw(line);
+      } catch (_) {
+        /* ignore */
+      }
       batches += 1;
       chunk = [];
       len = 0;
@@ -1318,8 +1437,14 @@ export class IrcConnection {
     // current state of every monitored nick, so it backfills anyone the
     // initial + didn't volunteer state for. markPeerEvent's idempotency
     // gate eats duplicate replies, so this is safe to send unconditionally.
-    console.log(`[presence:${this.network.id}] → MONITOR S (status refresh after ${batches} seed batch(es))`);
-    try { this.client.raw('MONITOR S'); } catch (_) { /* ignore */ }
+    console.log(
+      `[presence:${this.network.id}] → MONITOR S (status refresh after ${batches} seed batch(es))`,
+    );
+    try {
+      this.client.raw('MONITOR S');
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   // Add a peer to the tracking set and to the MONITOR watch in one shot.
@@ -1337,7 +1462,9 @@ export class IrcConnection {
     const lower = nick.toLowerCase();
     if (this.trackedDmPeers.has(lower)) return false;
     this.trackedDmPeers.add(lower);
-    console.log(`[presence:${this.network.id}] trackDmPeer ${nick} (useMonitor=${this.useMonitor}, size=${this.trackedDmPeers.size})`);
+    console.log(
+      `[presence:${this.network.id}] trackDmPeer ${nick} (useMonitor=${this.useMonitor}, size=${this.trackedDmPeers.size})`,
+    );
     if (this.useMonitor && this.state === 'connected') {
       if (this.trackedDmPeers.size > this.monitorLimit) {
         // Over-limit add: keep the in-memory tracking but skip MONITOR.
@@ -1351,7 +1478,11 @@ export class IrcConnection {
         });
         return true;
       }
-      try { this.client.raw('MONITOR + ' + nick); } catch (_) { /* ignore */ }
+      try {
+        this.client.raw('MONITOR + ' + nick);
+      } catch (_) {
+        /* ignore */
+      }
     }
     return true;
   }
@@ -1364,10 +1495,17 @@ export class IrcConnection {
     const lower = nick.toLowerCase();
     const wasTracked = this.trackedDmPeers.delete(lower);
     if (wasTracked && this.useMonitor && this.state === 'connected') {
-      try { this.client.raw('MONITOR - ' + nick); } catch (_) { /* ignore */ }
+      try {
+        this.client.raw('MONITOR - ' + nick);
+      } catch (_) {
+        /* ignore */
+      }
     }
-    try { deletePeerPresence(this.network.id, nick); }
-    catch (e) { console.warn('[presence] untrack failed:', (e as Error)?.message || e); }
+    try {
+      deletePeerPresence(this.network.id, nick);
+    } catch (e) {
+      console.warn('[presence] untrack failed:', (e as Error)?.message || e);
+    }
   }
 
   // DM activate triggers this via the `probe-presence` ws message. With
@@ -1441,7 +1579,11 @@ export class IrcConnection {
       const token = `lurker-lag-${Date.now()}`;
       this.lagPendingToken = token;
       this.lagPendingSentAt = Date.now();
-      try { this.client.ping(token); } catch (_) { /* ignore */ }
+      try {
+        this.client.ping(token);
+      } catch (_) {
+        /* ignore */
+      }
     };
     sendOne();
     this.lagPingTimer = setInterval(sendOne, 30_000);
@@ -1487,8 +1629,12 @@ export class IrcConnection {
     });
   }
 
-  join(channel: string): void { this.client.join(channel); }
-  part(channel: string, reason?: string): void { this.client.part(channel, reason); }
+  join(channel: string): void {
+    this.client.join(channel);
+  }
+  part(channel: string, reason?: string): void {
+    this.client.part(channel, reason);
+  }
   say(target: string, text: string): void {
     if (isDmTargetName(target)) this.trackDmPeer(target);
     this.client.say(target, text);
@@ -1497,7 +1643,9 @@ export class IrcConnection {
     if (isDmTargetName(target)) this.trackDmPeer(target);
     this.client.action(target, text);
   }
-  raw(line: string): void { this.client.raw(line); }
+  raw(line: string): void {
+    this.client.raw(line);
+  }
   sendTyping(target: string, state: string): void {
     // Suppress typing TAGMSGs to peers we know are offline — otherwise each
     // keystroke generates an ERR_NOSUCHNICK reply that lands as a persisted
@@ -1527,9 +1675,17 @@ export class IrcConnection {
     };
     if (this.state === 'connected') {
       if (next.active && next.message && !prev.active) {
-        try { this.client.raw('AWAY :' + next.message); } catch (_) { /* ignore */ }
+        try {
+          this.client.raw('AWAY :' + next.message);
+        } catch (_) {
+          /* ignore */
+        }
       } else if (!next.active && prev.active) {
-        try { this.client.raw('AWAY'); } catch (_) { /* ignore */ }
+        try {
+          this.client.raw('AWAY');
+        } catch (_) {
+          /* ignore */
+        }
       }
     }
     this.publishAwayState();
@@ -1543,7 +1699,11 @@ export class IrcConnection {
     this.disposed = true;
     this.stopLagPinger();
     this.cancelPendingConnectCommands();
-    try { this.client.quit(reason); } catch (_) { /* ignore */ }
+    try {
+      this.client.quit(reason);
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   cancelPendingConnectCommands(): void {
@@ -1561,7 +1721,10 @@ export class IrcConnection {
     this.cancelPendingConnectCommands();
     const raw = this.network.connect_commands;
     if (!raw || typeof raw !== 'string') return;
-    const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+    const lines = raw
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
     if (!lines.length) return;
     let index = 0;
     const runNext = () => {
@@ -1575,7 +1738,11 @@ export class IrcConnection {
           this.connectCommandTimer = setTimeout(runNext, seconds * 1000);
           return;
         }
-        try { this.client.raw(line); } catch (_) { /* ignore */ }
+        try {
+          this.client.raw(line);
+        } catch (_) {
+          /* ignore */
+        }
       }
     };
     runNext();
@@ -1590,7 +1757,13 @@ export class IrcConnection {
       userModes: [...this.userModes].join(''),
       lagMs: this.lagMs,
       away: a.since
-        ? { active: a.active, since: a.since, message: a.message, autoSet: a.autoSet, backAt: a.backAt }
+        ? {
+            active: a.active,
+            since: a.since,
+            message: a.message,
+            autoSet: a.autoSet,
+            backAt: a.backAt,
+          }
         : null,
       channels: Array.from(this.channels.values()).map((ch) => ({
         name: ch.name,
@@ -1604,15 +1777,20 @@ export class IrcConnection {
       // store. Filtered to tracked peers so closed-DM rows don't leak.
       peerPresence: Object.fromEntries(
         listPeerPresenceForNetwork(this.network.id)
-          .filter((row): row is PeerPresence => row != null && this.trackedDmPeers.has(row.nick.toLowerCase()))
-          .map((row) => [row.nick.toLowerCase(), row])
+          .filter(
+            (row): row is PeerPresence =>
+              row != null && this.trackedDmPeers.has(row.nick.toLowerCase()),
+          )
+          .map((row) => [row.nick.toLowerCase(), row]),
       ),
     };
   }
 }
 
 const PREFIX_MODES = new Set(['q', 'a', 'o', 'h', 'v']);
-function isPrefixMode(letter: string): boolean { return PREFIX_MODES.has(letter); }
+function isPrefixMode(letter: string): boolean {
+  return PREFIX_MODES.has(letter);
+}
 
 // Pure helper for the pre-registration nick-fallback ladder. The configured
 // nick is attempt -1 (already tried by `connect()` itself); on each subsequent
@@ -1621,7 +1799,10 @@ function isPrefixMode(letter: string): boolean { return PREFIX_MODES.has(letter)
 // `bob1` reads more clearly than `bob___`. Returns null once exhausted so the
 // caller can give up and notify the user.
 const NICK_FALLBACK_MAX = 9;
-export function computeFallbackNick(base: string | undefined | null, attemptIndex: number): string | null {
+export function computeFallbackNick(
+  base: string | undefined | null,
+  attemptIndex: number,
+): string | null {
   if (!base) return null;
   if (attemptIndex < 0 || attemptIndex >= NICK_FALLBACK_MAX) return null;
   return `${base}${attemptIndex + 1}`;
@@ -1683,7 +1864,9 @@ function formatWhoisLines(w: Record<string, unknown>): string[] {
 // trailing param (last element), so a default of "use the last param" gets
 // us most of the way; the exceptions (004 MYINFO, 221 UMODEIS, 252-254
 // LUSER counts, 396 HOSTCLOAKING) have explicit branches.
-export function formatServerNumeric(msg: { command?: string; params?: string[] } | null | undefined): string | null {
+export function formatServerNumeric(
+  msg: { command?: string; params?: string[] } | null | undefined,
+): string | null {
   if (!msg) return null;
   const cmd = (msg.command || '').toUpperCase();
   const p: string[] = msg.params || [];
@@ -1699,7 +1882,8 @@ export function formatServerNumeric(msg: { command?: string; params?: string[] }
     case '900': // RPL_LOGGEDIN — "You are now logged in as X"
     case '903': // RPL_SASLLOGGEDIN — "SASL authentication successful"
       return p[p.length - 1] || null;
-    case '004': { // RPL_MYINFO — [nick, server, ircd, umodes, chmodes, paramch]
+    case '004': {
+      // RPL_MYINFO — [nick, server, ircd, umodes, chmodes, paramch]
       const [, server, ircd, umodes, chmodes, paramch] = p;
       const parts = [];
       if (server) parts.push(`Host: ${server}`);

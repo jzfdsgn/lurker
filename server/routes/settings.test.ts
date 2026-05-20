@@ -4,7 +4,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 
 const ctx = setupTestDb('routes-settings');
@@ -30,7 +35,7 @@ describe('GET /api/settings/bootstrap', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns the registry + the user\'s current values', async () => {
+  it("returns the registry + the user's current values", async () => {
     const res = await agent.get('/api/settings/bootstrap');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.registry)).toBe(true);

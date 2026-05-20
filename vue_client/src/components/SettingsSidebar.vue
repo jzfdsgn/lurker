@@ -48,7 +48,8 @@
         :to="{ name: 'settings', params: { category: cat.id } }"
         class="sidebar-link"
         :class="{ active: cat.id === activeCategoryId }"
-      >{{ cat.label }}</RouterLink>
+        >{{ cat.label }}</RouterLink
+      >
     </template>
 
     <!-- Search mode: flat list of matching settings with breadcrumb. -->
@@ -90,9 +91,8 @@ const searchActive = computed(() => searchInput.value.trim().length > 0);
 // resolved category label for breadcrumb display. Bespoke-only state (highlight
 // rule lists, ignore masks, push subscriptions) is intentionally NOT searchable
 // — that's list data, not settings.
-const SEARCH_INDEX = REGISTRY
-  .filter((opt) => CATEGORIES.some((c) => c.id === opt.category))
-  .map((opt) => {
+const SEARCH_INDEX = REGISTRY.filter((opt) => CATEGORIES.some((c) => c.id === opt.category)).map(
+  (opt) => {
     const cat = CATEGORIES.find((c) => c.id === opt.category);
     return {
       key: opt.key,
@@ -101,7 +101,8 @@ const SEARCH_INDEX = REGISTRY
       categoryId: opt.category,
       categoryLabel: cat?.label || opt.category,
     };
-  });
+  },
+);
 
 const searchResults = computed(() => {
   const q = searchInput.value.trim().toLowerCase();
@@ -114,7 +115,7 @@ const searchResults = computed(() => {
     else if (row.key.toLowerCase().includes(q)) score = 1;
     if (score) out.push({ ...row, score });
   }
-  out.sort((a, b) => (b.score - a.score) || a.label.localeCompare(b.label));
+  out.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
   return out;
 });
 
@@ -144,7 +145,9 @@ function onSelectResult(r: SearchResult) {
   // sees the destination category highlighted; the row scroll happens via the
   // hash watcher in the parent. Doing this after nextTick avoids a render
   // hiccup where results disappear before the route commits.
-  nextTick(() => { searchInput.value = ''; });
+  nextTick(() => {
+    searchInput.value = '';
+  });
 }
 
 // Mobile/cramped sidebar: surface focus management so the user can clear and
@@ -180,7 +183,10 @@ watch(searchEl, (el) => {
   padding: 4px 6px;
   line-height: 1.4;
 }
-.search:focus { outline: none; border-color: var(--accent); }
+.search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 
 .sidebar-link {
   color: var(--fg-muted);
@@ -243,7 +249,9 @@ watch(searchEl, (el) => {
 
 /* The compact picker is mobile-only — the full vertical list of RouterLinks
    gives a better at-a-glance overview when there's horizontal room. */
-.mobile-picker { display: none; }
+.mobile-picker {
+  display: none;
+}
 
 @media (max-width: 720px) {
   .settings-sidebar {
@@ -271,6 +279,8 @@ watch(searchEl, (el) => {
     background-position: right 8px center;
     background-size: 10px 6px;
   }
-  .sidebar-link { display: none; }
+  .sidebar-link {
+    display: none;
+  }
 }
 </style>

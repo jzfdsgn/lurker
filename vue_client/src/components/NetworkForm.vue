@@ -49,7 +49,11 @@
         <div class="row">
           <label class="grow">
             <span>SASL account (optional)</span>
-            <input v-model="form.sasl_account" :placeholder="form.nick || 'defaults to nick'" autocomplete="off" />
+            <input
+              v-model="form.sasl_account"
+              :placeholder="form.nick || 'defaults to nick'"
+              autocomplete="off"
+            />
           </label>
           <label class="grow">
             <span>SASL password (optional)</span>
@@ -57,7 +61,9 @@
               v-model="form.sasl_password"
               type="password"
               autocomplete="off"
-              :placeholder="isEdit && props.network?.has_sasl_password ? '(saved — type to replace)' : ''"
+              :placeholder="
+                isEdit && props.network?.has_sasl_password ? '(saved — type to replace)' : ''
+              "
             />
           </label>
         </div>
@@ -74,7 +80,10 @@
             spellcheck="false"
             placeholder="AUTH <user> <password> etc…"
           />
-          <small>One per line, e.g. for opering up on connect. If you need to add a (eg, 15 sec) delay between commands, you can write: WAIT 15</small>
+          <small
+            >One per line, e.g. for opering up on connect. If you need to add a (eg, 15 sec) delay
+            between commands, you can write: WAIT 15</small
+          >
         </label>
         <label class="check">
           <input v-model="form.autoconnect" type="checkbox" />
@@ -83,11 +92,17 @@
       </div>
       <p v-if="error" class="error">{{ error }}</p>
       <div class="actions">
-        <button v-if="isEdit" type="button" class="danger" :disabled="loading" @click="remove">Delete</button>
-        <button v-if="isEdit" type="button" class="ghost" :disabled="loading" @click="reconnect">Reconnect</button>
+        <button v-if="isEdit" type="button" class="danger" :disabled="loading" @click="remove">
+          Delete
+        </button>
+        <button v-if="isEdit" type="button" class="ghost" :disabled="loading" @click="reconnect">
+          Reconnect
+        </button>
         <span class="spacer"></span>
         <button type="button" class="ghost" @click="$emit('close')">Cancel</button>
-        <button type="submit" :disabled="loading">{{ loading ? 'Saving…' : (isEdit ? 'Save' : 'Save & connect') }}</button>
+        <button type="submit" :disabled="loading">
+          {{ loading ? 'Saving…' : isEdit ? 'Save' : 'Save & connect' }}
+        </button>
       </div>
     </form>
   </div>
@@ -97,11 +112,14 @@
 import { reactive, ref, computed } from 'vue';
 import { useNetworksStore, type Network } from '../stores/networks.js';
 
-const props = withDefaults(defineProps<{
-  network?: Network | null;
-}>(), {
-  network: null,
-});
+const props = withDefaults(
+  defineProps<{
+    network?: Network | null;
+  }>(),
+  {
+    network: null,
+  },
+);
 const emit = defineEmits<{ close: [] }>();
 const networks = useNetworksStore();
 
@@ -130,13 +148,12 @@ const form = reactive({
 // set, so the user doesn't have to hunt for a saved password or connect script
 // they configured previously.
 const showAdvanced = ref(
-  !!props.network && (
-    !!netRaw?.has_password
-    || !!netRaw?.has_sasl_password
-    || !!netRaw?.sasl_account
-    || !!netRaw?.connect_commands
-    || netRaw?.autoconnect === false
-  )
+  !!props.network &&
+    (!!netRaw?.has_password ||
+      !!netRaw?.has_sasl_password ||
+      !!netRaw?.sasl_account ||
+      !!netRaw?.connect_commands ||
+      netRaw?.autoconnect === false),
 );
 
 const loading = ref(false);
@@ -151,7 +168,7 @@ function connectionChanged(): boolean {
   const orig = props.network as Record<string, unknown>;
   if ((form.host || '') !== ((orig.host as string) || '')) return true;
   if (Number(form.port) !== Number(orig.port)) return true;
-  if (!!form.tls !== !!(orig.tls)) return true;
+  if (!!form.tls !== !!orig.tls) return true;
   if ((form.nick || '') !== ((orig.nick as string) || '')) return true;
   if ((form.realname || '') !== ((orig.realname as string) || '')) return true;
   if ((form.sasl_account || '') !== ((orig.sasl_account as string) || '')) return true;
@@ -209,7 +226,8 @@ async function reconnect(): Promise<void> {
 
 async function remove(): Promise<void> {
   if (!props.network) return;
-  if (!confirm(`Delete network "${props.network.name}"? This disconnects and removes its history.`)) return;
+  if (!confirm(`Delete network "${props.network.name}"? This disconnects and removes its history.`))
+    return;
   loading.value = true;
   error.value = null;
   try {
@@ -247,15 +265,36 @@ h2 {
   text-transform: lowercase;
   font-weight: 600;
 }
-label { display: flex; flex-direction: column; gap: 3px; color: var(--fg-muted); }
-label span { text-transform: uppercase; letter-spacing: 0.04em; }
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--fg-muted);
+}
+label span {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 /* width:100% + border-box keeps inputs sized to their label rather than their
    intrinsic (size=20) width, so flex columns can't be pushed wider than the
    card. */
 label input,
-label textarea { color: var(--fg); width: 100%; box-sizing: border-box; }
-label textarea { font-family: inherit; resize: vertical; min-height: 80px; }
-label small { color: var(--fg-muted); margin-top: 2px; text-transform: none; letter-spacing: normal; }
+label textarea {
+  color: var(--fg);
+  width: 100%;
+  box-sizing: border-box;
+}
+label textarea {
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+label small {
+  color: var(--fg-muted);
+  margin-top: 2px;
+  text-transform: none;
+  letter-spacing: normal;
+}
 .advanced-toggle {
   align-self: flex-start;
   background: transparent;
@@ -265,22 +304,73 @@ label small { color: var(--fg-muted); margin-top: 2px; text-transform: none; let
   cursor: pointer;
   text-transform: lowercase;
 }
-.advanced-toggle:hover { text-decoration: underline; }
-.advanced { display: flex; flex-direction: column; gap: 10px; }
-.row { display: flex; gap: 8px; align-items: end; }
+.advanced-toggle:hover {
+  text-decoration: underline;
+}
+.advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+}
 /* min-width:0 lets a flex item shrink below its content's intrinsic width —
    without it two side-by-side inputs (the SASL row) overflow the card. */
-.grow { flex: 1; min-width: 0; }
-.port { width: 80px; }
-.tls { width: 48px; align-items: center; }
-.tls input { width: auto; transform: scale(1.1); }
-.check { flex-direction: row; align-items: center; gap: 8px; }
-.check input { width: auto; }
-.check span { text-transform: none; letter-spacing: normal; color: var(--fg); font-size: inherit; }
-.actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.spacer { flex: 1; }
-.ghost { border-color: var(--border); }
-.danger { color: var(--bad); border-color: var(--bad); }
-.danger:hover:not(:disabled) { background: var(--bad); color: var(--bg); border-color: var(--bad); }
-.error { color: var(--bad); margin: 0; }
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.port {
+  width: 80px;
+}
+.tls {
+  width: 48px;
+  align-items: center;
+}
+.tls input {
+  width: auto;
+  transform: scale(1.1);
+}
+.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.check input {
+  width: auto;
+}
+.check span {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--fg);
+  font-size: inherit;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.spacer {
+  flex: 1;
+}
+.ghost {
+  border-color: var(--border);
+}
+.danger {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.danger:hover:not(:disabled) {
+  background: var(--bad);
+  color: var(--bg);
+  border-color: var(--bad);
+}
+.error {
+  color: var(--bad);
+  margin: 0;
+}
 </style>

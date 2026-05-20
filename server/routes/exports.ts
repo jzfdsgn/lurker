@@ -15,10 +15,7 @@ import {
   buildExportFilename,
   computeExportPreview,
 } from '../services/exportService.js';
-import {
-  importFromZipBuffer,
-  ImportError,
-} from '../services/importService.js';
+import { importFromZipBuffer, ImportError } from '../services/importService.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -51,7 +48,8 @@ router.get('/preview', (req: Request, res: Response, next: NextFunction) => {
 
 // GET /api/exports?include_messages=1 — stream the zip to the response.
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
-  const includeMessages = String(req.query.include_messages || '').toLowerCase() === '1' ||
+  const includeMessages =
+    String(req.query.include_messages || '').toLowerCase() === '1' ||
     String(req.query.include_messages || '').toLowerCase() === 'true';
   const filename = buildExportFilename(req.user!.username, { includeMessages });
   // octet-stream (not application/zip) so Safari's "open safe files after
@@ -78,34 +76,47 @@ importRouter.use(requireAuth);
 
 // POST /api/imports — upload an export zip and restore it into the
 // caller's account. Refuses if the account already has data.
-importRouter.post('/', upload.single('archive'), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    if (!req.file) {
-      res.status(400).json({ error: 'no archive uploaded' });
-      return;
+importRouter.post(
+  '/',
+  upload.single('archive'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: 'no archive uploaded' });
+        return;
+      }
+      const result = await importFromZipBuffer(req.user!.id, req.file.buffer);
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      if (err instanceof ImportError) {
+        // ImportError.code is assigned in the JS constructor — not in the TS type yet
+        const e = err as ImportError & { code: string };
+        const status =
+          e.code === 'account_not_empty'
+            ? 409
+            : e.code === 'format_too_new'
+              ? 400
+              : e.code === 'not_a_zip'
+                ? 400
+                : e.code === 'missing_manifest'
+                  ? 400
+                  : e.code === 'missing_data'
+                    ? 400
+                    : e.code === 'bad_manifest'
+                      ? 400
+                      : e.code === 'bad_data'
+                        ? 400
+                        : e.code === 'bad_messages'
+                          ? 400
+                          : e.code === 'bad_bookmarks'
+                            ? 400
+                            : 500;
+        res.status(status).json({ error: e.message, code: e.code });
+        return;
+      }
+      next(err);
     }
-    const result = await importFromZipBuffer(req.user!.id, req.file.buffer);
-    res.json({ ok: true, ...result });
-  } catch (err) {
-    if (err instanceof ImportError) {
-      // ImportError.code is assigned in the JS constructor — not in the TS type yet
-      const e = err as ImportError & { code: string };
-      const status =
-        e.code === 'account_not_empty' ? 409 :
-        e.code === 'format_too_new'    ? 400 :
-        e.code === 'not_a_zip'         ? 400 :
-        e.code === 'missing_manifest'  ? 400 :
-        e.code === 'missing_data'      ? 400 :
-        e.code === 'bad_manifest'      ? 400 :
-        e.code === 'bad_data'          ? 400 :
-        e.code === 'bad_messages'      ? 400 :
-        e.code === 'bad_bookmarks'     ? 400 :
-        500;
-      res.status(status).json({ error: e.message, code: e.code });
-      return;
-    }
-    next(err);
-  }
-});
+  },
+);
 
 export { router as exportsRouter, importRouter };

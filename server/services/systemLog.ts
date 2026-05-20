@@ -64,7 +64,10 @@ export function log({ level, scope, text, userId = null, fields }: LogParams = {
     append(globalRing, MAX_GLOBAL, line);
   } else {
     let ring = perUser.get(line.userId);
-    if (!ring) { ring = []; perUser.set(line.userId, ring); }
+    if (!ring) {
+      ring = [];
+      perUser.set(line.userId, ring);
+    }
     append(ring, MAX_PER_USER, line);
   }
   emitter.emit('line', line);
@@ -79,7 +82,9 @@ export function getRecent(userId: number): LogLine[] {
   if (ring.length === 0) return globalRing.slice();
   if (globalRing.length === 0) return ring.slice();
   const out = Array.from<LogLine>({ length: ring.length + globalRing.length });
-  let i = 0, j = 0, k = 0;
+  let i = 0,
+    j = 0,
+    k = 0;
   while (i < globalRing.length && j < ring.length) {
     out[k++] = globalRing[i].id < ring[j].id ? globalRing[i++] : ring[j++];
   }
@@ -95,7 +100,11 @@ export function dropUser(userId: number): void {
   perUser.delete(Number(userId));
 }
 
-export function on(event: string, handler: (...args: unknown[]) => void): void { emitter.on(event, handler); }
-export function off(event: string, handler: (...args: unknown[]) => void): void { emitter.off(event, handler); }
+export function on(event: string, handler: (...args: unknown[]) => void): void {
+  emitter.on(event, handler);
+}
+export function off(event: string, handler: (...args: unknown[]) => void): void {
+  emitter.off(event, handler);
+}
 
 export default { log, getRecent, dropUser, on, off };

@@ -45,7 +45,7 @@ export const useHighlightsStore = defineStore('highlights', {
       this.error = '';
       try {
         const { items, nextBefore } = await api(
-          `/api/highlights?limit=${PAGE_SIZE}&before=${this.nextBefore}`
+          `/api/highlights?limit=${PAGE_SIZE}&before=${this.nextBefore}`,
         );
         this.items = this.items.concat(items || []);
         this.nextBefore = nextBefore ?? null;

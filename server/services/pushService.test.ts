@@ -34,10 +34,14 @@ beforeAll(async () => {
   alice = createUser('push-alice');
   bob = createUser('push-bob');
   pushDb.upsertSubscription(alice.id, {
-    endpoint: 'https://example.test/alice', p256dh: 'k', auth: 'a',
+    endpoint: 'https://example.test/alice',
+    p256dh: 'k',
+    auth: 'a',
   });
   pushDb.upsertSubscription(alice.id, {
-    endpoint: 'https://example.test/alice2', p256dh: 'k', auth: 'a',
+    endpoint: 'https://example.test/alice2',
+    p256dh: 'k',
+    auth: 'a',
   });
 });
 

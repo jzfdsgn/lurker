@@ -24,7 +24,13 @@ export interface KeyboardShortcutsOptions {
 // are self-contained. onTypeAhead fires when the user starts typing a
 // printable character while focus is somewhere non-text — the consumer
 // decides whether to redirect focus into the message input.
-export function useKeyboardShortcuts({ onOpenSwitcher, onOpenHelp, onOpenSearch, onTypeAhead, onScrollMessages }: KeyboardShortcutsOptions = {}): void {
+export function useKeyboardShortcuts({
+  onOpenSwitcher,
+  onOpenHelp,
+  onOpenSearch,
+  onTypeAhead,
+  onScrollMessages,
+}: KeyboardShortcutsOptions = {}): void {
   const networks = useNetworksStore();
   const buffers = useBuffersStore();
   const pins = usePinsStore();

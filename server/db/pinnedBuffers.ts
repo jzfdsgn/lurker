@@ -52,9 +52,9 @@ const setPositionStmt = db.prepare(`
 `);
 
 export function listPinnedForUserNetwork(userId: number, networkId: number): string[] {
-  return (
-    listForUserNetworkStmt.all(userId, networkId) as Array<{ target: string }>
-  ).map((r) => r.target);
+  return (listForUserNetworkStmt.all(userId, networkId) as Array<{ target: string }>).map(
+    (r) => r.target,
+  );
 }
 
 export function listPinnedForUser(userId: number): Map<number, string[]> {
@@ -106,11 +106,7 @@ export function unpinBuffer(userId: number, networkId: number, target: string): 
 // set of currently-pinned targets (no adds, no drops); the function validates
 // and returns null on mismatch so the caller can surface a no-op. On success
 // returns the new ordered target list.
-export function reorderPins(
-  userId: number,
-  networkId: number,
-  targets: string[],
-): string[] | null {
+export function reorderPins(userId: number, networkId: number, targets: string[]): string[] | null {
   const current = new Set(listPinnedForUserNetwork(userId, networkId));
   if (targets.length !== current.size) return null;
   for (const t of targets) {

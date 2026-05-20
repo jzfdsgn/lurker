@@ -12,7 +12,8 @@ interface VerbContext {
 
 registerVerb({
   name: 'get_nick_note',
-  description: 'Read the caller\'s free-form note about a nick on a network. Returns an empty note string when no note exists.',
+  description:
+    "Read the caller's free-form note about a nick on a network. Returns an empty note string when no note exists.",
   scope: 'read',
   input: {
     type: 'object',

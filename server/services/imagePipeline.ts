@@ -43,18 +43,25 @@ export function extensionFor(mime: string, fallback = 'bin'): string {
 // Animated images (sharp.metadata.pages > 1) bypass the resize/re-encode and
 // are returned verbatim, which is a hard requirement so reaction GIFs / animated
 // WebP / APNG don't lose animation on the way through Lurker.
-export async function optimize(buffer: Buffer, { maxDim, quality }: { maxDim: number; quality: number }): Promise<OptimizeResult> {
+export async function optimize(
+  buffer: Buffer,
+  { maxDim, quality }: { maxDim: number; quality: number },
+): Promise<OptimizeResult> {
   let meta: sharp.Metadata;
   try {
     meta = await sharp(buffer).metadata();
   } catch (cause) {
-    const err = new Error(`unable to read image: ${(cause as Error).message || String(cause)}`) as Error & { code: string };
+    const err = new Error(
+      `unable to read image: ${(cause as Error).message || String(cause)}`,
+    ) as Error & { code: string };
     err.code = 'UNSUPPORTED_FORMAT';
     throw err;
   }
   const fmt = meta.format ? FORMAT_INFO[meta.format] : undefined;
   if (!fmt) {
-    const err = new Error(`unsupported image format: ${meta.format || 'unknown'}`) as Error & { code: string };
+    const err = new Error(`unsupported image format: ${meta.format || 'unknown'}`) as Error & {
+      code: string;
+    };
     err.code = 'UNSUPPORTED_FORMAT';
     throw err;
   }

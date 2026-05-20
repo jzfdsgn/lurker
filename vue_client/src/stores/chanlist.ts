@@ -135,6 +135,14 @@ export const useChanlistStore = defineStore('chanlist', {
 
 // (query, sortBy, sortDir) tuple. Offset is intentionally excluded — pagination
 // continues a request, not invalidates it.
-export function resultKey({ query, sortBy, sortDir }: { query: string; sortBy: string; sortDir: string }) {
+export function resultKey({
+  query,
+  sortBy,
+  sortDir,
+}: {
+  query: string;
+  sortBy: string;
+  sortDir: string;
+}) {
   return `${query}\x00${sortBy}\x00${sortDir}`;
 }

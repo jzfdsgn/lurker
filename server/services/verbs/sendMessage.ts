@@ -12,7 +12,8 @@ interface VerbContext {
 
 registerVerb({
   name: 'send_message',
-  description: 'Send a PRIVMSG to a channel or peer on a network. Returns { ok: false, error: "not-connected" } when the network is offline — the caller should not retry blindly.',
+  description:
+    'Send a PRIVMSG to a channel or peer on a network. Returns { ok: false, error: "not-connected" } when the network is offline — the caller should not retry blindly.',
   scope: 'read-write',
   input: {
     type: 'object',

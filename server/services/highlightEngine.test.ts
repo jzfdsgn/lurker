@@ -5,13 +5,15 @@ import { describe, it, expect } from 'vitest';
 import type { CompiledRule } from './highlightEngine.js';
 import { compileRules, matchEvent } from './highlightEngine.js';
 
-function rule(overrides: Partial<{
-  id: number;
-  pattern: string;
-  kind: string;
-  case_sensitive: boolean;
-  enabled: boolean;
-}> = {}): { id: number; pattern: string; kind: string; case_sensitive: boolean; enabled: boolean } {
+function rule(
+  overrides: Partial<{
+    id: number;
+    pattern: string;
+    kind: string;
+    case_sensitive: boolean;
+    enabled: boolean;
+  }> = {},
+): { id: number; pattern: string; kind: string; case_sensitive: boolean; enabled: boolean } {
   return {
     id: 1,
     pattern: 'amiantos',
@@ -22,7 +24,9 @@ function rule(overrides: Partial<{
   };
 }
 
-function event(overrides: Partial<{ type: string; text: string | null | undefined; self: boolean }> = {}): { type: string; text: string | undefined; self: boolean } {
+function event(
+  overrides: Partial<{ type: string; text: string | null | undefined; self: boolean }> = {},
+): { type: string; text: string | undefined; self: boolean } {
   const base: { type: string; text: string | undefined; self: boolean } = {
     type: 'message',
     text: 'hello world',
@@ -101,7 +105,9 @@ describe('matchEvent — glob rules', () => {
 describe('matchEvent — eligibility gating', () => {
   it('does not match self-authored events', () => {
     const compiled: CompiledRule[] = compileRules([rule()]);
-    expect(matchEvent(event({ text: 'amiantos says hi', self: true }), compiled).matched).toBe(false);
+    expect(matchEvent(event({ text: 'amiantos says hi', self: true }), compiled).matched).toBe(
+      false,
+    );
   });
 
   it('does not match non-message types', () => {
@@ -113,7 +119,9 @@ describe('matchEvent — eligibility gating', () => {
 
   it('matches action type', () => {
     const compiled = compileRules([rule()]);
-    expect(matchEvent(event({ type: 'action', text: 'waves at amiantos' }), compiled).matched).toBe(true);
+    expect(matchEvent(event({ type: 'action', text: 'waves at amiantos' }), compiled).matched).toBe(
+      true,
+    );
   });
 
   it('handles missing text', () => {

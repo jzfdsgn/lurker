@@ -34,7 +34,12 @@ interface JsonRpcErrorBody {
   data?: string;
 }
 
-function jsonRpcError(id: unknown, code: number, message: string, data?: string): { jsonrpc: '2.0'; id: unknown; error: JsonRpcErrorBody } {
+function jsonRpcError(
+  id: unknown,
+  code: number,
+  message: string,
+  data?: string,
+): { jsonrpc: '2.0'; id: unknown; error: JsonRpcErrorBody } {
   const error: JsonRpcErrorBody = { code, message };
   if (data !== undefined) error.data = data;
   return { jsonrpc: '2.0', id, error };
@@ -58,7 +63,10 @@ router.post('/', (req: Request, res: Response) => {
   const isNotification = !('id' in body);
 
   if (body.jsonrpc !== '2.0' || typeof body.method !== 'string') {
-    if (isNotification) { res.status(204).end(); return; }
+    if (isNotification) {
+      res.status(204).end();
+      return;
+    }
     res.json(jsonRpcError(id, -32600, 'Invalid Request'));
     return;
   }
@@ -112,15 +120,24 @@ router.post('/', (req: Request, res: Response) => {
         break;
       }
       default: {
-        if (isNotification) { res.status(204).end(); return; }
+        if (isNotification) {
+          res.status(204).end();
+          return;
+        }
         res.json(jsonRpcError(id, -32601, `Method not found: ${body.method as string}`));
         return;
       }
     }
-    if (isNotification) { res.status(204).end(); return; }
+    if (isNotification) {
+      res.status(204).end();
+      return;
+    }
     res.json({ jsonrpc: '2.0', id, result });
   } catch (err) {
-    if (isNotification) { res.status(204).end(); return; }
+    if (isNotification) {
+      res.status(204).end();
+      return;
+    }
     res.json(jsonRpcError(id, -32603, 'Internal error', (err as Error).message));
   }
 });

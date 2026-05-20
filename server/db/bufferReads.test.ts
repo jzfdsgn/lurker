@@ -36,7 +36,7 @@ describe('setReadState / getReadState', () => {
     expect(bufferReads.getReadState(user.id, net!.id, '#x')).toBe(42);
   });
 
-  it('clamps to MAX(existing, requested) so older reads can\'t move the pointer back', () => {
+  it("clamps to MAX(existing, requested) so older reads can't move the pointer back", () => {
     bufferReads.setReadState(user.id, net!.id, '#mono', 100);
     const out = bufferReads.setReadState(user.id, net!.id, '#mono', 50);
     expect(out).toBe(100);

@@ -4,18 +4,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
-import {
-  listUsers,
-  findUserById,
-  deleteUser,
-  countAdmins,
-} from '../db/users.js';
-import {
-  createInvite,
-  listInvites,
-  deleteInvite,
-  getInvite,
-} from '../db/invites.js';
+import { listUsers, findUserById, deleteUser, countAdmins } from '../db/users.js';
+import { createInvite, listInvites, deleteInvite, getInvite } from '../db/invites.js';
 import ircManager from '../services/ircManager.js';
 
 const router = Router();

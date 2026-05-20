@@ -15,11 +15,9 @@
       >
         <div class="row">
           <span class="title">{{ t.title }}</span>
-          <button
-            class="x"
-            title="dismiss"
-            @click.stop="toasts.dismiss(t.id)"
-          ><i class="fa-solid fa-xmark"></i></button>
+          <button class="x" title="dismiss" @click.stop="toasts.dismiss(t.id)">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
         <div v-if="t.body" class="body">{{ t.body }}</div>
       </div>
@@ -73,8 +71,12 @@ function onClick(t: Toast) {
   font-size: 0.95em;
   animation: toast-in 140ms ease-out;
 }
-.toast.clickable { cursor: pointer; }
-.toast.clickable:hover { background: var(--bg-soft); }
+.toast.clickable {
+  cursor: pointer;
+}
+.toast.clickable:hover {
+  background: var(--bg-soft);
+}
 .row {
   display: flex;
   align-items: center;
@@ -96,7 +98,9 @@ function onClick(t: Toast) {
   font: inherit;
   padding: 0 2px;
 }
-.x:hover { color: var(--fg); }
+.x:hover {
+  color: var(--fg);
+}
 .body {
   color: var(--fg);
   margin-top: 2px;
@@ -108,7 +112,13 @@ function onClick(t: Toast) {
   overflow: hidden;
 }
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

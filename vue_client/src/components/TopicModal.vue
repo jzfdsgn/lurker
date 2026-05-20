@@ -16,10 +16,13 @@
 import AppModal from './AppModal.vue';
 import LinkedText from './LinkedText.vue';
 
-withDefaults(defineProps<{
-  topic?: string;
-  label?: string;
-}>(), { topic: '', label: '' });
+withDefaults(
+  defineProps<{
+    topic?: string;
+    label?: string;
+  }>(),
+  { topic: '', label: '' },
+);
 
 defineEmits<{
   close: [];

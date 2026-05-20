@@ -66,10 +66,12 @@ export function getRule(id: number | bigint, userId: number): HighlightRule | nu
 export function createRule(userId: number, fields: RuleFields): HighlightRule | null {
   const { pattern, kind = 'plain', case_sensitive = false, enabled = true } = fields;
   const result = db
-    .prepare(`
+    .prepare(
+      `
       INSERT INTO highlight_rules (user_id, pattern, kind, case_sensitive, enabled)
       VALUES (?, ?, ?, ?, ?)
-    `)
+    `,
+    )
     .run(userId, pattern, kind, case_sensitive ? 1 : 0, enabled ? 1 : 0);
   return getRule(result.lastInsertRowid, userId);
 }
@@ -82,14 +84,15 @@ export function updateRule(id: number, userId: number, fields: RuleFields): High
     if (key in fields) {
       setClauses.push(`${key} = ?`);
       const raw = fields[key];
-      const value =
-        key === 'case_sensitive' || key === 'enabled' ? (raw ? 1 : 0) : (raw as string);
+      const value = key === 'case_sensitive' || key === 'enabled' ? (raw ? 1 : 0) : (raw as string);
       params.push(value);
     }
   }
   if (!setClauses.length) return getRule(id, userId);
   params.push(id, userId);
-  db.prepare(`UPDATE highlight_rules SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
+  db.prepare(
+    `UPDATE highlight_rules SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`,
+  ).run(...params);
   return getRule(id, userId);
 }
 

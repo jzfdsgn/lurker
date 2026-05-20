@@ -7,8 +7,8 @@
   <section id="highlights" class="settings-pane">
     <h2>highlights</h2>
     <p class="section-desc">
-      Rules whose pattern matches an incoming message mark it as a highlight (line accent + sidebar dot).
-      Auto-managed entries track each network's current nick and can only be enabled/disabled.
+      Rules whose pattern matches an incoming message mark it as a highlight (line accent + sidebar
+      dot). Auto-managed entries track each network's current nick and can only be enabled/disabled.
       Configure notification delivery for matched highlights in the Notifications pane.
     </p>
     <p v-if="rulesError" class="error inline">{{ rulesError }}</p>
@@ -39,7 +39,9 @@
             type="checkbox"
             :checked="rule.case_sensitive"
             :disabled="rule.auto_managed"
-            @change="onRuleField(rule, 'case_sensitive', ($event.target as HTMLInputElement).checked)"
+            @change="
+              onRuleField(rule, 'case_sensitive', ($event.target as HTMLInputElement).checked)
+            "
           />
           <span>Aa</span>
         </label>
@@ -56,7 +58,9 @@
           :disabled="rule.auto_managed"
           @click="onRuleDelete(rule)"
           title="delete rule"
-        >delete</button>
+        >
+          delete
+        </button>
       </li>
     </ul>
     <div class="rule-add">
@@ -107,7 +111,9 @@ const newCaseSensitive = ref(false);
 
 onMounted(() => {
   if (!rulesStore.loaded) {
-    rulesStore.fetchAll().catch((e: any) => { rulesError.value = e.message; });
+    rulesStore.fetchAll().catch((e: any) => {
+      rulesError.value = e.message;
+    });
   }
 });
 
@@ -117,7 +123,9 @@ async function onRuleField(rule: HighlightRuleRow, field: string, value: string 
     await rulesStore.update(rule.id, { [field]: value });
   } catch (e: any) {
     rulesError.value = e.message || 'update failed';
-    rulesStore.fetchAll().catch(() => { /* ignore */ });
+    rulesStore.fetchAll().catch(() => {
+      /* ignore */
+    });
   }
 }
 
@@ -135,7 +143,12 @@ async function onRuleAdd() {
   if (!pattern) return;
   rulesError.value = '';
   try {
-    await rulesStore.create({ pattern, kind: newKind.value, case_sensitive: newCaseSensitive.value, enabled: true } as Partial<HighlightRuleRow>);
+    await rulesStore.create({
+      pattern,
+      kind: newKind.value,
+      case_sensitive: newCaseSensitive.value,
+      enabled: true,
+    } as Partial<HighlightRuleRow>);
     newPattern.value = '';
     newKind.value = 'plain';
     newCaseSensitive.value = false;
@@ -147,7 +160,11 @@ async function onRuleAdd() {
 
 <style src="./panes.css"></style>
 <style scoped>
-.rule-list { list-style: none; margin: 0; padding: 0; }
+.rule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .rule {
   display: grid;
   grid-template-columns: 18px minmax(120px, 1fr) max-content max-content max-content max-content;
@@ -156,16 +173,35 @@ async function onRuleAdd() {
   padding: 6px 0;
   border-top: 1px solid var(--border);
 }
-.rule:first-child { border-top: none; }
-.rule:hover { background: var(--bg-soft); }
-.rule.auto .pattern { color: var(--fg-muted); }
-.lock { font-size: 12px; color: var(--fg-muted); text-align: center; }
-.rule .ck { display: flex; align-items: center; gap: 4px; color: var(--fg-muted); cursor: pointer; }
+.rule:first-child {
+  border-top: none;
+}
+.rule:hover {
+  background: var(--bg-soft);
+}
+.rule.auto .pattern {
+  color: var(--fg-muted);
+}
+.lock {
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-align: center;
+}
+.rule .ck {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
 .rule-add {
   display: flex;
   align-items: center;
   gap: 8px;
   padding-top: 10px;
 }
-.rule-add input[type="text"] { flex: 1; min-width: 200px; }
+.rule-add input[type='text'] {
+  flex: 1;
+  min-width: 200px;
+}
 </style>

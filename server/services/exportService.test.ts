@@ -42,7 +42,8 @@ beforeAll(async () => {
   ({ pinBuffer } = await import('../db/pinnedBuffers.js'));
   ({ addMask } = await import('../db/ignoredMasks.js'));
   ({ addBookmark } = await import('../db/bookmarks.js'));
-  ({ buildExportZip, buildExportFilename, computeExportPreview } = await import('./exportService.js'));
+  ({ buildExportZip, buildExportFilename, computeExportPreview } =
+    await import('./exportService.js'));
   ({ EXPORT_FORMAT_VERSION } = await import('../db/exportSchema.js'));
 });
 
@@ -94,17 +95,31 @@ describe('buildExportZip', () => {
   beforeAll(async () => {
     alice = createUser('alice');
     aliceNetA = createNetwork(alice.id, {
-      name: 'libera', host: 'irc.libera.chat', port: 6697, tls: true, nick: 'alice',
+      name: 'libera',
+      host: 'irc.libera.chat',
+      port: 6697,
+      tls: true,
+      nick: 'alice',
     }) as Network;
     upsertChannel(aliceNetA.id, '#general', true);
 
     aliceMsg1 = insertMessage({
-      networkId: aliceNetA.id, target: '#general', time: '2026-05-17T10:00:00Z',
-      type: 'message', nick: 'alice', text: 'hello world', self: true,
+      networkId: aliceNetA.id,
+      target: '#general',
+      time: '2026-05-17T10:00:00Z',
+      type: 'message',
+      nick: 'alice',
+      text: 'hello world',
+      self: true,
     });
     insertMessage({
-      networkId: aliceNetA.id, target: '#general', time: '2026-05-17T10:01:00Z',
-      type: 'message', nick: 'bob', text: 'hi alice', self: false,
+      networkId: aliceNetA.id,
+      target: '#general',
+      time: '2026-05-17T10:01:00Z',
+      type: 'message',
+      nick: 'bob',
+      text: 'hi alice',
+      self: false,
     });
 
     setUserSetting(alice.id, 'appearance.theme.name', 'dark');
@@ -116,9 +131,14 @@ describe('buildExportZip', () => {
 
     // upload_history with a thumbnail blob
     insertUpload(alice.id, {
-      provider: 'hoarder', url: 'https://example.com/foo.jpg',
-      filename: 'foo.jpg', mime: 'image/jpeg', byte_size: 1234,
-      width: 100, height: 100, thumbnail: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]),
+      provider: 'hoarder',
+      url: 'https://example.com/foo.jpg',
+      filename: 'foo.jpg',
+      mime: 'image/jpeg',
+      byte_size: 1234,
+      width: 100,
+      height: 100,
+      thumbnail: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]),
     });
   });
 
@@ -201,7 +221,11 @@ describe('buildExportZip', () => {
   it('scopes data per-user (bob does not see alice)', async () => {
     const bob = createUser('bob_scope');
     createNetwork(bob.id, {
-      name: 'bobnet', host: 'irc.bobnet', port: 6697, tls: true, nick: 'bob',
+      name: 'bobnet',
+      host: 'irc.bobnet',
+      port: 6697,
+      tls: true,
+      nick: 'bob',
     });
     const bufBob = await runExport(bob.id, { includeMessages: true });
     const entriesBob = await readZipToMap(bufBob);
@@ -233,13 +257,17 @@ describe('buildExportFilename', () => {
 
 describe('computeExportPreview', () => {
   it('returns 0 for messages section when includeMessages is false', () => {
-    const aliceRow = db.prepare(`SELECT id FROM users WHERE username = 'alice'`).get() as { id: number };
+    const aliceRow = db.prepare(`SELECT id FROM users WHERE username = 'alice'`).get() as {
+      id: number;
+    };
     const counts = computeExportPreview(aliceRow.id, { includeMessages: false });
     expect(counts.messages).toBe(0);
     expect(counts.networks).toBeGreaterThan(0);
   });
   it('returns real message counts when includeMessages is true', () => {
-    const aliceRow = db.prepare(`SELECT id FROM users WHERE username = 'alice'`).get() as { id: number };
+    const aliceRow = db.prepare(`SELECT id FROM users WHERE username = 'alice'`).get() as {
+      id: number;
+    };
     const counts = computeExportPreview(aliceRow.id, { includeMessages: true });
     expect(counts.messages).toBeGreaterThan(0);
   });

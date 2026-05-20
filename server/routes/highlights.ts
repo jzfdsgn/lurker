@@ -14,9 +14,8 @@ const DEFAULT_LIMIT = 50;
 
 router.get('/', (req: Request, res: Response) => {
   const rawLimit = Number(req.query.limit);
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0
-    ? Math.min(rawLimit, MAX_LIMIT)
-    : DEFAULT_LIMIT;
+  const limit =
+    Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_LIMIT) : DEFAULT_LIMIT;
   const rawBefore = Number(req.query.before);
   const before = Number.isFinite(rawBefore) && rawBefore > 0 ? rawBefore : undefined;
 

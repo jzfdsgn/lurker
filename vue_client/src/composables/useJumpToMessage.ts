@@ -31,7 +31,9 @@ export interface JumpToMessageOptions {
 //      directly (current happy path; no fetch needed).
 //   5. Otherwise, loadAround() — detaching the buffer to a bounded ~200-row
 //      historical slice — and arm pendingScrollId once the slice lands.
-export function useJumpToMessage({ pendingScrollId, afterActivate }: JumpToMessageOptions = {}): (args: JumpTarget) => void {
+export function useJumpToMessage({ pendingScrollId, afterActivate }: JumpToMessageOptions = {}): (
+  args: JumpTarget,
+) => void {
   const buffers = useBuffersStore();
   const toasts = useToastsStore();
 
@@ -61,12 +63,15 @@ export function useJumpToMessage({ pendingScrollId, afterActivate }: JumpToMessa
     // pendingScrollId once the slice replaces buf.messages — the MessageList
     // watcher then handles the scroll/pulse.
     buffers.loadAround(networkId, target, messageId);
-    const stop = watch(() => buf?.messages?.length, (len) => {
-      if (!len) return;
-      // The around response replaces messages wholesale, so the first
-      // non-empty change after dispatch is the slice landing.
-      stop();
-      if (pendingScrollId) pendingScrollId.value = messageId;
-    });
+    const stop = watch(
+      () => buf?.messages?.length,
+      (len) => {
+        if (!len) return;
+        // The around response replaces messages wholesale, so the first
+        // non-empty change after dispatch is the slice landing.
+        stop();
+        if (pendingScrollId) pendingScrollId.value = messageId;
+      },
+    );
   };
 }

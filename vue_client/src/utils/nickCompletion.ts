@@ -63,7 +63,7 @@ export function buildNickCandidates(
   const memberLcSet = new Set(memberNames.map((n) => n.toLowerCase()));
   const filterSpeakersByMembership = !!buf.target?.startsWith('#');
   const memberByLc = new Map<string, Member>();
-  for (const m of (buf.members || [])) {
+  for (const m of buf.members || []) {
     const nick = typeof m === 'string' ? m : m?.nick;
     if (nick) memberByLc.set(nick.toLowerCase(), m);
   }
@@ -76,8 +76,7 @@ export function buildNickCandidates(
 
   const out: NickCandidate[] = [];
 
-  const speakers = Object.values(buf.speakers || {})
-    .sort((a, b) => b.lastTime - a.lastTime);
+  const speakers = Object.values(buf.speakers || {}).sort((a, b) => b.lastTime - a.lastTime);
   for (const s of speakers) {
     const lc = s.nick.toLowerCase();
     if (seen.has(lc)) continue;

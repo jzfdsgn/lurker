@@ -31,7 +31,11 @@ afterAll(() => {
 
 function mkNetwork(userId: number, name: string) {
   return createNetwork(userId, {
-    name, host: 'irc.libera.chat', port: 6697, tls: true, nick: name,
+    name,
+    host: 'irc.libera.chat',
+    port: 6697,
+    tls: true,
+    nick: name,
   });
 }
 
@@ -43,7 +47,9 @@ describe('drafts', () => {
     const rows = listForUser(u.id);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      networkId: net!.id, target: '#meta', body: 'hello there',
+      networkId: net!.id,
+      target: '#meta',
+      body: 'hello there',
     });
     expect(rows[0].updatedAt).toBeTruthy();
   });

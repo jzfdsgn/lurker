@@ -5,7 +5,12 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
 import sharp from 'sharp';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 
 const ctx = setupTestDb('routes-uploads');
@@ -19,7 +24,11 @@ const stub = {
   requiresSecrets: false,
   shouldThrow: null as Error | null,
   capturedSecrets: null as Record<string, string> | null,
-  async upload(_buffer: Buffer, meta: { filename: string; mime: string }, secrets?: Record<string, string>) {
+  async upload(
+    _buffer: Buffer,
+    meta: { filename: string; mime: string },
+    secrets?: Record<string, string>,
+  ) {
     stub.capturedSecrets = secrets ?? null;
     if (stub.shouldThrow) throw stub.shouldThrow;
     return { url: `https://stub.example/${meta.filename}` };
@@ -34,7 +43,9 @@ const stub = {
 vi.mock('../services/uploadProviders/index.js', () => ({
   providerIds: ['x0', 'catbox', 'hoarder'],
   getProvider: () => stub,
-  secretsForProvider: (_id: string, settings: Record<string, string>) => ({ token: settings['uploads.stub.token'] || '' }),
+  secretsForProvider: (_id: string, settings: Record<string, string>) => ({
+    token: settings['uploads.stub.token'] || '',
+  }),
 }));
 
 let app: Express;
@@ -54,7 +65,9 @@ beforeAll(async () => {
   // needing a fixture file.
   smallPng = await sharp({
     create: { width: 16, height: 16, channels: 3, background: { r: 255, g: 0, b: 0 } },
-  }).png().toBuffer();
+  })
+    .png()
+    .toBuffer();
 });
 
 afterAll(() => ctx.cleanup());
@@ -89,11 +102,10 @@ describe('POST /api/uploads', () => {
   });
 
   it('uploads a text/plain attachment via the long-message → .txt path', async () => {
-    const res = await agent
-      .post('/api/uploads')
-      .attach('image', Buffer.from('hello there'), {
-        filename: 'note.txt', contentType: 'text/plain',
-      });
+    const res = await agent.post('/api/uploads').attach('image', Buffer.from('hello there'), {
+      filename: 'note.txt',
+      contentType: 'text/plain',
+    });
     expect(res.status).toBe(200);
     expect(res.body.url).toMatch(/\.txt$/);
 
@@ -111,7 +123,9 @@ describe('POST /api/uploads', () => {
     // (sharp's `animated: true` option requires composing multiple frames.)
     const frame = await sharp({
       create: { width: 8, height: 8, channels: 3, background: { r: 0, g: 0, b: 255 } },
-    }).raw().toBuffer();
+    })
+      .raw()
+      .toBuffer();
     const animated = await sharp(frame, { raw: { width: 8, height: 8, channels: 3 } })
       .gif({ loop: 0 })
       .toBuffer();
@@ -150,7 +164,6 @@ describe('POST /api/uploads', () => {
     expect(res.status).toBe(502);
     stub.shouldThrow = null;
   });
-
 });
 
 describe('GET /api/uploads/:id/thumb', () => {
@@ -164,7 +177,7 @@ describe('GET /api/uploads/:id/thumb', () => {
     expect(res.body.length).toBeGreaterThan(0);
   });
 
-  it('404 for an id we don\'t own', async () => {
+  it("404 for an id we don't own", async () => {
     const res = await agent.get('/api/uploads/999999/thumb');
     expect(res.status).toBe(404);
   });
@@ -181,7 +194,7 @@ describe('DELETE /api/uploads/:id', () => {
     expect(list.body.items.find((r: { id: number }) => r.id === upload.body.id)).toBeFalsy();
   });
 
-  it('404 for a row that doesn\'t exist', async () => {
+  it("404 for a row that doesn't exist", async () => {
     const res = await agent.delete('/api/uploads/999999');
     expect(res.status).toBe(404);
   });

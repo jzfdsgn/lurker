@@ -59,7 +59,11 @@ describe('log', () => {
   });
 
   it('non-object fields are dropped (defensive)', () => {
-    const line = systemLog.log({ scope: 'x', text: 'y', fields: 'not-an-object' as unknown as Record<string, unknown> });
+    const line = systemLog.log({
+      scope: 'x',
+      text: 'y',
+      fields: 'not-an-object' as unknown as Record<string, unknown>,
+    });
     expect(line.fields).toBeNull();
   });
 
@@ -91,7 +95,7 @@ describe('getRecent', () => {
 });
 
 describe('dropUser', () => {
-  it('forgets a user\'s ring without touching globals', () => {
+  it("forgets a user's ring without touching globals", () => {
     systemLog.log({ scope: 'wipe-me', text: 'doomed', userId: 42 });
     expect(systemLog.getRecent(42).find((l) => l.text === 'doomed')).toBeTruthy();
     systemLog.dropUser(42);

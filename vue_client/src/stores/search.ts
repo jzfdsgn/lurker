@@ -22,10 +22,10 @@ export interface SearchResult {
 // thin view of the most recent query's results plus its pagination cursor.
 export const useSearchStore = defineStore('search', {
   state: () => ({
-    query: '',          // Raw input string, including the from:/in:/on: syntax.
+    query: '', // Raw input string, including the from:/in:/on: syntax.
     results: [] as SearchResult[],
     hasMore: false,
-    nextBefore: null as number | null,   // Message id cursor for the next page.
+    nextBefore: null as number | null, // Message id cursor for the next page.
     loading: false,
     error: '',
     // Monotonic token tagged onto each fresh search; the server echoes it and
@@ -52,7 +52,11 @@ export const useSearchStore = defineStore('search', {
     // there's nothing to search on (no free text and no structured filter).
     _buildPayload(before: number | null) {
       const parsed = parseSearchQuery(this.query);
-      const payload: Record<string, unknown> = { type: 'search', token: this.token, limit: PAGE_SIZE };
+      const payload: Record<string, unknown> = {
+        type: 'search',
+        token: this.token,
+        limit: PAGE_SIZE,
+      };
       if (parsed.query) payload.query = parsed.query;
       if (parsed.from) payload.nick = parsed.from;
       if (parsed.in) payload.target = parsed.in;

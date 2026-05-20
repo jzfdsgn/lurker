@@ -4,7 +4,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { LurkerTestAgent } from '../test-utils/testApp.js';
 import type { Express } from 'express';
-import { setupTestDb, createTestApp, createAuthedAgent, createAnonAgent } from '../test-utils/testApp.js';
+import {
+  setupTestDb,
+  createTestApp,
+  createAuthedAgent,
+  createAnonAgent,
+} from '../test-utils/testApp.js';
 import type { User } from '../db/users.js';
 import type { Network } from '../db/networks.js';
 
@@ -28,8 +33,20 @@ beforeAll(async () => {
 
   alice = createUser('alice');
   bob = createUser('bob');
-  aliceNet = createNetwork(alice.id, { name: 'libera', host: 'h', port: 6697, tls: true, nick: 'alice' })!;
-  bobNet = createNetwork(bob.id, { name: 'libera', host: 'h', port: 6697, tls: true, nick: 'bob' })!;
+  aliceNet = createNetwork(alice.id, {
+    name: 'libera',
+    host: 'h',
+    port: 6697,
+    tls: true,
+    nick: 'alice',
+  })!;
+  bobNet = createNetwork(bob.id, {
+    name: 'libera',
+    host: 'h',
+    port: 6697,
+    tls: true,
+    nick: 'bob',
+  })!;
 
   app = createTestApp({ '/api/bookmarks': router });
   aliceAgent = await createAuthedAgent(app, alice.id);
@@ -39,8 +56,13 @@ afterAll(() => ctx.cleanup());
 
 function chat(networkId: number, target: string, nick: string, text: string) {
   return insertMessage({
-    networkId, target, time: new Date().toISOString(),
-    type: 'message', nick, text, self: false,
+    networkId,
+    target,
+    time: new Date().toISOString(),
+    type: 'message',
+    nick,
+    text,
+    self: false,
   });
 }
 
@@ -50,7 +72,7 @@ describe('GET /api/bookmarks', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns only the caller\'s bookmarks', async () => {
+  it("returns only the caller's bookmarks", async () => {
     const aliceMsg = Number(chat(aliceNet.id, '#meta', 'someone', 'visible').id);
     const bobMsg = Number(chat(bobNet.id, '#meta', 'someone', 'hidden').id);
     addBookmark(alice.id, aliceMsg);
@@ -65,7 +87,11 @@ describe('GET /api/bookmarks', () => {
   it('paginates with limit + cursor', async () => {
     const me = (await import('../db/users.js')).createUser('bm-paginate');
     const net = (await import('../db/networks.js')).createNetwork(me.id, {
-      name: 'libera', host: 'h', port: 6697, tls: true, nick: 'me',
+      name: 'libera',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'me',
     })!;
     const ids: Array<number | bigint> = [];
     for (let i = 0; i < 5; i += 1) {

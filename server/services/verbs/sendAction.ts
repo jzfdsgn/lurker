@@ -12,7 +12,8 @@ interface VerbContext {
 
 registerVerb({
   name: 'send_action',
-  description: 'Send a CTCP ACTION ("/me ...") to a channel or peer on a network. Returns { ok: false, error: "not-connected" } when the network is offline.',
+  description:
+    'Send a CTCP ACTION ("/me ...") to a channel or peer on a network. Returns { ok: false, error: "not-connected" } when the network is offline.',
   scope: 'read-write',
   input: {
     type: 'object',

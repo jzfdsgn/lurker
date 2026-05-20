@@ -19,7 +19,7 @@ function key(networkId: number | string, target: string) {
 // have to handle non-serializable Map entries. `_resetTimers()` clears them
 // in concert with $reset on logout.
 const flushTimers = new Map<string, ReturnType<typeof setTimeout>>(); // key -> setTimeout id
-const pending = new Map<string, { networkId: number | string; target: string }>();     // key -> { networkId, target }
+const pending = new Map<string, { networkId: number | string; target: string }>(); // key -> { networkId, target }
 
 // Mirrors the server's per-buffer drafts table. Server is the source of truth
 // on snapshot (initial connect, visibility-resync). Local writes go in
@@ -34,7 +34,8 @@ export const useDraftStore = defineStore('drafts', {
     drafts: {} as Record<string, string>,
   }),
   getters: {
-    forBuffer: (state) => (networkId: number | string, target: string) => state.drafts[key(networkId, target)] || '',
+    forBuffer: (state) => (networkId: number | string, target: string) =>
+      state.drafts[key(networkId, target)] || '',
     hasDraft: (state) => (networkId: number | string, target: string) => {
       const body = state.drafts[key(networkId, target)];
       return typeof body === 'string' && body.length > 0;

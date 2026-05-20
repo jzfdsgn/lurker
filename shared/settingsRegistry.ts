@@ -16,14 +16,7 @@
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 /** Discriminant for how a setting is edited, validated, and stored. */
-export type SettingType =
-  | 'string'
-  | 'color'
-  | 'secret'
-  | 'int'
-  | 'bool'
-  | 'enum'
-  | 'string-list';
+export type SettingType = 'string' | 'color' | 'secret' | 'int' | 'bool' | 'enum' | 'string-list';
 
 /** A stored setting value, in its decoded (non-string) form. */
 export type SettingValue = string | number | boolean | string[];
@@ -70,12 +63,7 @@ export interface StringListOption extends BaseOption {
 }
 
 /** Any entry in the settings REGISTRY. Narrow on `.type` for type-specific fields. */
-export type SettingOption =
-  | StringOption
-  | IntOption
-  | BoolOption
-  | EnumOption
-  | StringListOption;
+export type SettingOption = StringOption | IntOption | BoolOption | EnumOption | StringListOption;
 
 /**
  * A Settings-sidebar category. `registry` categories are auto-rendered from
@@ -148,7 +136,7 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
     group: 'palette',
     type: 'color',
     default: '#212022',
-    description: "Window background (every region uses this, like a CLI app).",
+    description: 'Window background (every region uses this, like a CLI app).',
   },
   {
     key: 'look.color.bg_soft',
@@ -432,10 +420,25 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
     group: 'nicks',
     type: 'string-list',
     default: [
-      '#ff6188', '#fc9867', '#ffd866', '#a9dc76', '#78dce8', '#ab9df2',
-      '#ed6c89', '#d4996e', '#f9d978', '#b3db82', '#91dae6', '#a99dec',
-      '#ff7494', '#ffaf75', '#c4e29a', '#a0f1ff', '#b6aaff',
-      '#7ba4ff', '#6799f3',
+      '#ff6188',
+      '#fc9867',
+      '#ffd866',
+      '#a9dc76',
+      '#78dce8',
+      '#ab9df2',
+      '#ed6c89',
+      '#d4996e',
+      '#f9d978',
+      '#b3db82',
+      '#91dae6',
+      '#a99dec',
+      '#ff7494',
+      '#ffaf75',
+      '#c4e29a',
+      '#a0f1ff',
+      '#b6aaff',
+      '#7ba4ff',
+      '#6799f3',
     ],
     description:
       "Palette of colors used to deterministically color other users' nicknames. " +
@@ -505,7 +508,7 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
     description:
       'Time format used in chat buffers when the compact message layout is ' +
       'active (look.message.layout = compact, or = auto on mobile). ' +
-      'Defaults to HH:mm — compact\'s right-aligned per-line timestamp is ' +
+      "Defaults to HH:mm — compact's right-aligned per-line timestamp is " +
       'tight on small viewports and seconds are rarely useful at a glance. ' +
       'Tokens: YYYY MM DD HH mm ss. Empty string hides the column.',
   },
@@ -531,7 +534,7 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
     default: 500,
     description:
       'Minimum lag (in milliseconds) before the status-bar lag indicator appears. ' +
-      'Below this threshold the indicator stays hidden. Modeled on weechat\'s ' +
+      "Below this threshold the indicator stays hidden. Modeled on weechat's " +
       'irc.network.lag_min_show.',
   },
   {
@@ -596,7 +599,7 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
     default: true,
     description:
       'Merge consecutive join/part/quit/nick events into a single summary line ' +
-      "per nick (e.g. \"Alice and Bob joined; Dave left; Eve → Eve_afk\"). " +
+      'per nick (e.g. "Alice and Bob joined; Dave left; Eve → Eve_afk"). ' +
       'Off shows every event individually. Composes with smart filter — events ' +
       'the smart filter hides are excluded from the summary.',
   },
@@ -999,7 +1002,7 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
     type: 'bool',
     default: false,
     description:
-      "Suppress push notifications while you have a manual /away set. " +
+      'Suppress push notifications while you have a manual /away set. ' +
       "Auto-away (triggered when all your tabs close) is unaffected — that's " +
       'the case push exists to cover.',
   },
@@ -1035,8 +1038,7 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
     type: 'string',
     default: '07:00',
     description:
-      'End of the quiet-hours window in HH:MM (24h), interpreted in your ' +
-      'system.timezone.',
+      'End of the quiet-hours window in HH:MM (24h), interpreted in your ' + 'system.timezone.',
   },
 
   // ─── Input bar (system text features) ─────────────────────────────────
@@ -1164,20 +1166,20 @@ export function defaultsAsObject(): Record<string, SettingValue> {
 // personal → meta. Sidebar renders top-to-bottom; the first category is also
 // the redirect target when navigating to bare /settings.
 export const CATEGORIES: readonly SettingCategory[] = Object.freeze([
-  { id: 'appearance',    label: 'Appearance',    kind: 'registry' },
-  { id: 'chat',          label: 'Chat',          kind: 'registry' },
-  { id: 'input',         label: 'Input bar',     kind: 'registry' },
-  { id: 'uploads',       label: 'Uploads',       kind: 'registry' },
-  { id: 'notifications', label: 'Notifications', kind: 'bespoke'  },
-  { id: 'highlights',    label: 'Highlights',    kind: 'bespoke'  },
-  { id: 'ignores',       label: 'Ignores',       kind: 'bespoke'  },
-  { id: 'away',          label: 'Away',          kind: 'registry' },
-  { id: 'users',         label: 'Users',         kind: 'bespoke', adminOnly: true },
-  { id: 'networks',      label: 'Networks',      kind: 'bespoke'  },
-  { id: 'account',       label: 'Account',       kind: 'bespoke'  },
-  { id: 'api-tokens',    label: 'API tokens',    kind: 'bespoke'  },
-  { id: 'data',          label: 'Data',          kind: 'bespoke'  },
-  { id: 'about',         label: 'About',         kind: 'bespoke'  },
+  { id: 'appearance', label: 'Appearance', kind: 'registry' },
+  { id: 'chat', label: 'Chat', kind: 'registry' },
+  { id: 'input', label: 'Input bar', kind: 'registry' },
+  { id: 'uploads', label: 'Uploads', kind: 'registry' },
+  { id: 'notifications', label: 'Notifications', kind: 'bespoke' },
+  { id: 'highlights', label: 'Highlights', kind: 'bespoke' },
+  { id: 'ignores', label: 'Ignores', kind: 'bespoke' },
+  { id: 'away', label: 'Away', kind: 'registry' },
+  { id: 'users', label: 'Users', kind: 'bespoke', adminOnly: true },
+  { id: 'networks', label: 'Networks', kind: 'bespoke' },
+  { id: 'account', label: 'Account', kind: 'bespoke' },
+  { id: 'api-tokens', label: 'API tokens', kind: 'bespoke' },
+  { id: 'data', label: 'Data', kind: 'bespoke' },
+  { id: 'about', label: 'About', kind: 'bespoke' },
 ]);
 
 // Sub-group labels used inside a category pane (one heading per `group` field

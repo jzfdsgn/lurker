@@ -34,8 +34,8 @@ export function useSelfLabel(): SelfLabelState {
     const nick = state?.nick;
     if (!nick) return '';
     const lc = nick.toLowerCase();
-    const me = (buf.members || []).find((m: any) => ((m.nick || m).toLowerCase()) === lc);
-    const modes = me && typeof me === 'object' ? (me.modes || []) : [];
+    const me = (buf.members || []).find((m: any) => (m.nick || m).toLowerCase() === lc);
+    const modes = me && typeof me === 'object' ? me.modes || [] : [];
     for (const letter of PROMPT_PREFIX_RANK) {
       if (modes.includes(letter)) return PROMPT_PREFIX[letter];
     }

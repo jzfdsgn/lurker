@@ -21,14 +21,8 @@ let invitee: ReturnType<typeof import('./users.js').createUser>;
 
 beforeAll(async () => {
   ({ createUser } = await import('./users.js'));
-  ({
-    createInvite,
-    getInvite,
-    listInvites,
-    inviteStatus,
-    consumeInvite,
-    deleteInvite,
-  } = await import('./invites.js'));
+  ({ createInvite, getInvite, listInvites, inviteStatus, consumeInvite, deleteInvite } =
+    await import('./invites.js'));
   admin = createUser('admin', { role: 'admin' });
   invitee = createUser('invitee');
 });
@@ -70,8 +64,10 @@ describe('invites', () => {
   it('expired invites surface as expired and cannot be consumed', async () => {
     const { default: db } = await import('./index.js');
     const inv = createInvite(admin.id);
-    db.prepare('UPDATE invite_tokens SET expires_at = ? WHERE token = ?')
-      .run(new Date(Date.now() - 1000).toISOString(), inv!.token);
+    db.prepare('UPDATE invite_tokens SET expires_at = ? WHERE token = ?').run(
+      new Date(Date.now() - 1000).toISOString(),
+      inv!.token,
+    );
     expect(inviteStatus(inv!.token).status).toBe('expired');
     // consumeInvite is the race-safe UPDATE; it will *succeed* on an expired
     // unconsumed row because the DB doesn't know about the expiry semantics.

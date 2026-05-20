@@ -1,7 +1,7 @@
 // In-memory scan store. One operator, one in-flight scan at a time — sample
 // scope. Restart drops history; that's acceptable here.
 
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
 export interface Proposal {
   nick: string;
@@ -29,7 +29,7 @@ export interface ScanEvent {
   [key: string]: unknown;
 }
 
-export type ScanStatus = "running" | "done" | "error";
+export type ScanStatus = 'running' | 'done' | 'error';
 
 export interface Scan {
   id: string;
@@ -63,7 +63,7 @@ export function createScan({
     networkId,
     target,
     depth,
-    status: "running",
+    status: 'running',
     toolCallCount: 0,
     proposals: null,
     messages: null,
@@ -76,7 +76,7 @@ export function createScan({
   return scan;
 }
 
-export function appendEvent(id: string, event: Omit<ScanEvent, "at">): Scan | null {
+export function appendEvent(id: string, event: Omit<ScanEvent, 'at'>): Scan | null {
   const scan = scans.get(id);
   if (!scan) return null;
   scan.events.push({ ...event, at: Date.now() } as ScanEvent);
@@ -99,7 +99,7 @@ export function finishScan(
   { proposals, messages }: { proposals: Proposal[]; messages: Record<number, IrcMessage> },
 ): Scan | null {
   return updateScan(id, {
-    status: "done",
+    status: 'done',
     proposals,
     messages,
     finishedAt: Date.now(),
@@ -108,7 +108,7 @@ export function finishScan(
 
 export function errorScan(id: string, error: unknown): Scan | null {
   return updateScan(id, {
-    status: "error",
+    status: 'error',
     error: (error as Error)?.message ?? String(error),
     finishedAt: Date.now(),
   });

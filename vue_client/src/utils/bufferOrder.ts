@@ -52,7 +52,11 @@ function bufferOrder(target: string): number {
 }
 
 // Returns a flat array of { networkId, target } entries in sidebar order.
-export function flattenBufferOrder({ networks, buffers, pins }: BufferOrderArgs): BufferOrderEntry[] {
+export function flattenBufferOrder({
+  networks,
+  buffers,
+  pins,
+}: BufferOrderArgs): BufferOrderEntry[] {
   const out: BufferOrderEntry[] = [];
   for (const net of networks) {
     const serverTarget = `:server:${net.id}`;
@@ -83,7 +87,11 @@ export function flattenBufferOrder({ networks, buffers, pins }: BufferOrderArgs)
 
 // Same shape as flattenBufferOrder but only entries with unread > 0. Server
 // pseudo-buffers participate (network-level notices land there).
-export function flattenUnreadOrder({ networks, buffers, pins }: BufferOrderArgs): BufferOrderEntry[] {
+export function flattenUnreadOrder({
+  networks,
+  buffers,
+  pins,
+}: BufferOrderArgs): BufferOrderEntry[] {
   return flattenBufferOrder({ networks, buffers, pins }).filter((entry) => {
     const buf = buffers.byKey(`${entry.networkId}::${entry.target}`);
     return !!buf && buf.unread > 0;

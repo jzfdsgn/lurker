@@ -25,16 +25,14 @@ export async function upload(
   });
   const text = (await resp.text()).trim();
   if (!resp.ok) {
-    throw Object.assign(
-      new Error(`x0.at upload failed: ${resp.status} ${text.slice(0, 200)}`),
-      { code: 'PROVIDER_ERROR' },
-    );
+    throw Object.assign(new Error(`x0.at upload failed: ${resp.status} ${text.slice(0, 200)}`), {
+      code: 'PROVIDER_ERROR',
+    });
   }
   if (!/^https?:\/\//.test(text)) {
-    throw Object.assign(
-      new Error(`x0.at unexpected response: ${text.slice(0, 200)}`),
-      { code: 'PROVIDER_ERROR' },
-    );
+    throw Object.assign(new Error(`x0.at unexpected response: ${text.slice(0, 200)}`), {
+      code: 'PROVIDER_ERROR',
+    });
   }
   return { url: text };
 }

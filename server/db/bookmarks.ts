@@ -131,7 +131,9 @@ export function listBookmarksForUser(
     if (row.extra) {
       try {
         Object.assign(event, JSON.parse(row.extra));
-      } catch (_) { /* ignore */ }
+      } catch (_) {
+        /* ignore */
+      }
     }
     return event;
   });

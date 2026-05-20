@@ -11,7 +11,8 @@
     @close="$emit('cancel')"
   >
     <p class="desc">
-      IRC will split this into {{ chunks }} separate lines. Upload it as a <code>.txt</code> file instead?
+      IRC will split this into {{ chunks }} separate lines. Upload it as a <code>.txt</code> file
+      instead?
     </p>
     <pre class="preview">{{ content }}</pre>
     <footer class="foot">
@@ -22,7 +23,9 @@
         class="btn primary"
         :disabled="uploading"
         @click="$emit('confirm')"
-      >{{ uploading ? 'Uploading…' : 'Upload as .txt' }}</button>
+      >
+        {{ uploading ? 'Uploading…' : 'Upload as .txt' }}
+      </button>
     </footer>
   </AppModal>
 </template>
@@ -31,13 +34,16 @@
 import { ref, onMounted } from 'vue';
 import AppModal from './AppModal.vue';
 
-withDefaults(defineProps<{
-  content: string;
-  chunks: number;
-  uploading?: boolean;
-}>(), {
-  uploading: false,
-});
+withDefaults(
+  defineProps<{
+    content: string;
+    chunks: number;
+    uploading?: boolean;
+  }>(),
+  {
+    uploading: false,
+  },
+);
 
 defineEmits<{ confirm: []; cancel: [] }>();
 
@@ -90,8 +96,13 @@ onMounted(() => {
   font: inherit;
   padding: 6px 14px;
 }
-.btn:hover:not(:disabled) { border-color: var(--accent); }
-.btn:disabled { opacity: 0.5; cursor: default; }
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);

@@ -21,11 +21,8 @@ let setNicklistCollapsed: typeof import('./nicklistCollapsed.js').setNicklistCol
 beforeAll(async () => {
   ({ createUser } = await import('./users.js'));
   ({ createNetwork } = await import('./networks.js'));
-  ({
-    listCollapsedForUser,
-    listCollapsedForUserNetwork,
-    setNicklistCollapsed,
-  } = await import('./nicklistCollapsed.js'));
+  ({ listCollapsedForUser, listCollapsedForUserNetwork, setNicklistCollapsed } =
+    await import('./nicklistCollapsed.js'));
 });
 
 afterAll(() => {
@@ -34,7 +31,11 @@ afterAll(() => {
 
 function mkNetwork(userId: number, name: string) {
   return createNetwork(userId, {
-    name, host: 'irc.libera.chat', port: 6697, tls: true, nick: name,
+    name,
+    host: 'irc.libera.chat',
+    port: 6697,
+    tls: true,
+    nick: name,
   });
 }
 

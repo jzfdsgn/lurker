@@ -45,7 +45,9 @@ describe('setUserSetting / getUserSettings / deleteUserSetting', () => {
   it('malformed rows are skipped silently', async () => {
     const db = (await import('./index.js')).default;
     db.prepare('INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?)').run(
-      user.id, 'bad.json', 'not-json!!',
+      user.id,
+      'bad.json',
+      'not-json!!',
     );
     const values = mod.getUserSettings(user.id);
     expect(values['bad.json']).toBeUndefined();

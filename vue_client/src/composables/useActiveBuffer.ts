@@ -30,9 +30,7 @@ export function useActiveBuffer(): ActiveBufferState {
     return buffers.byKey(activeKey.value);
   });
   const topic = computed(() => (activeBuf.value as any)?.topic);
-  const isServerBuffer = computed(
-    () => !!active.value?.target?.startsWith(':server:')
-  );
+  const isServerBuffer = computed(() => !!active.value?.target?.startsWith(':server:'));
   const isChannel = computed(() => !!active.value?.target?.startsWith('#'));
   const bufferLabel = computed(() => {
     const t = active.value?.target;
@@ -41,5 +39,14 @@ export function useActiveBuffer(): ActiveBufferState {
     return t;
   });
 
-  return { activeKey, active, activeBuf, topic, isServerBuffer, isChannel, bufferLabel, isSystemConsole };
+  return {
+    activeKey,
+    active,
+    activeBuf,
+    topic,
+    isServerBuffer,
+    isChannel,
+    bufferLabel,
+    isSystemConsole,
+  };
 }

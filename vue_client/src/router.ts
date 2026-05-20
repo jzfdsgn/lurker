@@ -7,8 +7,18 @@ import { useAuthStore } from './stores/auth.js';
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'login', component: () => import('./views/Login.vue') },
   { path: '/invite/:token', name: 'invite', component: () => import('./views/InviteAccept.vue') },
-  { path: '/', name: 'chat', component: () => import('./views/Chat.vue'), meta: { requiresAuth: true } },
-  { path: '/settings/:category?', name: 'settings', component: () => import('./views/Settings.vue'), meta: { requiresAuth: true } },
+  {
+    path: '/',
+    name: 'chat',
+    component: () => import('./views/Chat.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/settings/:category?',
+    name: 'settings',
+    component: () => import('./views/Settings.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({

@@ -17,7 +17,8 @@ export const useInputHistoryStore = defineStore('inputHistory', {
     history: {} as Record<string, string[]>,
   }),
   getters: {
-    forBuffer: (state) => (networkId: number | string, target: string) => state.history[key(networkId, target)] || [],
+    forBuffer: (state) => (networkId: number | string, target: string) =>
+      state.history[key(networkId, target)] || [],
   },
   actions: {
     seed(networkId: number | string, target: string, entries: string[]) {

@@ -35,7 +35,11 @@ const listForUserStmt = db.prepare(`
 // Returns map keyed by `${networkId}::${target}` → lastReadId.
 export function listReadStateForUser(userId: number): Record<string, number> {
   const out: Record<string, number> = {};
-  for (const row of listForUserStmt.all(userId) as Array<{ networkId: number; target: string; lastReadId: number }>) {
+  for (const row of listForUserStmt.all(userId) as Array<{
+    networkId: number;
+    target: string;
+    lastReadId: number;
+  }>) {
     out[`${row.networkId}::${row.target}`] = row.lastReadId;
   }
   return out;

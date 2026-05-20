@@ -77,7 +77,7 @@ describe('POST /api/api-tokens', () => {
 });
 
 describe('DELETE /api/api-tokens/:id', () => {
-  it('revokes the caller\'s own token (soft, listed with revokedAt set)', async () => {
+  it("revokes the caller's own token (soft, listed with revokedAt set)", async () => {
     const create = await agent.post('/api/api-tokens').send({ name: 'temp', scope: 'read' });
     const id = create.body.id as number;
     const del = await agent.delete(`/api/api-tokens/${id}`);
@@ -87,7 +87,7 @@ describe('DELETE /api/api-tokens/:id', () => {
     expect(row.revokedAt).not.toBeNull();
   });
 
-  it('404 when attempting to revoke another user\'s token', async () => {
+  it("404 when attempting to revoke another user's token", async () => {
     const mine = await agent.post('/api/api-tokens').send({ name: 'mine', scope: 'read' });
     const del = await intruderAgent.delete(`/api/api-tokens/${mine.body.id}`);
     expect(del.status).toBe(404);

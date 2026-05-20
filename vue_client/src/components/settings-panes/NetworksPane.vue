@@ -7,8 +7,8 @@
   <section id="networks" class="settings-pane">
     <h2>networks</h2>
     <p class="section-desc">
-      Drag to change the order networks appear in the sidebar. Adding,
-      editing, and removing networks still happens from the
+      Drag to change the order networks appear in the sidebar. Adding, editing, and removing
+      networks still happens from the
       <strong>+</strong> button at the top of the sidebar.
     </p>
 
@@ -63,11 +63,7 @@ function syncFromStore() {
   localOrder.value = [...networks.networks];
 }
 
-watch(
-  () => networks.networks,
-  syncFromStore,
-  { immediate: true, deep: false },
-);
+watch(() => networks.networks, syncFromStore, { immediate: true, deep: false });
 
 const error = ref('');
 
@@ -104,16 +100,26 @@ async function onDragEnd() {
   padding: 8px 4px;
   border-top: 1px solid var(--border);
 }
-.network:first-child { border-top: none; }
-.network:hover { background: var(--bg-soft); }
+.network:first-child {
+  border-top: none;
+}
+.network:hover {
+  background: var(--bg-soft);
+}
 .grip {
   color: var(--fg-muted);
   cursor: grab;
   padding: 0 2px;
 }
-.grip:active { cursor: grabbing; }
-.name { color: var(--fg); }
-.host { color: var(--fg-muted); }
+.grip:active {
+  cursor: grabbing;
+}
+.name {
+  color: var(--fg);
+}
+.host {
+  color: var(--fg-muted);
+}
 .drag-ghost {
   opacity: 0.4;
   background: var(--bg-soft);

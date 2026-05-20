@@ -30,7 +30,8 @@ function validatePattern(pattern: unknown): string | null {
 }
 
 function validateKind(kind: unknown): string | null {
-  if (typeof kind !== 'string' || !ALLOWED_KINDS.has(kind)) return 'kind must be plain, glob, or regex';
+  if (typeof kind !== 'string' || !ALLOWED_KINDS.has(kind))
+    return 'kind must be plain, glob, or regex';
   return null;
 }
 
@@ -57,7 +58,10 @@ class HighlightRulesService extends EventEmitter {
     return listRules(userId);
   }
 
-  create(userId: number, fields: CreateFields): { ok: false; error: string } | { ok: true; rule: HighlightRule | null } {
+  create(
+    userId: number,
+    fields: CreateFields,
+  ): { ok: false; error: string } | { ok: true; rule: HighlightRule | null } {
     const pattern = ((fields.pattern as string) || '').trim();
     const kind = (fields.kind as string) || 'plain';
     const patternErr = validatePattern(pattern);
@@ -78,26 +82,33 @@ class HighlightRulesService extends EventEmitter {
     return { ok: true, rule };
   }
 
-  update(id: number, userId: number, fields: CreateFields): { ok: false; error: string; status?: number } | { ok: true; rule: HighlightRule | null } {
+  update(
+    id: number,
+    userId: number,
+    fields: CreateFields,
+  ): { ok: false; error: string; status?: number } | { ok: true; rule: HighlightRule | null } {
     const existing = getRule(id, userId);
     if (!existing) return { ok: false, error: 'rule not found', status: 404 };
     const isAutoManaged = !!existing.auto_managed;
     const update: RuleFields = {};
     if ('pattern' in fields) {
-      if (isAutoManaged) return { ok: false, error: 'cannot edit pattern of auto-managed rule', status: 400 };
+      if (isAutoManaged)
+        return { ok: false, error: 'cannot edit pattern of auto-managed rule', status: 400 };
       const pattern = ((fields.pattern as string) || '').trim();
       const patternErr = validatePattern(pattern);
       if (patternErr) return { ok: false, error: patternErr };
       update.pattern = pattern;
     }
     if ('kind' in fields) {
-      if (isAutoManaged) return { ok: false, error: 'cannot edit kind of auto-managed rule', status: 400 };
+      if (isAutoManaged)
+        return { ok: false, error: 'cannot edit kind of auto-managed rule', status: 400 };
       const kindErr = validateKind(fields.kind);
       if (kindErr) return { ok: false, error: kindErr };
       update.kind = fields.kind as string;
     }
     if ('case_sensitive' in fields) {
-      if (isAutoManaged) return { ok: false, error: 'cannot edit case_sensitive of auto-managed rule', status: 400 };
+      if (isAutoManaged)
+        return { ok: false, error: 'cannot edit case_sensitive of auto-managed rule', status: 400 };
       update.case_sensitive = !!fields.case_sensitive;
     }
     if ('enabled' in fields) update.enabled = !!fields.enabled;
@@ -124,7 +135,11 @@ class HighlightRulesService extends EventEmitter {
     return { ok: true };
   }
 
-  upsertAutoNickRule(userId: number, networkId: number, nick: string | null | undefined): HighlightRule | null {
+  upsertAutoNickRule(
+    userId: number,
+    networkId: number,
+    nick: string | null | undefined,
+  ): HighlightRule | null {
     if (!nick) return null;
     const rule = upsertAutoNickRule(userId, networkId, nick);
     this._invalidate(userId);

@@ -13,7 +13,8 @@ interface VerbContext {
 
 registerVerb({
   name: 'recent_messages',
-  description: 'Fetch a window of recent messages for one buffer, oldest-first. Paginate backwards by passing the lowest id from a previous result as `before`.',
+  description:
+    'Fetch a window of recent messages for one buffer, oldest-first. Paginate backwards by passing the lowest id from a previous result as `before`.',
   scope: 'read',
   input: {
     type: 'object',

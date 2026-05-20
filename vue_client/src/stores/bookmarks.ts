@@ -97,7 +97,7 @@ export const useBookmarksStore = defineStore('bookmarks', {
       this.error = '';
       try {
         const { items, nextBefore } = await api(
-          `/api/bookmarks?limit=${PAGE_SIZE}&before=${this.nextBefore}`
+          `/api/bookmarks?limit=${PAGE_SIZE}&before=${this.nextBefore}`,
         );
         this.items = this.items.concat(items || []);
         this.nextBefore = nextBefore ?? null;

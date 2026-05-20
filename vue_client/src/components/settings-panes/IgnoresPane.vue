@@ -7,11 +7,10 @@
   <section id="ignores" class="settings-pane">
     <h2>ignores</h2>
     <p class="section-desc">
-      Plain nicks match the sender's nick on that network. Hostmasks
-      (<code>nick!user@host</code>, with <code>*</code> wildcards) match
-      against the IRC user@host so they survive nick changes. Messages,
-      joins, parts, and quits from any matching identity are hidden in
-      every client; remove an entry to reveal the history again.
+      Plain nicks match the sender's nick on that network. Hostmasks (<code>nick!user@host</code>,
+      with <code>*</code> wildcards) match against the IRC user@host so they survive nick changes.
+      Messages, joins, parts, and quits from any matching identity are hidden in every client;
+      remove an entry to reveal the history again.
     </p>
     <p v-if="!ignoreGroups.length" class="muted small">
       No ignores yet. Right-click a nick in the member list, or type
@@ -20,16 +19,11 @@
     <template v-for="group in ignoreGroups" :key="group.networkId">
       <h3 class="subhead">{{ group.networkName }}</h3>
       <ul class="device-list">
-        <li
-          v-for="entry in group.masks"
-          :key="entry.mask"
-          class="device"
-        >
+        <li v-for="entry in group.masks" :key="entry.mask" class="device">
           <span class="ua">{{ entry.mask }}</span>
-          <button
-            class="link danger"
-            @click="onIgnoreRemove(group.networkId, entry.mask)"
-          >remove</button>
+          <button class="link danger" @click="onIgnoreRemove(group.networkId, entry.mask)">
+            remove
+          </button>
         </li>
       </ul>
     </template>
@@ -37,7 +31,9 @@
     <div class="rule-add" v-if="ignoreNetworkOptions.length">
       <select v-model="newIgnoreNetworkId">
         <option :value="null" disabled>network…</option>
-        <option v-for="opt in ignoreNetworkOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
+        <option v-for="opt in ignoreNetworkOptions" :key="opt.id" :value="opt.id">
+          {{ opt.name }}
+        </option>
       </select>
       <input
         v-model="newIgnoreMask"
@@ -52,7 +48,9 @@
         class="link"
         :disabled="!newIgnoreNetworkId || !newIgnoreMask.trim()"
         @click="onIgnoreAdd"
-      >add</button>
+      >
+        add
+      </button>
     </div>
   </section>
 </template>
@@ -117,8 +115,7 @@ watch(
   (opts) => {
     if (opts.length === 1) {
       newIgnoreNetworkId.value = opts[0].id;
-    } else if (newIgnoreNetworkId.value
-        && !opts.some((o) => o.id === newIgnoreNetworkId.value)) {
+    } else if (newIgnoreNetworkId.value && !opts.some((o) => o.id === newIgnoreNetworkId.value)) {
       newIgnoreNetworkId.value = null;
     }
   },
@@ -146,5 +143,8 @@ function onIgnoreRemove(networkId: number, mask: string) {
   gap: 8px;
   padding-top: 10px;
 }
-.rule-add input[type="text"] { flex: 1; min-width: 200px; }
+.rule-add input[type='text'] {
+  flex: 1;
+  min-width: 200px;
+}
 </style>

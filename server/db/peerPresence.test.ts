@@ -29,11 +29,14 @@ describe('writePeerState / getPeerPresence', () => {
   it('records and replaces a single row per peer', () => {
     pp.writePeerState(net!.id, 'bob', 'online', '2026-05-17T10:00:00Z');
     expect(pp.getPeerPresence(net!.id, 'bob')).toMatchObject({
-      nick: 'bob', state: 'online', awayMessage: null,
+      nick: 'bob',
+      state: 'online',
+      awayMessage: null,
     });
     pp.writePeerState(net!.id, 'bob', 'away', '2026-05-17T11:00:00Z', 'lunch');
     expect(pp.getPeerPresence(net!.id, 'bob')).toMatchObject({
-      state: 'away', awayMessage: 'lunch',
+      state: 'away',
+      awayMessage: 'lunch',
     });
   });
 

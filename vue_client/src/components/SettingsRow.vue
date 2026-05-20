@@ -13,12 +13,9 @@
     <div class="head">
       <span class="headline">{{ opt.label || opt.key }}</span>
       <span class="type">{{ opt.type }}</span>
-      <button
-        v-if="modified"
-        class="link reset"
-        @click="$emit('reset')"
-        title="reset to default"
-      >reset</button>
+      <button v-if="modified" class="link reset" @click="$emit('reset')" title="reset to default">
+        reset
+      </button>
     </div>
     <div class="key-sub">
       <code>{{ opt.key }}</code>
@@ -59,7 +56,15 @@
       <textarea
         v-else-if="opt.type === 'string-list'"
         :value="(Array.isArray(value) ? value : []).join('\n')"
-        @change="$emit('commit', ($event.target as HTMLTextAreaElement).value.split('\n').map(s => s.trim()).filter(Boolean))"
+        @change="
+          $emit(
+            'commit',
+            ($event.target as HTMLTextAreaElement).value
+              .split('\n')
+              .map((s) => s.trim())
+              .filter(Boolean),
+          )
+        "
         rows="6"
       ></textarea>
       <span v-else-if="opt.type === 'secret'" class="secret-edit">
@@ -70,11 +75,9 @@
           :value="value"
           @change="$emit('commit', ($event.target as HTMLInputElement).value)"
         />
-        <button
-          type="button"
-          class="link reveal"
-          @click="revealed = !revealed"
-        >{{ revealed ? 'hide' : 'show' }}</button>
+        <button type="button" class="link reveal" @click="revealed = !revealed">
+          {{ revealed ? 'hide' : 'show' }}
+        </button>
       </span>
       <input
         v-else
@@ -93,14 +96,17 @@
 import { ref } from 'vue';
 import type { SettingOption, SettingValue } from '../../../shared/settingsRegistry.js';
 
-withDefaults(defineProps<{
-  opt: SettingOption;
-  value?: SettingValue;
-  modified?: boolean;
-}>(), {
-  value: undefined,
-  modified: false,
-});
+withDefaults(
+  defineProps<{
+    opt: SettingOption;
+    value?: SettingValue;
+    modified?: boolean;
+  }>(),
+  {
+    value: undefined,
+    modified: false,
+  },
+);
 
 defineEmits<{
   commit: [value: SettingValue];
@@ -127,13 +133,27 @@ function formatDefault(opt: SettingOption): string {
   border-left: 2px solid transparent;
   list-style: none;
 }
-.row:first-child { border-top: none; }
-.row:hover { background: var(--bg-soft); }
-.row.modified { border-left-color: var(--warn); }
-.row.modified .headline { color: var(--warn); }
+.row:first-child {
+  border-top: none;
+}
+.row:hover {
+  background: var(--bg-soft);
+}
+.row.modified {
+  border-left-color: var(--warn);
+}
+.row.modified .headline {
+  color: var(--warn);
+}
 
-.head { display: flex; align-items: center; gap: 10px; }
-.headline { font-weight: 600; }
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.headline {
+  font-weight: 600;
+}
 .type {
   color: var(--fg-muted);
   border: 1px solid var(--border);
@@ -146,29 +166,57 @@ function formatDefault(opt: SettingOption): string {
   background: var(--bg-soft);
   padding: 0 4px;
 }
-.desc { color: var(--fg-muted); }
+.desc {
+  color: var(--fg-muted);
+}
 
-.editor { margin-top: 2px; }
-.editor input[type="text"],
-.editor select { min-width: 280px; }
-.editor input[type="number"] { width: 120px; }
+.editor {
+  margin-top: 2px;
+}
+.editor input[type='text'],
+.editor select {
+  min-width: 280px;
+}
+.editor input[type='number'] {
+  width: 120px;
+}
 .editor textarea {
   width: 100%;
   max-width: 480px;
   resize: vertical;
 }
-.editor .bool { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.editor .color-edit { display: flex; align-items: center; gap: 8px; }
-.editor .secret-edit { display: flex; align-items: center; gap: 8px; }
-.editor .secret-edit input { flex: 1; }
-.editor .secret-edit .reveal { white-space: nowrap; }
+.editor .bool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.editor .color-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.editor .secret-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.editor .secret-edit input {
+  flex: 1;
+}
+.editor .secret-edit .reveal {
+  white-space: nowrap;
+}
 .editor .swatch {
   width: 14px;
   height: 14px;
   border: 1px solid var(--border);
   display: inline-block;
 }
-.default-line { color: var(--fg-muted); font-size: 0.9em; }
+.default-line {
+  color: var(--fg-muted);
+  font-size: 0.9em;
+}
 .default-line code {
   background: var(--bg-soft);
   padding: 0 4px;
@@ -183,12 +231,18 @@ function formatDefault(opt: SettingOption): string {
   font: inherit;
   text-decoration: underline;
 }
-.link:hover { color: var(--fg); }
+.link:hover {
+  color: var(--fg);
+}
 .link:disabled {
   color: var(--fg-muted);
   text-decoration: none;
   cursor: default;
 }
-.link.danger { color: var(--bad); }
-.link.reset { font-size: 0.85em; }
+.link.danger {
+  color: var(--bad);
+}
+.link.reset {
+  font-size: 0.85em;
+}
 </style>

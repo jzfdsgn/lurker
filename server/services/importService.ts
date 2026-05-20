@@ -13,11 +13,7 @@
 import yauzl from 'yauzl';
 import type { Statement, RunResult } from 'better-sqlite3';
 import db from '../db/index.js';
-import {
-  EXPORT_TABLES,
-  EXPORT_FORMAT_VERSION,
-  IMPORT_ORDER,
-} from '../db/exportSchema.js';
+import { EXPORT_TABLES, EXPORT_FORMAT_VERSION, IMPORT_ORDER } from '../db/exportSchema.js';
 
 interface ExportTableDefFull {
   mode: string;
@@ -73,7 +69,9 @@ function readZipToMap(buffer: Buffer): Promise<Map<string, Buffer>> {
 // imported timezone wins. Networks is the meaningful signal — if the user
 // has zero networks they haven't started using the app yet.
 function accountIsEmpty(userId: number): boolean {
-  const row = db.prepare('SELECT COUNT(*) AS n FROM networks WHERE user_id = ?').get(userId) as { n: number };
+  const row = db.prepare('SELECT COUNT(*) AS n FROM networks WHERE user_id = ?').get(userId) as {
+    n: number;
+  };
   return row.n === 0;
 }
 
@@ -81,7 +79,10 @@ function accountIsEmpty(userId: number): boolean {
 // an autoincrement PK so the target DB assigns a fresh id (rekeyOnImport
 // controls whether we *track* the old→new mapping for FKs, not whether we
 // reuse the old id).
-function buildInsertStatement(table: string, def: ExportTableDefFull): { stmt: Statement; cols: string[] } {
+function buildInsertStatement(
+  table: string,
+  def: ExportTableDefFull,
+): { stmt: Statement; cols: string[] } {
   const skipCols = new Set<string>();
   if (def.pk) skipCols.add(def.pk);
   // upload_history's thumbnail is written separately from the thumbnails/ entries.
@@ -127,7 +128,10 @@ function dependsOnMessages(def: ExportTableDefFull): boolean {
   return !!(def.fkRekey && Object.values(def.fkRekey).includes('messages'));
 }
 
-export async function importFromZipBuffer(targetUserId: number, zipBuffer: Buffer): Promise<{
+export async function importFromZipBuffer(
+  targetUserId: number,
+  zipBuffer: Buffer,
+): Promise<{
   manifest: Record<string, unknown>;
   counts: Record<string, number>;
   thumbnailsAttached: number;
@@ -140,7 +144,10 @@ export async function importFromZipBuffer(targetUserId: number, zipBuffer: Buffe
   }
   let manifest: Record<string, unknown>;
   try {
-    manifest = JSON.parse(entries.get('manifest.json')!.toString('utf8')) as Record<string, unknown>;
+    manifest = JSON.parse(entries.get('manifest.json')!.toString('utf8')) as Record<
+      string,
+      unknown
+    >;
   } catch (_) {
     throw new ImportError('bad_manifest', 'manifest.json is not valid JSON');
   }
@@ -160,7 +167,10 @@ export async function importFromZipBuffer(targetUserId: number, zipBuffer: Buffe
   }
   let data: Record<string, Record<string, unknown>[]>;
   try {
-    data = JSON.parse(entries.get('data.json')!.toString('utf8')) as Record<string, Record<string, unknown>[]>;
+    data = JSON.parse(entries.get('data.json')!.toString('utf8')) as Record<
+      string,
+      Record<string, unknown>[]
+    >;
   } catch (_) {
     throw new ImportError('bad_data', 'data.json is not valid JSON');
   }
@@ -220,7 +230,9 @@ export async function importFromZipBuffer(targetUserId: number, zipBuffer: Buffe
 
     // First pass: data.json tables that don't depend on messages.
     for (const table of IMPORT_ORDER) {
-      const def = EXPORT_TABLES[table as keyof typeof EXPORT_TABLES] as ExportTableDefFull | undefined;
+      const def = EXPORT_TABLES[table as keyof typeof EXPORT_TABLES] as
+        | ExportTableDefFull
+        | undefined;
       if (!def || def.mode === 'skip') continue;
       if (def.section === 'messages' || def.section === 'bookmarks') continue;
       if (dependsOnMessages(def)) continue;
@@ -266,7 +278,10 @@ export async function importFromZipBuffer(targetUserId: number, zipBuffer: Buffe
       const { stmt, cols } = buildInsertStatement('user_bookmarks', def);
       let bookmarks: Record<string, unknown>[];
       try {
-        bookmarks = JSON.parse(entries.get('bookmarks.json')!.toString('utf8')) as Record<string, unknown>[];
+        bookmarks = JSON.parse(entries.get('bookmarks.json')!.toString('utf8')) as Record<
+          string,
+          unknown
+        >[];
       } catch (_) {
         throw new ImportError('bad_bookmarks', 'bookmarks.json is not valid JSON');
       }
@@ -286,7 +301,9 @@ export async function importFromZipBuffer(targetUserId: number, zipBuffer: Buffe
     // Rows whose last_read_message_id (etc.) didn't make it into the
     // export are dropped silently by the FK-undefined check.
     for (const table of IMPORT_ORDER) {
-      const def = EXPORT_TABLES[table as keyof typeof EXPORT_TABLES] as ExportTableDefFull | undefined;
+      const def = EXPORT_TABLES[table as keyof typeof EXPORT_TABLES] as
+        | ExportTableDefFull
+        | undefined;
       if (!def || def.mode === 'skip') continue;
       if (def.section === 'messages' || def.section === 'bookmarks') continue;
       if (!dependsOnMessages(def)) continue;

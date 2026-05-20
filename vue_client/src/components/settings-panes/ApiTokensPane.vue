@@ -11,10 +11,9 @@
   <section id="api-tokens" class="settings-pane">
     <h2>api tokens</h2>
     <p class="section-desc">
-      Bearer tokens grant scripts and AI agents access to your Lurker data
-      through the MCP endpoint at <code>/mcp</code>. Each token belongs to your
-      account only and can be revoked at any time. The token itself is shown
-      <strong>once</strong> on creation — copy it before closing the row.
+      Bearer tokens grant scripts and AI agents access to your Lurker data through the MCP endpoint
+      at <code>/mcp</code>. Each token belongs to your account only and can be revoked at any time.
+      The token itself is shown <strong>once</strong> on creation — copy it before closing the row.
     </p>
     <p v-if="error" class="error inline">{{ error }}</p>
 
@@ -34,16 +33,13 @@
         <span>Allow this token to send messages and write notes</span>
       </label>
       <div class="create-actions">
-        <button class="link" type="submit" :disabled="busy || !newName.trim()">
-          create token
-        </button>
+        <button class="link" type="submit" :disabled="busy || !newName.trim()">create token</button>
       </div>
     </form>
 
     <div v-if="revealed" class="reveal">
       <p class="reveal-warning">
-        <strong>{{ revealed.name }}</strong> — copy this token now. It will
-        not be shown again.
+        <strong>{{ revealed.name }}</strong> — copy this token now. It will not be shown again.
       </p>
       <div class="reveal-row">
         <code class="token">{{ revealed.token }}</code>
@@ -63,14 +59,15 @@
           <span v-if="t.revokedAt" class="revoked">revoked</span>
         </span>
         <span class="last-seen" :title="t.lastUsedAt || t.createdAt">
-          {{ t.lastUsedAt ? `last used ${formatRelative(t.lastUsedAt)}` : `created ${formatRelative(t.createdAt)}` }}
+          {{
+            t.lastUsedAt
+              ? `last used ${formatRelative(t.lastUsedAt)}`
+              : `created ${formatRelative(t.createdAt)}`
+          }}
         </span>
-        <button
-          v-if="!t.revokedAt"
-          class="link danger"
-          :disabled="busy"
-          @click="onRevoke(t)"
-        >revoke</button>
+        <button v-if="!t.revokedAt" class="link danger" :disabled="busy" @click="onRevoke(t)">
+          revoke
+        </button>
         <span v-else class="placeholder" />
       </li>
     </ul>
@@ -105,7 +102,9 @@ const copied = ref(false);
 const busy = ref(false);
 const error = ref('');
 
-onMounted(() => { refresh(); });
+onMounted(() => {
+  refresh();
+});
 
 async function refresh() {
   error.value = '';
@@ -212,7 +211,10 @@ async function onRevoke(token: ApiToken) {
   border: 1px solid var(--accent);
   background: var(--bg-soft);
 }
-.reveal-warning { margin: 0 0 6px; color: var(--fg); }
+.reveal-warning {
+  margin: 0 0 6px;
+  color: var(--fg);
+}
 .reveal-row {
   display: flex;
   align-items: center;
@@ -235,7 +237,9 @@ async function onRevoke(token: ApiToken) {
   align-items: center;
   gap: 1ch;
 }
-.token-row .name { color: var(--fg); }
+.token-row .name {
+  color: var(--fg);
+}
 .token-row .scope {
   color: var(--fg-muted);
   font-variant: small-caps;
@@ -244,5 +248,7 @@ async function onRevoke(token: ApiToken) {
   color: var(--bad);
   font-variant: small-caps;
 }
-.token-row .placeholder { width: 0; }
+.token-row .placeholder {
+  width: 0;
+}
 </style>

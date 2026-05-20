@@ -44,7 +44,10 @@ describe('insertCredential / listForUser / findByCredentialId', () => {
   it('round-trips a credential row', () => {
     const c = makeCred(alice.id, 'a', 'phone')!;
     expect(c).toMatchObject({
-      userId: alice.id, label: 'phone', deviceType: 'multiDevice', backedUp: true,
+      userId: alice.id,
+      label: 'phone',
+      deviceType: 'multiDevice',
+      backedUp: true,
     });
     expect(c.transports).toEqual(['internal']);
     expect(mod.findByCredentialId(c.credentialId)!.id).toBe(c.id);
@@ -58,16 +61,18 @@ describe('insertCredential / listForUser / findByCredentialId', () => {
   });
 
   it('credential_id is globally unique (UNIQUE constraint)', () => {
-    expect(() => mod.insertCredential({
-      userId: alice.id,
-      credentialId: `cred-a-${alice.id}`,
-      publicKey: Buffer.from([1]),
-      counter: 0,
-      transports: [],
-      deviceType: 'singleDevice',
-      backedUp: false,
-      label: null,
-    })).toThrow(/UNIQUE constraint failed/);
+    expect(() =>
+      mod.insertCredential({
+        userId: alice.id,
+        credentialId: `cred-a-${alice.id}`,
+        publicKey: Buffer.from([1]),
+        counter: 0,
+        transports: [],
+        deviceType: 'singleDevice',
+        backedUp: false,
+        label: null,
+      }),
+    ).toThrow(/UNIQUE constraint failed/);
   });
 });
 

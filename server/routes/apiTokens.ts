@@ -4,11 +4,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import {
-  createToken,
-  listForUser,
-  revoke,
-} from '../db/apiTokens.js';
+import { createToken, listForUser, revoke } from '../db/apiTokens.js';
 
 // Admin UI for managing per-user MCP/API bearer tokens. Sibling of bookmarks.ts:
 // authenticated through the browser session cookie (not the bearer it manages),

@@ -8,10 +8,16 @@ import { optimize, thumbnail } from './imagePipeline.js';
 // All fixtures are synthesised on the fly so the test stays self-contained
 // and doesn't need committed binary blobs.
 
-async function staticPng(width: number, height: number, color = { r: 255, g: 128, b: 64 }): Promise<Buffer> {
+async function staticPng(
+  width: number,
+  height: number,
+  color = { r: 255, g: 128, b: 64 },
+): Promise<Buffer> {
   return sharp({
     create: { width, height, channels: 3, background: color },
-  }).png().toBuffer();
+  })
+    .png()
+    .toBuffer();
 }
 
 // A hand-crafted 2-frame 1×1 GIF89a (white→black). Inlined as base64 because

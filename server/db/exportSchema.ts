@@ -58,7 +58,8 @@ export const EXPORT_TABLES = Object.freeze({
     section: 'data',
     columns: ['username'],
     skippedColumns: USERS_SKIPPED_COLUMNS,
-    description: 'Carries only the username so the manifest is human-readable. ' +
+    description:
+      'Carries only the username so the manifest is human-readable. ' +
       'On import the row is mapped to whoever is logged in on the target instance.',
   },
 
@@ -70,9 +71,22 @@ export const EXPORT_TABLES = Object.freeze({
     rekeyOnImport: true,
     fkRekey: { user_id: 'users' },
     columns: [
-      'id', 'user_id', 'name', 'host', 'port', 'tls', 'nick', 'username',
-      'realname', 'server_password', 'autoconnect', 'created_at',
-      'sasl_account', 'sasl_password', 'connect_commands', 'position',
+      'id',
+      'user_id',
+      'name',
+      'host',
+      'port',
+      'tls',
+      'nick',
+      'username',
+      'realname',
+      'server_password',
+      'autoconnect',
+      'created_at',
+      'sasl_account',
+      'sasl_password',
+      'connect_commands',
+      'position',
     ],
   },
 
@@ -94,8 +108,19 @@ export const EXPORT_TABLES = Object.freeze({
     rekeyOnImport: true,
     fkRekey: { network_id: 'networks', matched_rule_id: 'highlight_rules' },
     columns: [
-      'id', 'network_id', 'target', 'time', 'type', 'nick', 'text', 'kind',
-      'self', 'extra', 'userhost', 'matched_rule_id', 'alt',
+      'id',
+      'network_id',
+      'target',
+      'time',
+      'type',
+      'nick',
+      'text',
+      'kind',
+      'self',
+      'extra',
+      'userhost',
+      'matched_rule_id',
+      'alt',
     ],
   },
 
@@ -144,8 +169,14 @@ export const EXPORT_TABLES = Object.freeze({
     rekeyOnImport: true,
     fkRekey: { user_id: 'users' },
     columns: [
-      'id', 'user_id', 'pattern', 'kind', 'case_sensitive', 'enabled',
-      'auto_managed', 'created_at',
+      'id',
+      'user_id',
+      'pattern',
+      'kind',
+      'case_sensitive',
+      'enabled',
+      'auto_managed',
+      'created_at',
     ],
   },
 
@@ -177,8 +208,17 @@ export const EXPORT_TABLES = Object.freeze({
     // base64-inlined; the row carries a hasThumbnail boolean in data.json.
     blobColumns: ['thumbnail'],
     columns: [
-      'id', 'user_id', 'provider', 'url', 'filename', 'mime', 'byte_size',
-      'width', 'height', 'thumbnail', 'created_at',
+      'id',
+      'user_id',
+      'provider',
+      'url',
+      'filename',
+      'mime',
+      'byte_size',
+      'width',
+      'height',
+      'thumbnail',
+      'created_at',
     ],
   },
 
@@ -248,13 +288,15 @@ export const EXPORT_TABLES = Object.freeze({
 
   webauthn_credentials: {
     mode: 'skip',
-    reason: 'WebAuthn credentials are bound to the source instance origin (RP ID); ' +
+    reason:
+      'WebAuthn credentials are bound to the source instance origin (RP ID); ' +
       'user must re-register passkeys on the target instance',
   },
 
   push_subscriptions: {
     mode: 'skip',
-    reason: 'web-push endpoints + VAPID keys are per-server; user re-subscribes per device on the target',
+    reason:
+      'web-push endpoints + VAPID keys are per-server; user re-subscribes per device on the target',
   },
 
   invite_tokens: {
@@ -264,7 +306,8 @@ export const EXPORT_TABLES = Object.freeze({
 
   api_tokens: {
     mode: 'skip',
-    reason: 'bearer-token credentials bound to this instance; user re-issues tokens on the target instance',
+    reason:
+      'bearer-token credentials bound to this instance; user re-issues tokens on the target instance',
   },
 
   peer_presence_state: {

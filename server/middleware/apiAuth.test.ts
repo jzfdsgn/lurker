@@ -54,9 +54,7 @@ describe('requireApiAuth', () => {
   it('authenticates a valid token and populates req.user without req.session', async () => {
     const u: User = createUser('mw-alice');
     const t: CreateTokenResult = createToken({ userId: u.id, name: 'mw', scope: 'read-write' });
-    const res = await request(app)
-      .get('/protected')
-      .set('Authorization', `Bearer ${t.token}`);
+    const res = await request(app).get('/protected').set('Authorization', `Bearer ${t.token}`);
     expect(res.status).toBe(200);
     expect(res.body.userId).toBe(u.id);
     expect(res.body.username).toBe('mw-alice');
@@ -68,9 +66,7 @@ describe('requireApiAuth', () => {
     const u: User = createUser('mw-bob');
     const t: CreateTokenResult = createToken({ userId: u.id, name: 'rev', scope: 'read' });
     revoke(t.id, u.id);
-    const res = await request(app)
-      .get('/protected')
-      .set('Authorization', `Bearer ${t.token}`);
+    const res = await request(app).get('/protected').set('Authorization', `Bearer ${t.token}`);
     expect(res.status).toBe(401);
   });
 
@@ -78,9 +74,7 @@ describe('requireApiAuth', () => {
     const u: User = createUser('mw-carol');
     const t: CreateTokenResult = createToken({ userId: u.id, name: 'orphan', scope: 'read' });
     deleteUser(u.id);
-    const res = await request(app)
-      .get('/protected')
-      .set('Authorization', `Bearer ${t.token}`);
+    const res = await request(app).get('/protected').set('Authorization', `Bearer ${t.token}`);
     expect(res.status).toBe(401);
   });
 
@@ -88,12 +82,8 @@ describe('requireApiAuth', () => {
     const u: User = createUser('mw-dave');
     const tRead: CreateTokenResult = createToken({ userId: u.id, name: 'r', scope: 'read' });
     const tRW: CreateTokenResult = createToken({ userId: u.id, name: 'rw', scope: 'read-write' });
-    const r1 = await request(app)
-      .get('/protected')
-      .set('Authorization', `Bearer ${tRead.token}`);
-    const r2 = await request(app)
-      .get('/protected')
-      .set('Authorization', `Bearer ${tRW.token}`);
+    const r1 = await request(app).get('/protected').set('Authorization', `Bearer ${tRead.token}`);
+    const r2 = await request(app).get('/protected').set('Authorization', `Bearer ${tRW.token}`);
     expect(r1.body.tokenScope).toBe('read');
     expect(r2.body.tokenScope).toBe('read-write');
   });

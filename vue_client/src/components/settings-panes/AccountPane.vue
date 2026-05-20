@@ -7,8 +7,8 @@
   <section id="account" class="settings-pane">
     <h2>account</h2>
     <p class="section-desc">
-      You can sign in with a passkey, a password, or both. Removing your last
-      sign-in method would lock you out, so it's blocked.
+      You can sign in with a passkey, a password, or both. Removing your last sign-in method would
+      lock you out, so it's blocked.
     </p>
     <p v-if="passkeyError" class="error inline">{{ passkeyError }}</p>
 
@@ -24,14 +24,20 @@
           />
         </span>
         <span class="last-seen" :title="pk.lastUsedAt || pk.createdAt">
-          {{ pk.lastUsedAt ? `last used ${formatRelative(pk.lastUsedAt)}` : `added ${formatRelative(pk.createdAt)}` }}
+          {{
+            pk.lastUsedAt
+              ? `last used ${formatRelative(pk.lastUsedAt)}`
+              : `added ${formatRelative(pk.createdAt)}`
+          }}
         </span>
         <button
           class="link danger"
           :disabled="!canRemovePasskey || passkeyBusy"
           :title="removePasskeyTitle"
           @click="onRemovePasskey(pk)"
-        >remove</button>
+        >
+          remove
+        </button>
       </li>
     </ul>
     <p v-else class="muted small">No passkeys registered.</p>
@@ -63,15 +69,23 @@
           class="link"
           type="submit"
           :disabled="passwordBusy || !newPasswordInput || (hasPassword && !currentPasswordInput)"
-        >{{ hasPassword ? 'change password' : 'set password' }}</button>
+        >
+          {{ hasPassword ? 'change password' : 'set password' }}
+        </button>
         <button
           v-if="hasPassword"
           type="button"
           class="link danger"
           :disabled="passwordBusy || passkeys.length === 0"
-          :title="passkeys.length === 0 ? 'add a passkey before removing your password' : 'remove password'"
+          :title="
+            passkeys.length === 0
+              ? 'add a passkey before removing your password'
+              : 'remove password'
+          "
           @click="onRemovePassword"
-        >remove password</button>
+        >
+          remove password
+        </button>
       </div>
     </form>
 
@@ -128,7 +142,7 @@ onMounted(() => {
 
 async function refreshPasskeys() {
   try {
-    passkeys.value = await auth.listPasskeys() as PasskeyRow[];
+    passkeys.value = (await auth.listPasskeys()) as PasskeyRow[];
   } catch (e: any) {
     passkeyError.value = e.message || 'failed to load passkeys';
   }
@@ -229,18 +243,20 @@ async function signOut() {
 
 <style src="./panes.css"></style>
 <style scoped>
-.passkey .ua input[type="text"] {
+.passkey .ua input[type='text'] {
   width: 100%;
   background: transparent;
   border: 1px solid transparent;
   color: var(--fg);
   padding: 2px 4px;
 }
-.passkey .ua input[type="text"]:hover,
-.passkey .ua input[type="text"]:focus {
+.passkey .ua input[type='text']:hover,
+.passkey .ua input[type='text']:focus {
   border-color: var(--border);
 }
-.passkey-add { padding-top: 8px; }
+.passkey-add {
+  padding-top: 8px;
+}
 
 .password-form {
   display: flex;

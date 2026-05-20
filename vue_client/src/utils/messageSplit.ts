@@ -36,7 +36,11 @@ function chunksForLine(line: string, bytes: number): number {
   const tokens = line.split(/(\s+)/); // alternates non-ws, ws, non-ws, ws...
 
   const flushNew = (word: string): void => {
-    if (cur) { count += 1; cur = ''; pendingWs = ''; }
+    if (cur) {
+      count += 1;
+      cur = '';
+      pendingWs = '';
+    }
     if (byteLen(word) <= bytes) {
       cur = word;
       return;

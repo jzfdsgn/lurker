@@ -66,9 +66,9 @@ export function listAllForUser(userId: number): PushSubscription[] {
 
 export function getByEndpoint(endpoint: string): PushSubscription | null {
   return rowToSub(
-    db
-      .prepare('SELECT * FROM push_subscriptions WHERE endpoint = ?')
-      .get(endpoint) as PushSubscriptionRow | undefined,
+    db.prepare('SELECT * FROM push_subscriptions WHERE endpoint = ?').get(endpoint) as
+      | PushSubscriptionRow
+      | undefined,
   );
 }
 
@@ -87,29 +87,31 @@ export function upsertSubscription(
     auth,
     userAgent,
   }: { endpoint: string; p256dh: string; auth: string; userAgent?: string | null },
-):
-  | { ok: true; sub: PushSubscription | null }
-  | { ok: false; error: string } {
+): { ok: true; sub: PushSubscription | null } | { ok: false; error: string } {
   const existing = getByEndpoint(endpoint);
   if (existing && existing.user_id !== userId) {
     return { ok: false, error: 'endpoint_owned_by_other_user' };
   }
   if (existing) {
-    db.prepare(`
+    db.prepare(
+      `
       UPDATE push_subscriptions
       SET p256dh = ?, auth = ?, user_agent = COALESCE(?, user_agent),
           enabled = 1, last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE endpoint = ?
-    `).run(p256dh, auth, userAgent || null, endpoint);
+    `,
+    ).run(p256dh, auth, userAgent || null, endpoint);
     return { ok: true, sub: getByEndpoint(endpoint) };
   }
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO push_subscriptions
       (user_id, endpoint, p256dh, auth, user_agent, created_at, last_seen_at)
     VALUES (?, ?, ?, ?, ?,
       strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
       strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-  `).run(userId, endpoint, p256dh, auth, userAgent || null);
+  `,
+  ).run(userId, endpoint, p256dh, auth, userAgent || null);
   return { ok: true, sub: getByEndpoint(endpoint) };
 }
 
@@ -159,8 +161,10 @@ export function getMeta(key: string): string | null {
 }
 
 export function setMeta(key: string, value: string): void {
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO app_meta (key, value) VALUES (?, ?)
     ON CONFLICT (key) DO UPDATE SET value = excluded.value
-  `).run(key, value);
+  `,
+  ).run(key, value);
 }

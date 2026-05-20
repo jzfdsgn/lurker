@@ -13,7 +13,8 @@ interface VerbContext {
 
 registerVerb({
   name: 'set_nick_note',
-  description: 'Write a free-form note about a nick on a network. Pass an empty string to clear the note. Notes are capped at 4096 chars.',
+  description:
+    'Write a free-form note about a nick on a network. Pass an empty string to clear the note. Notes are capped at 4096 chars.',
   scope: 'read-write',
   input: {
     type: 'object',
@@ -38,7 +39,10 @@ registerVerb({
     const raw = typeof input.note === 'string' ? input.note : '';
     const note = raw.length > 4096 ? raw.slice(0, 4096) : raw;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const saved = (ircManager as any).setNickNote(ctx.userId, networkId, nick, note) as { note: string; updatedAt: string } | null;
+    const saved = (ircManager as any).setNickNote(ctx.userId, networkId, nick, note) as {
+      note: string;
+      updatedAt: string;
+    } | null;
     const result = {
       networkId,
       nick,

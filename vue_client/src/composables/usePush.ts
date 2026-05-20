@@ -9,10 +9,12 @@ let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null
 const messageListeners = new Set<SWMessageListener>();
 
 export function isSupported(): boolean {
-  return typeof window !== 'undefined'
-    && 'serviceWorker' in navigator
-    && 'PushManager' in window
-    && 'Notification' in window;
+  return (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'Notification' in window
+  );
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -27,14 +29,17 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export async function registerSW(): Promise<ServiceWorkerRegistration | null> {
   if (!isSupported()) return null;
   if (registrationPromise) return registrationPromise;
-  registrationPromise = navigator.serviceWorker.register('/sw.js')
+  registrationPromise = navigator.serviceWorker
+    .register('/sw.js')
     .then(async () => {
       const reg = await navigator.serviceWorker.ready;
       navigator.serviceWorker.addEventListener('message', onSWMessage);
       // Tell the server we're alive so last_seen_at reflects actual
       // activity rather than the moment of last push delivery (which
       // only fires when no client is visible — the opposite of "active").
-      heartbeat().catch(() => { /* ignore */ });
+      heartbeat().catch(() => {
+        /* ignore */
+      });
       return reg;
     })
     .catch((err) => {
@@ -55,7 +60,11 @@ function onSWMessage(event: MessageEvent): void {
   const data = event.data;
   if (!data) return;
   for (const listener of messageListeners) {
-    try { listener(data); } catch (_) { /* ignore */ }
+    try {
+      listener(data);
+    } catch (_) {
+      /* ignore */
+    }
   }
 }
 
@@ -105,7 +114,9 @@ export async function disable(): Promise<void> {
       method: 'DELETE',
       body: { endpoint: sub.endpoint },
     });
-  } catch (_) { /* ignore */ }
+  } catch (_) {
+    /* ignore */
+  }
   await sub.unsubscribe();
 }
 

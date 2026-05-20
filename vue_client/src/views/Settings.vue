@@ -83,9 +83,7 @@ const BESPOKE_PANES: Record<string, Component> = {
   about: AboutPane,
 };
 
-const visibleCategories = computed(() =>
-  CATEGORIES.filter((c) => !c.adminOnly || isAdmin.value)
-);
+const visibleCategories = computed(() => CATEGORIES.filter((c) => !c.adminOnly || isAdmin.value));
 
 const firstCategoryId = computed(() => visibleCategories.value[0]?.id || 'appearance');
 
@@ -123,7 +121,9 @@ const contentEl = ref<HTMLElement | null>(null);
 
 onMounted(() => {
   if (!settings.loaded) {
-    settings.fetchAll().catch((e) => { error.value = e.message; });
+    settings.fetchAll().catch((e) => {
+      error.value = e.message;
+    });
   }
 });
 
@@ -162,7 +162,6 @@ watch(
   },
   { immediate: true },
 );
-
 </script>
 
 <style scoped>
@@ -227,7 +226,9 @@ watch(
   align-items: center;
   padding: 0 4px;
 }
-.bar .back:hover { color: var(--fg); }
+.bar .back:hover {
+  color: var(--fg);
+}
 
 .link {
   background: none;
@@ -237,9 +238,16 @@ watch(
   cursor: pointer;
   font: inherit;
 }
-.link:hover:not(:disabled) { color: var(--fg); }
-.link:disabled { opacity: 0.4; cursor: not-allowed; }
-.link.danger { color: var(--bad); }
+.link:hover:not(:disabled) {
+  color: var(--fg);
+}
+.link:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.link.danger {
+  color: var(--bad);
+}
 
 .error {
   color: var(--bad);
@@ -260,7 +268,9 @@ watch(
   overflow-y: auto;
 }
 @media (max-width: 720px) {
-  .body { flex-direction: column; }
+  .body {
+    flex-direction: column;
+  }
 }
 
 /* Brief highlight applied to a row that the user jumped to via search, so
@@ -269,7 +279,13 @@ watch(
   animation: flash-target 1.4s ease-out;
 }
 @keyframes flash-target {
-  0%   { background: var(--bg-soft); box-shadow: inset 0 0 0 1px var(--accent); }
-  100% { background: transparent;    box-shadow: inset 0 0 0 1px transparent; }
+  0% {
+    background: var(--bg-soft);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
 }
 </style>

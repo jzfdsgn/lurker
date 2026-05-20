@@ -8,7 +8,7 @@ import vue from '@vitejs/plugin-vue';
 import mkcert from 'vite-plugin-mkcert';
 
 const pkg = JSON.parse(
-  readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf8')
+  readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf8'),
 ) as { version: string };
 
 export default defineConfig(({ mode }) => {
