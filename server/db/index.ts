@@ -4,12 +4,8 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../data/lurker.db');
+const dbPath = process.env.DATABASE_PATH || path.join(import.meta.dirname, '../../data/lurker.db');
 const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
@@ -413,22 +409,25 @@ function migrate() {
   `);
 }
 
-function ensureColumn(table, column, def) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+/** A row from `PRAGMA table_info(<table>)`. */
+interface TableInfoRow {
+  cid: number;
+  name: string;
+  type: string;
+  notnull: number;
+  dflt_value: string | null;
+  pk: number;
+}
+
+function ensureColumn(table: string, column: string, def: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as TableInfoRow[];
   if (!cols.find((c) => c.name === column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
   }
 }
 
-function dropColumnIfExists(table, column) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
-  if (cols.find((c) => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
-  }
-}
-
-function columnExists(table, column) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+function columnExists(table: string, column: string): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as TableInfoRow[];
   return !!cols.find((c) => c.name === column);
 }
 
@@ -479,7 +478,9 @@ ensureColumn('users', 'last_seen_at', 'TEXT');
 // to admin by routes/auth.js. On an existing single-user install pre-dating
 // this column, backfill that lone user to admin so they retain control.
 ensureColumn('users', 'role', `TEXT NOT NULL DEFAULT 'user'`);
-const adminCount = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin'`).get().n;
+const adminCount = (
+  db.prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin'`).get() as { n: number }
+).n;
 if (adminCount === 0) {
   // Promote the earliest-created user (id ASC) if any exist.
   db.exec(`UPDATE users SET role = 'admin'
@@ -506,7 +507,7 @@ ensureColumn('messages', 'alt', 'INTEGER NOT NULL DEFAULT 0');
 const SCHEMA_VERSION = 6;
 const schemaVersionRow = db
   .prepare(`SELECT value FROM app_meta WHERE key = 'schema_version'`)
-  .get();
+  .get() as { value: string } | undefined;
 const schemaVersion = schemaVersionRow ? parseInt(schemaVersionRow.value, 10) || 0 : 0;
 
 if (schemaVersion < 1) {
@@ -611,10 +612,10 @@ if (schemaVersion < 2) {
     .prepare(`SELECT id, network_id, target FROM messages
               WHERE type IN ('message', 'action', 'notice')
               ORDER BY id ASC`)
-    .all();
+    .all() as Array<{ id: number; network_id: number; target: string }>;
   const setAlt = db.prepare(`UPDATE messages SET alt = ? WHERE id = ?`);
   const backfill = db.transaction(() => {
-    const parity = new Map();
+    const parity = new Map<string, number>();
     for (const row of stripedRows) {
       const key = `${row.network_id} ${row.target}`;
       const next = (parity.get(key) ?? 1) ^ 1;
@@ -667,8 +668,8 @@ if (schemaVersion < 4) {
   const newKey = 'notifications.highlight.enabled';
   const oldRows = db
     .prepare(`SELECT user_id, value FROM user_settings WHERE key = ?`)
-    .all(oldKey);
-  const renameKey = db.transaction((rows) => {
+    .all(oldKey) as Array<{ user_id: number; value: string }>;
+  const renameKey = db.transaction((rows: Array<{ user_id: number; value: string }>) => {
     const upsert = db.prepare(`
       INSERT INTO user_settings (user_id, key, value, updated_at)
       VALUES (?, ?, ?, datetime('now'))
@@ -687,7 +688,7 @@ if (schemaVersion < 5) {
   // thumbnail) can be recorded. SQLite can't ALTER COLUMN, so rebuild the
   // table and copy rows over. Indexes are recreated below.
   const needsRebuild = (() => {
-    const cols = db.prepare(`PRAGMA table_info(upload_history)`).all();
+    const cols = db.prepare(`PRAGMA table_info(upload_history)`).all() as TableInfoRow[];
     const thumb = cols.find((c) => c.name === 'thumbnail');
     return !!thumb && thumb.notnull === 1;
   })();
@@ -737,15 +738,15 @@ if (schemaVersion < 6) {
   // in the sidebar after the column lands. Per-user numbering: each user's
   // networks renumber 0..n-1 independently so reorders never collide across
   // accounts. Fresh installs see no rows here.
-  const users = db.prepare(`SELECT DISTINCT user_id AS userId FROM networks`).all();
-  const listForUser = db.prepare(
-    `SELECT id FROM networks WHERE user_id = ? ORDER BY id ASC`,
-  );
+  const users = db
+    .prepare(`SELECT DISTINCT user_id AS userId FROM networks`)
+    .all() as Array<{ userId: number }>;
+  const listForUser = db.prepare(`SELECT id FROM networks WHERE user_id = ? ORDER BY id ASC`);
   const setPos = db.prepare(`UPDATE networks SET position = ? WHERE id = ?`);
   const seed = db.transaction(() => {
     for (const { userId } of users) {
       let i = 0;
-      for (const row of listForUser.all(userId)) {
+      for (const row of listForUser.all(userId) as Array<{ id: number }>) {
         setPos.run(i, row.id);
         i += 1;
       }

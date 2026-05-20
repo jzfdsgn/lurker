@@ -22,23 +22,24 @@ const listForUserStmt = db.prepare(`
   SELECT network_id AS networkId, target FROM closed_buffers WHERE user_id = ?
 `);
 
-export function closeBuffer(userId, networkId, target) {
+export function closeBuffer(userId: number, networkId: number, target: string): void {
   closeStmt.run(userId, networkId, target);
 }
 
 // Returns true if a row was actually deleted (i.e., the buffer had been closed).
-export function reopenBuffer(userId, networkId, target) {
+export function reopenBuffer(userId: number, networkId: number, target: string): boolean {
   return reopenStmt.run(userId, networkId, target).changes > 0;
 }
 
-export function isClosed(userId, networkId, target) {
+export function isClosed(userId: number, networkId: number, target: string): boolean {
   return !!isClosedStmt.get(userId, networkId, target);
 }
 
 // Returns Set of `${networkId}::${target}` keys for fast snapshot filtering.
-export function closedKeySetForUser(userId) {
-  const set = new Set();
-  for (const row of listForUserStmt.all(userId)) {
+export function closedKeySetForUser(userId: number): Set<string> {
+  const set = new Set<string>();
+  const rows = listForUserStmt.all(userId) as Array<{ networkId: number; target: string }>;
+  for (const row of rows) {
     set.add(`${row.networkId}::${row.target}`);
   }
   return set;
