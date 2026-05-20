@@ -13,7 +13,82 @@
 // human-readable headline shown in the UI; the dotted key shows as a subtitle
 // for power-user reference. `description` remains the longer help text.
 
-export const REGISTRY = Object.freeze([
+// ─── Types ─────────────────────────────────────────────────────────────────
+
+/** Discriminant for how a setting is edited, validated, and stored. */
+export type SettingType =
+  | 'string'
+  | 'color'
+  | 'secret'
+  | 'int'
+  | 'bool'
+  | 'enum'
+  | 'string-list';
+
+/** A stored setting value, in its decoded (non-string) form. */
+export type SettingValue = string | number | boolean | string[];
+
+interface BaseOption {
+  key: string;
+  label: string;
+  category: string;
+  group: string;
+  description: string;
+}
+
+/** Free-text settings: plain strings, CSS colors, and write-only secrets. */
+export interface StringOption extends BaseOption {
+  type: 'string' | 'color' | 'secret';
+  default: string;
+}
+
+/** Integer settings, always bounded by min/max. */
+export interface IntOption extends BaseOption {
+  type: 'int';
+  min: number;
+  max: number;
+  default: number;
+}
+
+/** Boolean toggle settings. */
+export interface BoolOption extends BaseOption {
+  type: 'bool';
+  default: boolean;
+}
+
+/** Single-choice settings constrained to a fixed list of strings. */
+export interface EnumOption extends BaseOption {
+  type: 'enum';
+  choices: readonly string[];
+  default: string;
+}
+
+/** Multi-value settings: an ordered list of strings. */
+export interface StringListOption extends BaseOption {
+  type: 'string-list';
+  default: string[];
+}
+
+/** Any entry in the settings REGISTRY. Narrow on `.type` for type-specific fields. */
+export type SettingOption =
+  | StringOption
+  | IntOption
+  | BoolOption
+  | EnumOption
+  | StringListOption;
+
+/**
+ * A Settings-sidebar category. `registry` categories are auto-rendered from
+ * REGISTRY entries; `bespoke` ones have a hand-written pane component.
+ */
+export interface SettingCategory {
+  id: string;
+  label: string;
+  kind: 'registry' | 'bespoke';
+  adminOnly?: boolean;
+}
+
+export const REGISTRY: readonly SettingOption[] = Object.freeze([
   // ─── Fonts ─────────────────────────────────────────────────────────────
   {
     key: 'look.font.family',
@@ -1062,14 +1137,14 @@ export const REGISTRY = Object.freeze([
   },
 ]);
 
-const BY_KEY = new Map(REGISTRY.map((opt) => [opt.key, opt]));
+const BY_KEY = new Map(REGISTRY.map((opt) => [opt.key, opt] as const));
 
-export function getOption(key) {
+export function getOption(key: string): SettingOption | null {
   return BY_KEY.get(key) || null;
 }
 
-export function defaultsAsObject() {
-  const out = {};
+export function defaultsAsObject(): Record<string, SettingValue> {
+  const out: Record<string, SettingValue> = {};
   for (const opt of REGISTRY) out[opt.key] = opt.default;
   return out;
 }
@@ -1088,7 +1163,7 @@ export function defaultsAsObject() {
 // visual → send-side cluster → receive-side cluster → presence → admin →
 // personal → meta. Sidebar renders top-to-bottom; the first category is also
 // the redirect target when navigating to bare /settings.
-export const CATEGORIES = Object.freeze([
+export const CATEGORIES: readonly SettingCategory[] = Object.freeze([
   { id: 'appearance',    label: 'Appearance',    kind: 'registry' },
   { id: 'chat',          label: 'Chat',          kind: 'registry' },
   { id: 'input',         label: 'Input bar',     kind: 'registry' },
@@ -1107,7 +1182,7 @@ export const CATEGORIES = Object.freeze([
 
 // Sub-group labels used inside a category pane (one heading per `group` field
 // in REGISTRY). Groups without an entry here fall back to the raw group id.
-export const GROUPS = Object.freeze({
+export const GROUPS: Readonly<Record<string, string>> = Object.freeze({
   fonts: 'Fonts',
   palette: 'Colors',
   messages: 'Message rows',

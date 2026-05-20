@@ -23,9 +23,87 @@
 //   4. A run of exactly one event is passed through unchanged (so a lone
 //      "Alice joined" still renders with the familiar --> styling).
 
-const CONSOLIDATABLE_TYPES = new Set(['join', 'part', 'quit', 'nick']);
+// ─── Types ─────────────────────────────────────────────────────────────────
 
-function classify(actions) {
+/** The subset of a message consumed by the consolidation algorithm. */
+export interface ConsolidatableMessage {
+  id?: number | string | null;
+  type: string;
+  nick?: string;
+  newNick?: string;
+  time: string;
+  to?: string;
+}
+
+/**
+ * A row in the MessageList stream: either wraps a message (`m`) or is a
+ * non-message row (divider, etc.). Only `m` and `key` are read here, so the
+ * functions stay generic over the caller's richer row type.
+ */
+export interface MessageStreamRow {
+  m?: ConsolidatableMessage | null;
+  key: string | number;
+}
+
+/** Per-identity action within a run: join, leave (part/quit), or rename. */
+type EventAction = 'J' | 'L' | 'R';
+
+/** The five ways a run's net effect on an identity can be classified. */
+export type ConsolidationKind = 'joined' | 'left' | 'reconnected' | 'joinedAndLeft' | 'renamed';
+
+/** A nick that joined / left / reconnected within the run. */
+export interface NickEntry {
+  nick: string;
+}
+
+/** A nick that renamed itself within the run. */
+export interface RenameEntry {
+  from: string;
+  to: string;
+}
+
+/** One classified category within a consolidation summary. */
+export interface ConsolidationGroup {
+  kind: ConsolidationKind;
+  visible: Array<NickEntry | RenameEntry>;
+  hidden: number;
+}
+
+/** Synthetic row that replaces a run of consolidated join/part/quit/nick rows. */
+export interface ConsolidationRow {
+  consolidation: true;
+  groups: ConsolidationGroup[];
+  eventCount: number;
+  time: string;
+  firstId: number | string | null;
+  lastId: number | string | null;
+  key: string;
+}
+
+export interface ConsolidateOptions {
+  enabled?: boolean;
+  recentSpeakers?: Iterable<string> | null;
+  maxNames?: number;
+}
+
+/** Mutable per-identity bookkeeping while walking a run. */
+interface IdentityState {
+  displayNick: string;
+  originalNick: string;
+  actions: EventAction[];
+  seenIndex: number;
+}
+
+interface RunOptions {
+  recentSpeakers: Iterable<string> | null;
+  maxNames: number;
+}
+
+// ─── Algorithm ─────────────────────────────────────────────────────────────
+
+const CONSOLIDATABLE_TYPES: ReadonlySet<string> = new Set(['join', 'part', 'quit', 'nick']);
+
+function classify(actions: readonly EventAction[]): ConsolidationKind {
   const jl = actions.filter((a) => a === 'J' || a === 'L');
   if (jl.length === 0) return 'renamed';
   const first = jl[0];
@@ -40,20 +118,27 @@ function classify(actions) {
 
 // Stable rank: identities whose current display nick is in recentSpeakersLc
 // float to the top; everything else keeps its original insertion order.
-function rankEntries(entries, recentSpeakersLc) {
-  const idx = new Map(entries.map((e, i) => [e, i]));
-  return entries.slice().sort((a, b) => {
+function rankEntries<T extends { nick?: string; to?: string }>(
+  entries: readonly T[],
+  recentSpeakersLc: ReadonlySet<string> | null,
+): T[] {
+  const idx = new Map(entries.map((e, i) => [e, i] as const));
+  return entries.toSorted((a, b) => {
     const aKey = (a.nick || a.to || '').toLowerCase();
     const bKey = (b.nick || b.to || '').toLowerCase();
     const aRecent = recentSpeakersLc && recentSpeakersLc.has(aKey) ? 0 : 1;
     const bRecent = recentSpeakersLc && recentSpeakersLc.has(bKey) ? 0 : 1;
     if (aRecent !== bRecent) return aRecent - bRecent;
-    return idx.get(a) - idx.get(b);
+    return (idx.get(a) ?? 0) - (idx.get(b) ?? 0);
   });
 }
 
-function cap(entries, maxNames, recentSpeakersLc) {
-  if (entries.length <= maxNames) return { visible: entries, hidden: 0 };
+function cap<T extends { nick?: string; to?: string }>(
+  entries: readonly T[],
+  maxNames: number,
+  recentSpeakersLc: ReadonlySet<string> | null,
+): { visible: T[]; hidden: number } {
+  if (entries.length <= maxNames) return { visible: entries.slice(), hidden: 0 };
   const ranked = rankEntries(entries, recentSpeakersLc);
   return {
     visible: ranked.slice(0, maxNames),
@@ -61,14 +146,17 @@ function cap(entries, maxNames, recentSpeakersLc) {
   };
 }
 
-function consolidateRun(events, opts) {
-  const speakersLc = opts.recentSpeakers
+function consolidateRun(
+  events: readonly ConsolidatableMessage[],
+  opts: RunOptions,
+): ConsolidationGroup[] {
+  const speakersLc: ReadonlySet<string> | null = opts.recentSpeakers
     ? new Set(Array.from(opts.recentSpeakers, (s) => String(s).toLowerCase()))
     : null;
   const maxNames = Math.max(1, opts.maxNames || 5);
 
-  // identityKey (lowercased current nick) → { displayNick, originalNick, actions[] }
-  const ids = new Map();
+  // identityKey (lowercased current nick) → identity bookkeeping
+  const ids = new Map<string, IdentityState>();
   // Preserve first-seen order across rename migrations: when a rename moves an
   // entry to a new key, we'd otherwise re-insert it at the end. Track an
   // explicit seenIndex so display ordering reflects when each identity first
@@ -82,40 +170,44 @@ function consolidateRun(events, opts) {
       const existing = ids.get(oldLc);
       if (existing) {
         existing.actions.push('R');
-        existing.displayNick = e.newNick;
+        existing.displayNick = e.newNick ?? '';
         ids.delete(oldLc);
         ids.set(newLc, existing);
       } else {
         ids.set(newLc, {
-          displayNick: e.newNick,
-          originalNick: e.nick,
+          displayNick: e.newNick ?? '',
+          originalNick: e.nick ?? '',
           actions: ['R'],
           seenIndex: seenCounter++,
         });
       }
     } else {
       const lc = String(e.nick || '').toLowerCase();
-      if (!ids.has(lc)) {
-        ids.set(lc, {
-          displayNick: e.nick,
-          originalNick: e.nick,
+      let state = ids.get(lc);
+      if (!state) {
+        state = {
+          displayNick: e.nick ?? '',
+          originalNick: e.nick ?? '',
           actions: [],
           seenIndex: seenCounter++,
-        });
+        };
+        ids.set(lc, state);
       }
-      if (e.type === 'join') ids.get(lc).actions.push('J');
-      else if (e.type === 'part' || e.type === 'quit') ids.get(lc).actions.push('L');
+      if (e.type === 'join') state.actions.push('J');
+      else if (e.type === 'part' || e.type === 'quit') state.actions.push('L');
     }
   }
 
-  const buckets = {
+  // Uniform element type per bucket so the generic `cap()` infers a single
+  // entry type; `renamed` happens to only ever receive RenameEntry values.
+  const buckets: Record<ConsolidationKind, Array<NickEntry | RenameEntry>> = {
     joined: [],
     left: [],
     reconnected: [],
     joinedAndLeft: [],
     renamed: [],
   };
-  const sorted = Array.from(ids.values()).sort((a, b) => a.seenIndex - b.seenIndex);
+  const sorted = Array.from(ids.values()).toSorted((a, b) => a.seenIndex - b.seenIndex);
   for (const id of sorted) {
     const cls = classify(id.actions);
     if (cls === 'renamed') {
@@ -127,8 +219,14 @@ function consolidateRun(events, opts) {
 
   // Fixed display order across all categories so the readout reads the same
   // way every time.
-  const groupOrder = ['joined', 'left', 'reconnected', 'joinedAndLeft', 'renamed'];
-  const groups = [];
+  const groupOrder: ConsolidationKind[] = [
+    'joined',
+    'left',
+    'reconnected',
+    'joinedAndLeft',
+    'renamed',
+  ];
+  const groups: ConsolidationGroup[] = [];
   for (const kind of groupOrder) {
     if (buckets[kind].length === 0) continue;
     const { visible, hidden } = cap(buckets[kind], maxNames, speakersLc);
@@ -140,23 +238,27 @@ function consolidateRun(events, opts) {
 // Walk a row list (the same shape MessageList.vue emits — items either have
 // `m` for a real message or a `divider` field) and merge consecutive
 // consolidatable rows into single `consolidation: true` rows.
-export function consolidateRows(rows, options = {}) {
-  if (!options.enabled) return rows;
-  const opts = {
+export function consolidateRows<R extends MessageStreamRow>(
+  rows: readonly R[],
+  options: ConsolidateOptions = {},
+): Array<R | ConsolidationRow> {
+  if (!options.enabled) return rows.slice();
+  const opts: RunOptions = {
     recentSpeakers: options.recentSpeakers || null,
     maxNames: options.maxNames || 5,
   };
-  const out = [];
-  let run = [];
+  const out: Array<R | ConsolidationRow> = [];
+  let run: R[] = [];
 
-  const flush = () => {
+  const flush = (): void => {
     if (run.length === 0) return;
     if (run.length === 1) {
       out.push(run[0]);
       run = [];
       return;
     }
-    const events = run.map((r) => r.m);
+    // Every row in `run` was pushed only after `r.m` was confirmed present.
+    const events = run.map((r) => r.m as ConsolidatableMessage);
     const groups = consolidateRun(events, opts);
     out.push({
       consolidation: true,
@@ -184,8 +286,11 @@ export function consolidateRows(rows, options = {}) {
 
 // Convenience: consolidate a raw message array (no row wrapping) into a row
 // list. Used by the demo script and tests.
-export function consolidateMessages(messages, options = {}) {
-  const rows = messages.map((m, i) => ({ m, key: m.id ?? `idx:${i}` }));
+export function consolidateMessages(
+  messages: readonly ConsolidatableMessage[],
+  options: ConsolidateOptions = {},
+): Array<MessageStreamRow | ConsolidationRow> {
+  const rows: MessageStreamRow[] = messages.map((m, i) => ({ m, key: m.id ?? `idx:${i}` }));
   return consolidateRows(rows, { enabled: true, ...options });
 }
 
