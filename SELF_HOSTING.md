@@ -36,6 +36,8 @@ docker compose pull
 docker compose up -d
 ```
 
+Run these from the directory holding your `docker-compose.yml`. If you used the [one-shot DigitalOcean deploy](README.md#deploy-on-digitalocean-one-shot), that's `/opt/lurker` — `cd` there first; the command is identical whether or not you enabled HTTPS.
+
 Lurker auto-migrates its SQLite schema on boot, so updates are a pull + restart. The `data/` directory is not touched.
 
 If something goes wrong, your `data/` directory still has your last-known-good state — back it up before major updates if you want a clean rollback path.
@@ -65,6 +67,8 @@ Lurker is a single-user-per-account always-on IRC client — most operators want
 - No port forwarding, no router configuration, no inbound firewall holes
 - Works behind CGNAT, on a residential network, or anywhere with outbound HTTPS
 - Free for personal use
+
+> **Starting from a blank VPS?** If you don't already have a host, the [one-shot DigitalOcean deploy](README.md#deploy-on-digitalocean-one-shot) brings up a fresh droplet with Lurker and automatic HTTPS (via Caddy) from a single pasted script — no SSH, no manual Docker install. The rest of this section covers exposing an instance you're already running.
 
 ### Setup
 
