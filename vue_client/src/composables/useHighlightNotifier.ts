@@ -7,6 +7,10 @@
 // each signal type has its own master `enabled` toggle and sound sub-toggle in
 // settings, so toast/sound delivery is fully decoupled from how the signal
 // was generated. Settings are read live so quick-toggles take effect at once.
+//
+// Both toast and sound are skipped when the user is already focused on the
+// buffer the event belongs to — the message is in plain view, so an alert
+// would be redundant (see viewingEventBuffer).
 
 import { useToastsStore, type ToastKind } from '../stores/toasts.js';
 import { useSettingsStore } from '../stores/settings.js';
@@ -70,10 +74,29 @@ function throttled(event: NotifyEvent, kind: ToastKind): boolean {
   return false;
 }
 
+// True when the user is looking right at the buffer this event belongs to:
+// the Lurker window has OS focus AND the event's buffer is the active one.
+// The message is already materializing in plain view, so a toast + sound
+// would be pure noise — Discord and Slack mute the focused channel the same
+// way. Push is unaffected: it's gated server-side and only fires when the
+// user has no visible client at all (wsHub.maybePush), a strictly stronger
+// "absent" condition than this render-time "present" one. document.hasFocus()
+// (not just `!document.hidden`) is the signal because a visible-but-unfocused
+// tab — Lurker sitting behind another window — still warrants the toast.
+function viewingEventBuffer(event: NotifyEvent): boolean {
+  if (typeof document === 'undefined' || !document.hasFocus()) return false;
+  const networks = useNetworksStore();
+  return networks.activeKey === `${event.networkId}::${event.target}`;
+}
+
 export function notifyForEvent(event: NotifyEvent | null | undefined): void {
   if (!event || event.self) return;
   const kindKey = pickKindKey(event);
   if (!kindKey) return;
+
+  // Already watching this conversation in a focused window → no toast, no
+  // sound. The message lands in view on its own (see viewingEventBuffer).
+  if (viewingEventBuffer(event)) return;
 
   // Ignored sender → no toast, no sound. Push is gated server-side in
   // wsHub.maybePush since push fires while no client is open and a
