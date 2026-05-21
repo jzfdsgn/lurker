@@ -159,26 +159,6 @@ const showAdvanced = ref(
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// Editing host/port/tls/nick/credentials only takes effect on the next
-// connection — a saved row otherwise sits untouched while the live IRC client
-// keeps using the old config. Detect those changes and reconnect after PATCH
-// so save-then-nothing-happens isn't the default UX.
-function connectionChanged(): boolean {
-  if (!props.network) return false;
-  const orig = props.network as Record<string, unknown>;
-  if ((form.host || '') !== ((orig.host as string) || '')) return true;
-  if (Number(form.port) !== Number(orig.port)) return true;
-  if (!!form.tls !== !!orig.tls) return true;
-  if ((form.nick || '') !== ((orig.nick as string) || '')) return true;
-  if ((form.realname || '') !== ((orig.realname as string) || '')) return true;
-  if ((form.sasl_account || '') !== ((orig.sasl_account as string) || '')) return true;
-  if ((form.connect_commands || '') !== ((orig.connect_commands as string) || '')) return true;
-  // Passwords are write-only on the API, so any non-empty value is a new value.
-  if (form.server_password) return true;
-  if (form.sasl_password) return true;
-  return false;
-}
-
 async function submit(): Promise<void> {
   loading.value = true;
   error.value = null;
@@ -197,9 +177,11 @@ async function submit(): Promise<void> {
       };
       if (form.server_password) patch.server_password = form.server_password;
       if (form.sasl_password) patch.sasl_password = form.sasl_password;
-      const willReconnect = connectionChanged();
+      // Saving only persists the row — it never cycles the live connection.
+      // Connection-relevant edits (host/port/nick/credentials) take effect on
+      // the next connect; the explicit "Reconnect" button below applies them
+      // now if the user wants that.
       await networks.update(props.network.id, patch);
-      if (willReconnect) await networks.reconnect(props.network.id);
     } else {
       await networks.create({ ...form });
     }

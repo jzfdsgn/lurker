@@ -6,6 +6,7 @@ import { usePinsStore } from '../stores/pins.js';
 import { useChannelNotifyStore } from '../stores/channelNotify.js';
 import { useNickNotesStore } from '../stores/nickNotes.js';
 import { useContextMenu } from './useContextMenu.js';
+import { socketSend } from './useSocket.js';
 
 export interface BufferLike {
   networkId: number;
@@ -72,6 +73,19 @@ export function useBufferActions(): BufferActionsAPI {
         onClick: () => nickNotes.openEditor(buf.networkId, buf.target),
       });
     }
+    // Close drops the buffer entirely — for a channel that also PARTs it, for
+    // a DM it just stops tracking the peer. Both are reversible (rejoin /
+    // reopen), so no confirmation; the divider sets it apart from the
+    // non-destructive pin/notify/note actions above.
+    items.push(
+      { divider: true },
+      {
+        label: `Close ${kind}`,
+        icon: 'fa-solid fa-xmark',
+        onClick: () =>
+          socketSend({ type: 'close-buffer', networkId: buf.networkId, target: buf.target }),
+      },
+    );
     return items;
   }
 

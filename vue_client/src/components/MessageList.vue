@@ -1172,9 +1172,12 @@ watch(
 .line:hover {
   background: var(--bg-soft);
 }
+/* Override only the alt-row background on hover — not its text color. The
+   `.line.alt` selector outweighs `.line:hover`, so the hover background needs
+   restating here, but the alt foreground (--alt-fg) stays put: hover is a
+   background-only cue and shouldn't shift the text color under the cursor. */
 .message-list:not(.compact) .line.alt:hover {
   background: var(--bg-soft);
-  color: var(--fg);
 }
 
 /* Hover-revealed three-dots button on eligible rows (desktop only). Sits in
