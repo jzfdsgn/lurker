@@ -13,7 +13,7 @@
   >
     <div
       v-for="row in renderedRows"
-      :key="row.lc"
+      :key="row.lc + ':' + row.index"
       class="row"
       :class="{ active: row.index === activeIndex }"
       @pointerdown.prevent="pick(row.nick)"
