@@ -702,14 +702,19 @@ function onPickerSelect(nick: string): void {
   }
   const before = value.slice(0, pickerTokenStart);
   const after = value.slice(pickerTokenEnd);
+  // Match Tab-completion (applyCompletion) and the mobile strip
+  // (onStripSelect): a nick at the start of a line is being addressed, so it
+  // gets ': '; mid-sentence gets a bare space.
+  const atLineStart = /(^|\n)\s*$/.test(before);
+  const suffix = atLineStart ? ': ' : ' ';
   cycling = true;
-  text.value = before + nick + ' ' + after;
+  text.value = before + nick + suffix + after;
   cycling = false;
   closePicker();
   queueMicrotask(() => {
     const el = inputEl.value;
     if (!el) return;
-    const caret = before.length + nick.length + 1;
+    const caret = before.length + nick.length + suffix.length;
     el.focus();
     el.setSelectionRange(caret, caret);
   });
