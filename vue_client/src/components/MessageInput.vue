@@ -556,19 +556,21 @@ function onKeydown(e: KeyboardEvent): void {
   // below so they don't double-fire. Escape is left to NickPicker's own
   // document listener. Gated on hasCandidates() so a no-match token like
   // `@zzz` still lets Enter send and Tab fall through to word completion.
-  // The picker is desktop-only — the mobile suggestion strip never opens it.
-  if (pickerOpen.value && nickPickerEl.value?.hasCandidates()) {
+  // Skipped entirely during an IME composition so the same arrows/Tab/Enter
+  // stay free to drive the IME's candidate window. The picker is desktop-only
+  // — the mobile suggestion strip never opens it.
+  if (pickerOpen.value && !e.isComposing && nickPickerEl.value?.hasCandidates()) {
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       if (!e.altKey && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         nickPickerEl.value.moveActive(e.key === 'ArrowUp' ? 1 : -1);
         return;
       }
-    } else if (e.key === 'Tab' && !e.isComposing) {
+    } else if (e.key === 'Tab') {
       e.preventDefault();
       nickPickerEl.value.confirmActive();
       return;
-    } else if (e.key === 'Enter' && !e.isComposing && !e.shiftKey) {
+    } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       nickPickerEl.value.confirmActive();
       return;
@@ -590,6 +592,8 @@ function onKeydown(e: KeyboardEvent): void {
     // Bare arrows only — Alt+Arrow is buffer navigation (handled globally in
     // useKeyboardShortcuts), so don't hijack it for input history here.
     if (e.altKey || e.metaKey || e.ctrlKey) return;
+    // Leave the arrows to an active IME — they navigate its candidate window.
+    if (e.isComposing) return;
     // Multi-line textarea: only walk history at the logical-line edges, so
     // arrows still move the caret between newline-separated lines within
     // the draft. Up = at first logical line (no \n before caret).
