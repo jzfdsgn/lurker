@@ -50,7 +50,7 @@ For a public, HTTPS-enabled Lurker on a fresh droplet — no SSH required:
 
 1. Point a domain (e.g. `irc.yourdomain.com`) at a fresh droplet's IP.
 2. Create a droplet — the Docker Marketplace image at the smallest size is fine (vanilla Ubuntu 24.04 LTS works too).
-3. Paste the contents of [`deploy/digitalocean-cloud-init.sh`](deploy/digitalocean-cloud-init.sh) into the **User Data** field at droplet creation, after editing `LURKER_DOMAIN` at the top of the script.
+3. At droplet creation, expand **Additional Options** and enable **User Scripts** (DigitalOcean's label for cloud-init user data — older guides call it "User data" or "Startup scripts"). Paste in the contents of [`deploy/digitalocean-cloud-init.sh`](deploy/digitalocean-cloud-init.sh), after editing `LURKER_DOMAIN` at the top of the script.
 4. Create the droplet, wait ~90 seconds, then visit your domain.
 
 TLS via Let's Encrypt is provisioned automatically by Caddy. Leave `LURKER_DOMAIN` empty (and skip step 1) for a plain-HTTP deployment on port 8015. Deploy progress is logged to `/var/log/lurker-deploy.log` on the droplet.

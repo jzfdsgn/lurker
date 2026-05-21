@@ -5,9 +5,10 @@
 # Lurker — DigitalOcean one-shot deploy (cloud-init user-data)
 # ============================================================
 #
-# Paste the ENTIRE contents of this file into the "User Data" field when
-# creating a DigitalOcean droplet (Advanced Options → Add Initialization
-# scripts). On first boot the droplet will, with no SSH:
+# Paste the ENTIRE contents of this file into the "User Scripts" field when
+# creating a DigitalOcean droplet (under "Additional Options"). That field is
+# DigitalOcean's label for cloud-init user data; older guides call it "User
+# data" or "Startup scripts". On first boot the droplet will, with no SSH:
 #
 #   * install Docker + the Compose plugin (skipped if already present, so
 #     this works on both the Docker Marketplace image and vanilla Ubuntu)
