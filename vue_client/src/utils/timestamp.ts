@@ -1,18 +1,33 @@
 // Copyright (c) 2026 Brad Root
 // SPDX-License-Identifier: MPL-2.0
 
-const TOKEN_RE = /YYYY|MM|DD|HH|mm|ss/g;
+// Recognized format tokens, longest-first within each prefix so the regex
+// prefers `HH` over `H` and `hh` over `h`:
+//   YYYY  4-digit year        MM  2-digit month     DD  2-digit day
+//   HH    24-hour, padded     H   24-hour           hh  12-hour, padded
+//   h     12-hour             mm  minutes, padded   ss  seconds, padded
+//   a     am/pm               A   AM/PM
+// Anything else in the format string passes through verbatim.
+const TOKEN_RE = /YYYY|MM|DD|HH|H|hh|h|mm|ss|a|A/g;
 
 export function formatTimestamp(iso: string, fmt: string): string {
   if (!iso || !fmt) return '';
   const d = new Date(iso);
+  const h24 = d.getHours();
+  // 12-hour clock: 0 and 12 both display as 12, 13–23 wrap to 1–11.
+  const h12 = h24 % 12 || 12;
   const tokens: Record<string, string> = {
     YYYY: String(d.getFullYear()),
     MM: String(d.getMonth() + 1).padStart(2, '0'),
     DD: String(d.getDate()).padStart(2, '0'),
-    HH: String(d.getHours()).padStart(2, '0'),
+    HH: String(h24).padStart(2, '0'),
+    H: String(h24),
+    hh: String(h12).padStart(2, '0'),
+    h: String(h12),
     mm: String(d.getMinutes()).padStart(2, '0'),
     ss: String(d.getSeconds()).padStart(2, '0'),
+    a: h24 < 12 ? 'am' : 'pm',
+    A: h24 < 12 ? 'AM' : 'PM',
   };
   return fmt.replace(TOKEN_RE, (t) => tokens[t]);
 }

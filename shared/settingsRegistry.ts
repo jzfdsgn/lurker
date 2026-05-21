@@ -496,7 +496,8 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
     default: 'HH:mm:ss',
     description:
       'Time format for the per-message timestamp column in chat buffers. ' +
-      'Tokens: YYYY MM DD HH mm ss. Empty string hides the column.',
+      'Tokens: YYYY MM DD HH H hh h mm ss a A — hh/h are 12-hour and a/A ' +
+      'are am/pm, e.g. "hh:mm a". Empty string hides the column.',
   },
   {
     key: 'look.buffer.time_format_compact',
@@ -510,7 +511,8 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
       'active (look.message.layout = compact, or = auto on mobile). ' +
       "Defaults to HH:mm — compact's right-aligned per-line timestamp is " +
       'tight on small viewports and seconds are rarely useful at a glance. ' +
-      'Tokens: YYYY MM DD HH mm ss. Empty string hides the column.',
+      'Tokens: YYYY MM DD HH H hh h mm ss a A — hh/h are 12-hour and a/A ' +
+      'are am/pm, e.g. "hh:mm a". Empty string hides the column.',
   },
   {
     key: 'look.bar.time_format',
@@ -521,7 +523,8 @@ export const REGISTRY: readonly SettingOption[] = Object.freeze([
     default: 'HH:mm:ss',
     description:
       'Time format for the clock displayed in the status bar (above the input). ' +
-      'Tokens: YYYY MM DD HH mm ss. Empty string hides the clock.',
+      'Tokens: YYYY MM DD HH H hh h mm ss a A — hh/h are 12-hour and a/A ' +
+      'are am/pm, e.g. "hh:mm a". Empty string hides the clock.',
   },
   {
     key: 'look.bar.lag_min_show_ms',
