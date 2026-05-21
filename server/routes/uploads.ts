@@ -11,6 +11,7 @@ import * as imagePipeline from '../services/imagePipeline.js';
 import { getProvider, providerIds, secretsForProvider } from '../services/uploadProviders/index.js';
 import type { UploadListRow } from '../db/uploadHistory.js';
 import { insertUpload, listUploads, getThumbnail, deleteUpload } from '../db/uploadHistory.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -35,7 +36,7 @@ const upload = multer({
 router.post(
   '/',
   upload.single('image'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.file) {
         res.status(400).json({ error: 'no file uploaded' });
@@ -139,7 +140,7 @@ router.post(
     } catch (err) {
       next(err);
     }
-  },
+  }),
 );
 
 router.get('/', (req: Request, res: Response) => {

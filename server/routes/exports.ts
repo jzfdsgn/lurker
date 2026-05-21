@@ -16,6 +16,7 @@ import {
   computeExportPreview,
 } from '../services/exportService.js';
 import { importFromZipBuffer, ImportError } from '../services/importService.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -47,29 +48,32 @@ router.get('/preview', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /api/exports?include_messages=1 — stream the zip to the response.
-router.get('/', async (req: Request, res: Response, next: NextFunction) => {
-  const includeMessages =
-    String(req.query.include_messages || '').toLowerCase() === '1' ||
-    String(req.query.include_messages || '').toLowerCase() === 'true';
-  const filename = buildExportFilename(req.user!.username, { includeMessages });
-  // octet-stream (not application/zip) so Safari's "open safe files after
-  // downloading" preference doesn't auto-unarchive the .lurk file.
-  res.setHeader('Content-Type', 'application/octet-stream');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  try {
-    await buildExportZip(req.user!.id, { includeMessages }, res);
-  } catch (err) {
-    // Headers are already out — best we can do is close the connection.
-    // The downstream will see a truncated zip and surface it as a corrupt
-    // download. Logging makes it diagnosable server-side.
-    console.error('[lurker] export failed:', err);
-    if (!res.headersSent) {
-      next(err);
-      return;
+router.get(
+  '/',
+  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const includeMessages =
+      String(req.query.include_messages || '').toLowerCase() === '1' ||
+      String(req.query.include_messages || '').toLowerCase() === 'true';
+    const filename = buildExportFilename(req.user!.username, { includeMessages });
+    // octet-stream (not application/zip) so Safari's "open safe files after
+    // downloading" preference doesn't auto-unarchive the .lurk file.
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    try {
+      await buildExportZip(req.user!.id, { includeMessages }, res);
+    } catch (err) {
+      // Headers are already out — best we can do is close the connection.
+      // The downstream will see a truncated zip and surface it as a corrupt
+      // download. Logging makes it diagnosable server-side.
+      console.error('[lurker] export failed:', err);
+      if (!res.headersSent) {
+        next(err);
+        return;
+      }
+      res.destroy();
     }
-    res.destroy();
-  }
-});
+  }),
+);
 
 const importRouter = Router();
 importRouter.use(requireAuth);
@@ -79,7 +83,7 @@ importRouter.use(requireAuth);
 importRouter.post(
   '/',
   upload.single('archive'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.file) {
         res.status(400).json({ error: 'no archive uploaded' });
@@ -116,7 +120,7 @@ importRouter.post(
       }
       next(err);
     }
-  },
+  }),
 );
 
 export { router as exportsRouter, importRouter };
