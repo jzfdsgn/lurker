@@ -109,10 +109,9 @@ a {
   text-decoration-color: var(--link);
 }
 
-/* Auto-linked IRC channel names in chat messages. Coloured like a link but
-   underlined only on hover, so they read as distinct from URLs. */
+/* Auto-linked IRC channel names in chat messages. Kept at the normal message
+   text colour — the pointer cursor and hover underline are the only cues. */
 .msg-channel {
-  color: var(--link);
   cursor: pointer;
 }
 .msg-channel:hover {
