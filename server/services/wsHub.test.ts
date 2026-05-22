@@ -13,7 +13,6 @@ let createNetwork: typeof import('../db/networks.js').createNetwork;
 let insertMessage: typeof import('../db/messages.js').insertMessage;
 let closeBuffer: typeof import('../db/closedBuffers.js').closeBuffer;
 let isClosed: typeof import('../db/closedBuffers.js').isClosed;
-let isChannelTarget: typeof import('./wsHub.js').isChannelTarget;
 let buildBufferBacklog: typeof import('./wsHub.js').buildBufferBacklog;
 let handleOpenBuffer: typeof import('./wsHub.js').handleOpenBuffer;
 
@@ -25,7 +24,7 @@ beforeAll(async () => {
   ({ createNetwork } = await import('../db/networks.js'));
   ({ insertMessage } = await import('../db/messages.js'));
   ({ closeBuffer, isClosed } = await import('../db/closedBuffers.js'));
-  ({ isChannelTarget, buildBufferBacklog, handleOpenBuffer } = await import('./wsHub.js'));
+  ({ buildBufferBacklog, handleOpenBuffer } = await import('./wsHub.js'));
 
   userId = createUser('alice').id;
   const net = createNetwork(userId, {
@@ -59,15 +58,6 @@ function mockWs() {
   const ws = { OPEN: 1, readyState: 1, send: (s: string) => frames.push(JSON.parse(s)) };
   return { ws: ws as unknown as Parameters<typeof handleOpenBuffer>[0], frames };
 }
-
-describe('isChannelTarget', () => {
-  it('recognizes # and & prefixes, rejects nicks and server buffers', () => {
-    expect(isChannelTarget('#general')).toBe(true);
-    expect(isChannelTarget('&local')).toBe(true);
-    expect(isChannelTarget('alice')).toBe(false);
-    expect(isChannelTarget(':server:1')).toBe(false);
-  });
-});
 
 describe('buildBufferBacklog', () => {
   it('builds a backlog frame from a buffer’s persisted history', () => {

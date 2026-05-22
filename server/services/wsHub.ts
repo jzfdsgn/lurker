@@ -174,11 +174,6 @@ function isInQuietWindow(currentMin: number, startMin: number, endMin: number): 
 
 const DM_ELIGIBLE_TYPES = new Set(['message', 'action', 'notice']);
 
-// IRC channel names start with '#' (or '&' for server-local channels).
-export function isChannelTarget(target: string): boolean {
-  return target.startsWith('#') || target.startsWith('&');
-}
-
 // Structural DM detection: ircConnection routes any direct message into a
 // buffer keyed by the *other* person's nick, so by the time we see an event
 // here the target is no longer your own nick. Anything that's not a channel
@@ -252,7 +247,7 @@ export function buildBufferBacklog(userId: number, networkId: number, target: st
     // A channel counts as joined only while a live connection is tracking it;
     // a stopped/offline network has no connection, so treat it as parted
     // rather than refusing to ship the history at all.
-    joined: isChannelTarget(target) ? !!conn?.channels.has(target.toLowerCase()) : true,
+    joined: target.startsWith('#') ? !!conn?.channels.has(target.toLowerCase()) : true,
     lastReadId: counts.lastReadId,
     unread: counts.unread,
     highlights: counts.highlights,
@@ -283,7 +278,7 @@ export function handleOpenBuffer(
     reopenBuffer(userId, networkId, canonical);
     send(ws, buildBufferBacklog(userId, networkId, canonical));
     send(ws, { kind: 'buffer-opened', networkId, target: canonical });
-  } else if (isChannelTarget(requested)) {
+  } else if (requested.startsWith('#')) {
     ircManager.joinChannel(userId, networkId, requested);
     send(ws, { kind: 'buffer-opened', networkId, target: requested });
   }

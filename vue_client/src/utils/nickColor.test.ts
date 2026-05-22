@@ -122,19 +122,8 @@ describe('splitTextByTokens — channel detection', () => {
     expect(parse('I write C# daily')).toEqual([{ text: 'I write C# daily' }]);
   });
 
-  it('does not treat the "&" in "AT&T" as a channel', () => {
-    expect(parse('call AT&T today')).toEqual([{ text: 'call AT&T today' }]);
-  });
-
   it('does not treat a bare "#" as a channel', () => {
     expect(parse('a # b')).toEqual([{ text: 'a # b' }]);
-  });
-
-  it('detects an &-prefixed local channel', () => {
-    expect(parse('&local rules')).toEqual([
-      { text: '&local', channel: '&local' },
-      { text: ' rules' },
-    ]);
   });
 
   it('leaves a # fragment inside a URL alone', () => {

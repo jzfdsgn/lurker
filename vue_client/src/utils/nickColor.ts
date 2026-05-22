@@ -148,19 +148,21 @@ interface ChannelSegment {
 
 type ChannelOrTextSegment = ChannelSegment | TextSegment;
 
-// Split text on IRC channel names. A channel token is a `#`/`&` prefix
-// followed by a run of characters valid in an IRC channel name: per RFC 2812
-// that rules out whitespace, commas, and colons (`:` begins the optional
-// channel mask). Trailing sentence punctuation is trimmed the same way URLs
-// are. The prefix must not sit directly after a word character, so "C#" and
-// "AT&T" don't read as channels. `##anime`-style double-hash names work
-// because the second `#` is just an ordinary body character. Runs on text
-// that has already had URLs split out, so a `#anchor` inside a link never
-// reaches this pass.
+// Split text on IRC channel names. A channel token is a `#` prefix followed
+// by a run of characters valid in an IRC channel name: per RFC 2812 that
+// rules out whitespace, commas, and colons (`:` begins the optional channel
+// mask). Trailing sentence punctuation is trimmed the same way URLs are. The
+// prefix must not sit directly after a word character, so "C#" doesn't read
+// as a channel. `##anime`-style double-hash names work because the second
+// `#` is just an ordinary body character. `&`-prefixed local channels and
+// other rare prefixes aren't supported here, matching the rest of the app
+// (BufferList sort/render, the buffer-actions menu, etc.) which all
+// hard-code `#`. Runs on text that has already had URLs split out, so a
+// `#anchor` inside a link never reaches this pass.
 function splitTextByChannels(text: string): ChannelOrTextSegment[] {
   const out: ChannelOrTextSegment[] = [];
   if (!text) return out;
-  const re = /(?<![A-Za-z0-9_])[#&][^\s,:]+/g;
+  const re = /(?<![A-Za-z0-9_])#[^\s,:]+/g;
   let lastIdx = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
