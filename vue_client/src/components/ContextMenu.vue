@@ -156,7 +156,6 @@ onBeforeUnmount(() => {
   border: none;
   color: inherit;
   font: inherit;
-  line-height: 1.4;
   text-align: left;
   cursor: pointer;
 }
@@ -172,21 +171,24 @@ onBeforeUnmount(() => {
   color: var(--fg-muted);
   cursor: default;
 }
-/* Fixed-height box with line-height:1 ensures FA glyph metrics center on the
-   label's text baseline instead of riding a few pixels high. */
+/* FontAwesome solid glyphs are biased toward the top of their em box (bell,
+   thumbtack, etc. have visual weight near the top), so geometric centering
+   reads as the icon sitting slightly high relative to the label's x-height.
+   A 1px downward nudge optically aligns the icon body with the text. */
 .icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
-  height: 1em;
   flex-shrink: 0;
-  line-height: 1;
   color: var(--fg-muted);
+  transform: translateY(1px);
 }
 .divider {
   height: 1px;
   background: var(--border);
-  margin: 4px 0;
+  /* No vertical margin — items flank the line directly, so the dead strips
+     between an item and its neighbouring divider don't leave un-hoverable gaps. */
+  margin: 0;
 }
 </style>
