@@ -159,10 +159,10 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   width: 100%;
-  /* Asymmetric horizontal padding: a bit more on the left so the icon sits
-     clear of the menu edge — reads tight at 12px once the menu widens for a
-     long label. */
-  padding: 8px 14px 8px 16px;
+  /* Asymmetric horizontal padding: more on the right so the label has
+     breathing room from the menu edge — reads tight at 12px once the menu
+     widens out for a long label. */
+  padding: 8px 16px 8px 14px;
   background: none;
   border: none;
   color: inherit;
