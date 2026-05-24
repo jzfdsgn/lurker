@@ -240,11 +240,13 @@ const serverConnectActionLabel = computed(() =>
 function toggleServerConnection() {
   if (!active.value) return;
   const id = active.value.networkId;
-  if (serverConnectionState.value === 'connected') {
-    void networks.disconnect(id);
-  } else {
-    void networks.reconnect(id);
-  }
+  // Fire-and-forget — the button's label is driven by networks.states so
+  // success reflects itself. A failed call stays observable via the state
+  // (label doesn't flip), so we just log and let the user retry rather
+  // than wiring a toast through the bar for this case.
+  const p =
+    serverConnectionState.value === 'connected' ? networks.disconnect(id) : networks.reconnect(id);
+  p.catch((err) => console.error('[MobileChat] toggle server connection failed', err));
 }
 
 function closeNetworkForm() {

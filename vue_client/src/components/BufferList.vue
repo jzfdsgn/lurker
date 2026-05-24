@@ -484,7 +484,15 @@ async function ensureActiveVisible(): Promise<void> {
   if (!el) return;
   el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
-watch(() => networks.activeKey, ensureActiveVisible);
+watch(
+  () => networks.activeKey,
+  () => {
+    // Wrap the async call so the watcher gets a sync callback — Vue doesn't
+    // await the returned Promise either way, and explicit catch keeps any
+    // future rejection from becoming an unhandled rejection.
+    ensureActiveVisible().catch((err) => console.error('[BufferList] scroll active failed', err));
+  },
+);
 
 let resizeObserver: ResizeObserver | null = null;
 onMounted(() => {
