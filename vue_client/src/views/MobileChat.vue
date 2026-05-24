@@ -48,6 +48,15 @@
         <button v-if="topic" class="icon" title="View topic" @click="showTopic = true">
           <i class="fa-solid fa-circle-info"></i>
         </button>
+        <button class="icon" title="Search messages" @click="showSearch = true">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+        <button class="icon" title="Highlights" @click="showHighlights = true">
+          <i class="fa-regular fa-bell"></i>
+        </button>
+        <button class="icon" title="Saved messages" @click="showBookmarks = true">
+          <i class="fa-regular fa-bookmark"></i>
+        </button>
         <button
           v-if="isServerBuffer"
           type="button"
@@ -63,15 +72,6 @@
           @click="toggleServerConnection"
         >
           {{ serverConnectActionLabel }}
-        </button>
-        <button class="icon" title="Search messages" @click="showSearch = true">
-          <i class="fa-solid fa-magnifying-glass"></i>
-        </button>
-        <button class="icon" title="Highlights" @click="showHighlights = true">
-          <i class="fa-regular fa-bell"></i>
-        </button>
-        <button class="icon" title="Saved messages" @click="showBookmarks = true">
-          <i class="fa-regular fa-bookmark"></i>
         </button>
         <button
           v-if="showBufferCog"

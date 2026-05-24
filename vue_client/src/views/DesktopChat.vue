@@ -64,18 +64,23 @@
     </header>
     <header v-else-if="active" class="topic">
       <span class="buffer">{{ bufferLabel }}</span>
-      <button v-if="isServerBuffer" type="button" class="link word" @click="showChannelList = true">
-        Channel List
-      </button>
-      <button v-if="isServerBuffer" type="button" class="link word" @click="toggleServerConnection">
-        {{ serverConnectActionLabel }}
-      </button>
       <template v-if="topic">
         <span class="sep">│</span>
         <button type="button" class="topic-text" title="View full topic" @click="showTopic = true">
           <LinkedText :text="topic" />
         </button>
       </template>
+      <button
+        v-if="isServerBuffer"
+        type="button"
+        class="link word server-right-start"
+        @click="showChannelList = true"
+      >
+        Channel List
+      </button>
+      <button v-if="isServerBuffer" type="button" class="link word" @click="toggleServerConnection">
+        {{ serverConnectActionLabel }}
+      </button>
       <button
         v-if="showBufferCog"
         ref="bufferCogBtn"
@@ -624,8 +629,11 @@ useChatBootstrap({ onJump: onJumpToMessage });
    members-toggle's own margin-left:auto takes over. Count sits to the
    right of the icon. */
 .topic .buffer-cog,
-.topic .network-cog {
+.topic .server-right-start {
   margin-left: auto;
+  padding-left: 8px;
+}
+.topic .network-cog {
   padding-left: 8px;
 }
 .topic .buffer-cog + .members-toggle {
@@ -637,9 +645,9 @@ useChatBootstrap({ onJump: onJumpToMessage });
   padding-left: 8px;
 }
 /* Word-button styling for the server-buffer affordances (Channel List,
-   Disconnect/Reconnect). They sit inline next to the buffer label as
-   text actions, with a touch of separation so they don't read as part of
-   the label itself. */
+   Disconnect/Reconnect). They cluster on the right alongside the
+   network-cog — the first one (Channel List) carries margin-left:auto via
+   .server-right-start, and the rest follow it in DOM order. */
 .topic .link.word {
   padding: 0 6px;
 }
