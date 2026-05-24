@@ -143,11 +143,13 @@ onBeforeUnmount(() => {
      ignores the viewport constraint and sizes to the widest unwrapped item, so
      the clamp logic then sees the real width and repositions correctly. */
   width: max-content;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-  /* No outer padding — first/last items go edge-to-edge so the hover wash
-     fills the corners of the popup instead of leaving dead strips. */
+  /* --bg-soft elevates the menu visually above the page (which uses --bg) so
+     the popup reads as a distinct surface without needing a visible border
+     (--border resolves to --bg-soft in the default theme, so a plain border
+     against page bg was invisible anyway). The drop shadow + the brighter
+     surface together do the floating-layer job. */
+  background: var(--bg-soft);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
   padding: 0;
   color: var(--fg);
   user-select: none;
@@ -167,9 +169,9 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 .item:hover:not(:disabled) {
-  /* color-mix gives a visible purple wash where plain --bg-soft would be
-     near-indistinguishable from the menu's own border-adjacent surface. */
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  /* Stronger wash now that the surface beneath is --bg-soft rather than --bg,
+     so the hover still reads against the elevated menu colour. */
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .item:hover:not(:disabled) .icon {
   color: var(--accent);
@@ -193,9 +195,10 @@ onBeforeUnmount(() => {
 }
 .divider {
   height: 1px;
-  background: var(--border);
-  /* No vertical margin — items flank the line directly, so the dead strips
-     between an item and its neighbouring divider don't leave un-hoverable gaps. */
+  /* Use --bg as the divider colour now that the menu surface is --bg-soft —
+     a 1px line in the page background colour cuts cleanly through the
+     elevated surface. */
+  background: var(--bg);
   margin: 0;
 }
 </style>
