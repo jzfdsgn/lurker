@@ -164,7 +164,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, onUpdated, reactive, ref, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  onUpdated,
+  reactive,
+  ref,
+  watch,
+} from 'vue';
 import draggable from 'vuedraggable';
 import { useNetworksStore, type PeerPresenceEntry } from '../stores/networks.js';
 import { useBuffersStore, type Buffer } from '../stores/buffers.js';
@@ -462,8 +471,40 @@ function scrollToUnread(dir: 'up' | 'down'): void {
   target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
+// Keep the selected row visible when the active buffer changes from outside
+// the list — Alt+arrow, quick switcher, jump-to-message, etc. On a small
+// display the new selection can otherwise sit off-screen. `block: 'nearest'`
+// no-ops when the row is already visible, so a same-row reactivation or a
+// click on an already-visible row doesn't pointlessly scroll.
+async function ensureActiveVisible(): Promise<void> {
+  await nextTick();
+  const sc = scroller.value;
+  if (!sc) return;
+  const el = sc.querySelector<HTMLElement>('.net-head.active, .channels li.active');
+  if (!el) return;
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+watch(
+  () => networks.activeKey,
+  () => {
+    // Wrap the async call so the watcher gets a sync callback — Vue doesn't
+    // await the returned Promise either way, and explicit catch keeps any
+    // future rejection from becoming an unhandled rejection.
+    ensureActiveVisible().catch((err) => console.error('[BufferList] scroll active failed', err));
+  },
+);
+
 let resizeObserver: ResizeObserver | null = null;
 onMounted(() => {
+  // Cold-mount path: when the sidebar re-expands or the page first loads,
+  // bring the previously-selected buffer into view without animation.
+  void (async () => {
+    await nextTick();
+    const sc = scroller.value;
+    if (!sc) return;
+    const el = sc.querySelector<HTMLElement>('.net-head.active, .channels li.active');
+    el?.scrollIntoView({ block: 'nearest' });
+  })();
   // Guard like MessageList does: ResizeObserver is missing in some SSR/test
   // contexts. The onUpdated remeasure still covers content changes there.
   if (typeof ResizeObserver !== 'undefined' && scroller.value) {

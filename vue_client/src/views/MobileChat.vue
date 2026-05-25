@@ -43,21 +43,19 @@
         <button class="icon back" title="Back" @click="goList">
           <i class="fa-solid fa-arrow-left"></i>
         </button>
-        <span class="title">{{ isSystemConsole ? 'System console' : bufferLabel }}</span>
+        <button
+          v-if="isDmHeader"
+          type="button"
+          class="title title-btn"
+          title="View profile"
+          @click="openDmProfile"
+        >
+          {{ bufferLabel }}
+        </button>
+        <span v-else class="title">{{ isSystemConsole ? 'System console' : bufferLabel }}</span>
         <span class="spacer"></span>
         <button v-if="topic" class="icon" title="View topic" @click="showTopic = true">
           <i class="fa-solid fa-circle-info"></i>
-        </button>
-        <button
-          v-if="isServerBuffer"
-          class="icon"
-          title="Browse channels"
-          @click="showChannelList = true"
-        >
-          <i class="fa-solid fa-list"></i>
-        </button>
-        <button v-if="isServerBuffer" class="icon" title="Edit network" @click="editActiveNetwork">
-          <i class="fa-solid fa-gear"></i>
         </button>
         <button class="icon" title="Search messages" @click="showSearch = true">
           <i class="fa-solid fa-magnifying-glass"></i>
@@ -67,6 +65,22 @@
         </button>
         <button class="icon" title="Saved messages" @click="showBookmarks = true">
           <i class="fa-regular fa-bookmark"></i>
+        </button>
+        <button
+          v-if="isServerBuffer"
+          type="button"
+          class="word-btn"
+          @click="showChannelList = true"
+        >
+          Channel List
+        </button>
+        <button
+          v-if="isServerBuffer"
+          type="button"
+          class="word-btn"
+          @click="toggleServerConnection"
+        >
+          {{ serverConnectActionLabel }}
         </button>
         <button
           v-if="showBufferCog"
@@ -79,6 +93,9 @@
         </button>
         <button v-if="isChannel" class="icon" title="Members" @click="screen = 'members'">
           <i class="fa-solid fa-users"></i>
+        </button>
+        <button v-if="isServerBuffer" class="icon" title="Edit network" @click="editActiveNetwork">
+          <i class="fa-solid fa-gear"></i>
         </button>
       </header>
       <SystemConsole v-if="isSystemConsole" />
@@ -122,6 +139,14 @@
     />
     <RecentUploadsModal v-if="showUploads" @close="showUploads = false" />
     <SearchModal v-if="showSearch" @close="showSearch = false" @jump="onJumpToMessage" />
+    <UserProfileModal
+      v-if="whois.viewer.open && whois.viewer.networkId != null"
+      :nick="whois.viewer.nick"
+      :network-id="whois.viewer.networkId"
+    />
+    <!-- NickNoteModal comes last so when both are open (edit-note-from-profile)
+         it lands on top — AppModal uses a fixed z-index, so DOM order is the
+         tiebreaker. -->
     <NickNoteModal
       v-if="nickNotes.editor.open && nickNotes.editor.networkId != null"
       :nick="nickNotes.editor.nick"
@@ -153,7 +178,9 @@ import ChannelListModal from '../components/ChannelListModal.vue';
 import RecentUploadsModal from '../components/RecentUploadsModal.vue';
 import SearchModal from '../components/SearchModal.vue';
 import NickNoteModal from '../components/NickNoteModal.vue';
+import UserProfileModal from '../components/UserProfileModal.vue';
 import { useNickNotesStore } from '../stores/nickNotes.js';
+import { useWhoisStore } from '../stores/whois.js';
 import { useJumpToMessage } from '../composables/useJumpToMessage.js';
 
 const networks = useNetworksStore();
@@ -170,6 +197,7 @@ const {
 } = useActiveBuffer();
 const bufferActions = useBufferActions();
 const nickNotes = useNickNotesStore();
+const whois = useWhoisStore();
 
 function openSystemConsole() {
   networks.activateSystem();
@@ -201,6 +229,18 @@ const bufferCogBtn = ref<HTMLElement | null>(null);
 // the cog is for channel/DM buffer-level actions (pin, always-notify).
 const showBufferCog = computed(() => !!active.value && !isServerBuffer.value);
 
+// True when the active buffer is a DM. Drives the clickable title that
+// opens the user profile modal — channel titles stay non-interactive.
+const isDmHeader = computed(() => {
+  if (!active.value) return false;
+  if (isChannel.value || isServerBuffer.value || isSystemConsole.value) return false;
+  return true;
+});
+function openDmProfile() {
+  if (!active.value) return;
+  whois.openViewer(active.value.networkId, active.value.target);
+}
+
 function openBufferActions() {
   if (!activeBuf.value) return;
   bufferActions.openMenuFromButton(activeBuf.value as BufferLike, bufferCogBtn.value);
@@ -216,6 +256,29 @@ function editActiveNetwork() {
   if (!net) return;
   editingNetwork.value = net;
   showNetworkForm.value = true;
+}
+
+// State-aware connect/disconnect for the server buffer header. Mirrors the
+// desktop logic — "Disconnect" only while we're confidently connected;
+// everything else labels as "Reconnect" because a fresh connect is the
+// same action and that's what the user reaches for when things look stuck.
+const serverConnectionState = computed(() => {
+  if (!active.value || !isServerBuffer.value) return null;
+  return networks.states[active.value.networkId]?.state ?? null;
+});
+const serverConnectActionLabel = computed(() =>
+  serverConnectionState.value === 'connected' ? 'Disconnect' : 'Reconnect',
+);
+function toggleServerConnection() {
+  if (!active.value) return;
+  const id = active.value.networkId;
+  // Fire-and-forget — the button's label is driven by networks.states so
+  // success reflects itself. A failed call stays observable via the state
+  // (label doesn't flip), so we just log and let the user retry rather
+  // than wiring a toast through the bar for this case.
+  const p =
+    serverConnectionState.value === 'connected' ? networks.disconnect(id) : networks.reconnect(id);
+  p.catch((err) => console.error('[MobileChat] toggle server connection failed', err));
 }
 
 function closeNetworkForm() {
@@ -317,6 +380,19 @@ useChatBootstrap({ onJump: onJumpToMessage });
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* DM headers double as a "view profile" trigger — match the .title look,
+   underline on tap. */
+.title-btn {
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+.title-btn:active {
+  text-decoration: underline;
+}
 .spacer {
   flex: 1;
 }
@@ -340,6 +416,23 @@ useChatBootstrap({ onJump: onJumpToMessage });
 }
 .icon.back {
   margin-left: -4px;
+}
+/* Word-button affordances for the server-buffer bar (Channel List,
+   Disconnect/Reconnect). Same accent treatment as .icon but text-shaped so
+   they fit alongside the global action icons without reading as another
+   ambiguous gear. Min-height matches .icon so they line up on the bar. */
+.word-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 8px;
+  min-height: 36px;
+  white-space: nowrap;
+}
+.word-btn:hover {
+  color: var(--fg);
 }
 
 /* The buffer screen's MessageList + StatusBar + MessageInput chain mirrors

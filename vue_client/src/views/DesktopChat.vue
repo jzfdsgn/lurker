@@ -63,18 +63,16 @@
       <span class="buffer">System console</span>
     </header>
     <header v-else-if="active" class="topic">
-      <span class="buffer">{{ bufferLabel }}</span>
-      <button v-if="isServerBuffer" class="link" title="Edit network" @click="editActiveNetwork">
-        <i class="fa-solid fa-gear"></i>
-      </button>
       <button
-        v-if="isServerBuffer"
-        class="link"
-        title="Browse channels"
-        @click="showChannelList = true"
+        v-if="isDmHeader"
+        type="button"
+        class="buffer link"
+        title="View profile"
+        @click="openDmProfile"
       >
-        <i class="fa-solid fa-list"></i>
+        {{ bufferLabel }}
       </button>
+      <span v-else class="buffer">{{ bufferLabel }}</span>
       <template v-if="topic">
         <span class="sep">│</span>
         <button type="button" class="topic-text" title="View full topic" @click="showTopic = true">
@@ -82,11 +80,30 @@
         </button>
       </template>
       <button
+        v-if="isServerBuffer"
+        type="button"
+        class="link word server-right-start"
+        @click="showChannelList = true"
+      >
+        Channel List
+      </button>
+      <button v-if="isServerBuffer" type="button" class="link word" @click="toggleServerConnection">
+        {{ serverConnectActionLabel }}
+      </button>
+      <button
         v-if="showBufferCog"
         ref="bufferCogBtn"
         class="link buffer-cog"
         title="Buffer actions"
         @click="openBufferActions"
+      >
+        <i class="fa-solid fa-gear"></i>
+      </button>
+      <button
+        v-if="isServerBuffer"
+        class="link network-cog"
+        title="Edit network"
+        @click="editActiveNetwork"
       >
         <i class="fa-solid fa-gear"></i>
       </button>
@@ -139,6 +156,14 @@
     <QuickSwitcher v-if="showSwitcher" @close="showSwitcher = false" />
     <SearchModal v-if="showSearch" @close="showSearch = false" @jump="onJumpToMessage" />
     <KeyboardHelpModal v-if="showKbdHelp" @close="showKbdHelp = false" />
+    <UserProfileModal
+      v-if="whois.viewer.open && whois.viewer.networkId != null"
+      :nick="whois.viewer.nick"
+      :network-id="whois.viewer.networkId"
+    />
+    <!-- NickNoteModal comes last so when both are open (edit-note-from-profile)
+         it lands on top — AppModal uses a fixed z-index, so DOM order is the
+         tiebreaker. -->
     <NickNoteModal
       v-if="nickNotes.editor.open && nickNotes.editor.networkId != null"
       :nick="nickNotes.editor.nick"
@@ -174,9 +199,11 @@ import QuickSwitcher from '../components/QuickSwitcher.vue';
 import SearchModal from '../components/SearchModal.vue';
 import KeyboardHelpModal from '../components/KeyboardHelpModal.vue';
 import NickNoteModal from '../components/NickNoteModal.vue';
+import UserProfileModal from '../components/UserProfileModal.vue';
 import { useKeyboardShortcuts } from '../composables/useKeyboardShortcuts.js';
 import { useNicklistCollapseStore } from '../stores/nicklistCollapse.js';
 import { useNickNotesStore } from '../stores/nickNotes.js';
+import { useWhoisStore } from '../stores/whois.js';
 import { useBufferActions } from '../composables/useBufferActions.js';
 import { useJumpToMessage } from '../composables/useJumpToMessage.js';
 
@@ -191,6 +218,7 @@ function openSystemConsole() {
 const settings = useSettingsStore();
 const nicklistCollapse = useNicklistCollapseStore();
 const nickNotes = useNickNotesStore();
+const whois = useWhoisStore();
 const bufferActions = useBufferActions();
 
 const showNetworkForm = ref(false);
@@ -300,6 +328,19 @@ watch(showChannels, async (open) => {
 });
 onMounted(measureFootWrap);
 
+// True when the active buffer is a DM (not a channel, not the network's
+// server buffer). Drives the clickable DM header that opens the user
+// profile modal — channel headers stay non-interactive.
+const isDmHeader = computed(() => {
+  if (!active.value) return false;
+  if (isChannel.value || isServerBuffer.value) return false;
+  return true;
+});
+function openDmProfile() {
+  if (!active.value) return;
+  whois.openViewer(active.value.networkId, active.value.target);
+}
+
 // User count for the active channel buffer. Sits in the topic bar (next to
 // the members-toggle button) rather than the status bar — the count is a
 // property of the channel, so the channel header is the natural home.
@@ -365,6 +406,31 @@ function closeNetworkForm() {
 function editActiveNetwork() {
   const net = active.value?.network as Network | undefined;
   if (net) openEditNetwork(net);
+}
+
+// State-aware connect/disconnect for the server buffer header. We label the
+// button "Disconnect" only while we're confidently connected; every other
+// state (idle, connecting, reconnecting, disconnected, unknown) reads as
+// "Reconnect" because the action — fire a fresh connect — is the same in
+// each case, and "Reconnect" is what the user reaches for when something
+// looks stuck.
+const serverConnectionState = computed(() => {
+  if (!active.value || !isServerBuffer.value) return null;
+  return networks.states[active.value.networkId]?.state ?? null;
+});
+const serverConnectActionLabel = computed(() =>
+  serverConnectionState.value === 'connected' ? 'Disconnect' : 'Reconnect',
+);
+function toggleServerConnection() {
+  if (!active.value) return;
+  const id = active.value.networkId;
+  // Fire-and-forget — the button's label is driven by networks.states so
+  // success reflects itself. A failed call stays observable via the state
+  // (label doesn't flip), so we just log and let the user retry rather
+  // than wiring a toast through the topic bar for this case.
+  const p =
+    serverConnectionState.value === 'connected' ? networks.disconnect(id) : networks.reconnect(id);
+  p.catch((err) => console.error('[DesktopChat] toggle server connection failed', err));
 }
 
 useChatBootstrap({ onJump: onJumpToMessage });
@@ -546,6 +612,16 @@ useChatBootstrap({ onJump: onJumpToMessage });
 .topic .buffer {
   color: var(--accent);
 }
+/* DM headers double as a "view profile" trigger. Strip the .link padding so
+   the button-rendered label sits exactly where the span used to, and only
+   underline on hover so it doesn't read as a link in steady state. */
+button.buffer.link {
+  padding: 0;
+}
+button.buffer.link:hover {
+  text-decoration: underline;
+  color: var(--accent);
+}
 .topic .sep {
   color: var(--border);
 }
@@ -594,10 +670,15 @@ useChatBootstrap({ onJump: onJumpToMessage });
    label. The topic text shrinks first (it has min-width: 0 + ellipsis) so
    the cluster stays put. The cog claims the slack via margin-left:auto and
    the remaining elements follow it in DOM order. When the cog is absent
-   (server buffers), members-toggle's own margin-left:auto takes over.
-   Count sits to the right of the icon. */
-.topic .buffer-cog {
+   (server buffers), the server network-cog takes the same slot, or
+   members-toggle's own margin-left:auto takes over. Count sits to the
+   right of the icon. */
+.topic .buffer-cog,
+.topic .server-right-start {
   margin-left: auto;
+  padding-left: 8px;
+}
+.topic .network-cog {
   padding-left: 8px;
 }
 .topic .buffer-cog + .members-toggle {
@@ -607,6 +688,13 @@ useChatBootstrap({ onJump: onJumpToMessage });
 .topic .members-toggle {
   margin-left: auto;
   padding-left: 8px;
+}
+/* Word-button styling for the server-buffer affordances (Channel List,
+   Disconnect/Reconnect). They cluster on the right alongside the
+   network-cog — the first one (Channel List) carries margin-left:auto via
+   .server-right-start, and the rest follow it in DOM order. */
+.topic .link.word {
+  padding: 0 6px;
 }
 .topic .member-count {
   color: var(--fg-muted);
