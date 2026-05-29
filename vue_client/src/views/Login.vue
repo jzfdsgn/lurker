@@ -190,17 +190,17 @@ async function onCreateUser() {
 }
 .card {
   position: relative;
-  z-index: 1;
+  z-index: var(--z-base);
   background: var(--bg);
   border: 1px solid var(--accent);
-  padding: 24px 28px;
+  padding: var(--space-9) 28px;
   width: 360px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-6);
 }
 h1 {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-2);
   color: var(--accent);
   font-weight: 700;
   text-transform: lowercase;
@@ -214,7 +214,7 @@ h1 {
 }
 .warning {
   margin: 0;
-  padding: 8px 10px;
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--warn, var(--accent));
   color: var(--warn, var(--accent));
   background: transparent;
@@ -222,7 +222,7 @@ h1 {
 form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-6);
   margin: 0;
 }
 label {
@@ -239,7 +239,7 @@ button {
   cursor: pointer;
 }
 button.primary {
-  padding: 8px 12px;
+  padding: var(--space-4) var(--space-6);
 }
 .error {
   margin: 0;
@@ -257,7 +257,7 @@ button.primary {
   color: var(--fg);
 }
 .password-form {
-  margin-top: 4px;
+  margin-top: var(--space-2);
 }
 .hint {
   margin: 0;

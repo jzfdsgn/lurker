@@ -430,8 +430,8 @@ function formatUA(ua: string | null | undefined): string {
 .this-client {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 0 10px;
+  gap: var(--space-6);
+  padding: 0 0 var(--space-5);
 }
 .this-label {
   color: var(--fg-muted);
@@ -444,7 +444,7 @@ function formatUA(ua: string | null | undefined): string {
   border-top: 1px dashed var(--border);
 }
 .notif-signal-title {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-2);
   font-size: 0.92em;
   text-transform: uppercase;
   letter-spacing: 0.04em;

@@ -108,7 +108,7 @@ onMounted(() => {
   background: var(--bg);
   display: flex;
   justify-content: center;
-  z-index: 100;
+  z-index: var(--z-modal);
   overflow: hidden;
   outline: none;
 }
@@ -136,7 +136,7 @@ onMounted(() => {
   .modal,
   .modal.align-top {
     align-items: stretch;
-    padding: 16px;
+    padding: var(--space-7);
   }
   .card,
   .card.size-sm,
@@ -162,7 +162,7 @@ onMounted(() => {
      children can break out with margin: 0 calc(-1 * var(--card-pad-x))
      and have their scrollbar sit against the card border. */
   --card-pad-x: 28px;
-  padding: 24px var(--card-pad-x);
+  padding: var(--space-9) var(--card-pad-x);
   outline: none;
 }
 .card.size-sm {
@@ -182,9 +182,9 @@ onMounted(() => {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
-  padding: 0 0 16px;
-  margin-bottom: 16px;
+  gap: var(--space-6);
+  padding: 0 0 var(--space-7);
+  margin-bottom: var(--space-7);
   border-bottom: 1px solid var(--border);
 }
 .title-wrap {
@@ -207,14 +207,14 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 .subtitle {
-  margin: 8px 0 0;
+  margin: var(--space-4) 0 0;
   color: var(--fg-muted);
   font-size: 0.9em;
 }
 .head-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-4);
   flex-shrink: 0;
 }
 .close-btn {
@@ -224,7 +224,7 @@ onMounted(() => {
   cursor: pointer;
   font: inherit;
   font-size: 1.2em;
-  padding: 4px 8px;
+  padding: var(--space-2) var(--space-4);
 }
 .close-btn:hover {
   color: var(--accent);

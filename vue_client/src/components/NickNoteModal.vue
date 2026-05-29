@@ -89,13 +89,13 @@ onMounted(() => {
 .body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-6);
 }
 textarea {
   background: var(--bg-soft);
   color: var(--fg);
   border: 1px solid var(--border);
-  padding: 8px 10px;
+  padding: var(--space-4) var(--space-5);
   font: inherit;
   resize: vertical;
   min-height: 8em;
@@ -112,15 +112,15 @@ textarea:focus {
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
 }
 .btn-primary,
 .btn-secondary {
   background: none;
   border: 1px solid var(--border);
   color: var(--fg);
-  padding: 6px 14px;
+  padding: var(--space-3) 14px;
   cursor: pointer;
   font: inherit;
 }
