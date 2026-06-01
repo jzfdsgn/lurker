@@ -76,7 +76,12 @@
         <span v-else class="buffer">{{ bufferLabel }}</span>
         <template v-if="topic">
           <span class="sep">│</span>
-          <button type="button" class="topic-text" title="View full topic" @click="showTopic = true">
+          <button
+            type="button"
+            class="topic-text"
+            title="View full topic"
+            @click="showTopic = true"
+          >
             <LinkedText :text="topic" />
           </button>
         </template>
