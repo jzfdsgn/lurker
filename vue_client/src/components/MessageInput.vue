@@ -79,6 +79,18 @@
       @select="onPickerSelect"
       @close="closePicker"
     />
+    <!-- `#channel` completion. Identical popover on desktop and mobile — there
+         is no compact-strip variant for channels (issue #154). Independent of
+         the nick picker; refreshPicker keeps the two from being open at once. -->
+    <ChannelPicker
+      ref="channelPickerEl"
+      :open="channelPickerOpen"
+      :query="channelPickerQuery"
+      :network-id="active?.networkId ?? null"
+      :anchor="formEl"
+      @select="onChannelPickerSelect"
+      @close="closeChannelPicker"
+    />
     <Teleport to="body">
       <LongMessageUploadModal
         v-if="longMessageModalOpen"
@@ -109,6 +121,7 @@ import { setComposingState } from '../composables/useComposing.js';
 import { chunkCountForSay, chunkCountForAction } from '../utils/messageSplit.js';
 import { applySpoilerMarkup } from '../utils/spoilerMarkup.js';
 import { buildNickCandidates } from '../utils/nickCompletion.js';
+import { buildChannelCandidates } from '../utils/channelCompletion.js';
 import {
   findActiveShortcode,
   findCompletedShortcode,
@@ -116,6 +129,7 @@ import {
 } from '../utils/emojiShortcodes.js';
 import type { EmojiMatch } from '../utils/emojiData.js';
 import NickPicker from './NickPicker.vue';
+import ChannelPicker from './ChannelPicker.vue';
 import LongMessageUploadModal from './LongMessageUploadModal.vue';
 import { useSelfLabel } from '../composables/useSelfLabel.js';
 import { useViewport } from '../composables/useViewport.js';
@@ -154,6 +168,15 @@ const pickerQuery = ref('');
 const nickPickerEl = ref<InstanceType<typeof NickPicker> | null>(null);
 let pickerTokenStart = -1;
 let pickerTokenEnd = -1;
+// `#channel` picker — a sibling of the nick picker with the same local-state
+// shape (open flag, query, replaced-token span). Like the nick picker it's a
+// position:fixed popover anchored to the form, not a StatusBar overlay, so its
+// state lives here rather than in useComposerOverlay.
+const channelPickerOpen = ref(false);
+const channelPickerQuery = ref('');
+const channelPickerEl = ref<InstanceType<typeof ChannelPicker> | null>(null);
+let channelPickerTokenStart = -1;
+let channelPickerTokenEnd = -1;
 // Suggestion-strip and colour-picker visibility / contents live in
 // useComposerOverlay so StatusBar can render them as overlays without prop
 // drilling. Token-span book-keeping (which slice of the draft a pick
@@ -383,6 +406,7 @@ function handleHistoryNav(e: KeyboardEvent): void {
   resetCompletion();
   closePicker();
   closeStrip();
+  closeChannelPicker();
 
   if (e.key === 'ArrowUp') {
     if (historyIndex === null) {
@@ -450,12 +474,7 @@ function buildNickStripItems(buf: Buffer, networkId: number, prefix: string): Ni
 }
 
 function buildChannelMatches(networkId: number, prefix: string): string[] {
-  const lower = prefix.toLowerCase();
-  return buffers
-    .forNetwork(networkId)
-    .map((b) => b.target)
-    .filter((t) => t.startsWith('#') && t.toLowerCase().startsWith(lower))
-    .toSorted((a, b) => a.localeCompare(b));
+  return buildChannelCandidates(buffers.forNetwork(networkId), prefix);
 }
 
 function applyCompletion() {
@@ -467,6 +486,7 @@ function applyCompletion() {
   // fire, so they wouldn't close on their own).
   closePicker();
   closeStrip();
+  closeChannelPicker();
   cycling = true;
   text.value = completion.prefix + pick + suffix + completion.tail;
   cycling = false;
@@ -619,6 +639,25 @@ function onKeydown(e: KeyboardEvent): void {
       return;
     }
   }
+  // The `#`-channel picker mirrors the nick picker above: while open with
+  // candidates it owns arrows (move highlight) and Tab (confirm), Enter still
+  // sends, and Escape is left to ChannelPicker's own document listener. Gated
+  // on hasCandidates() so a no-match `#zzz` lets Tab fall through to in-place
+  // completion below. refreshPicker keeps this and the nick picker from being
+  // open at once, so the two blocks can't both fire.
+  if (channelPickerOpen.value && !e.isComposing && channelPickerEl.value?.hasCandidates()) {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      if (!e.altKey && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        channelPickerEl.value.moveActive(e.key === 'ArrowUp' ? 1 : -1);
+        return;
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      channelPickerEl.value.confirmActive();
+      return;
+    }
+  }
   // The mobile/compact nick strip owns navigation keys while open with
   // candidates — same shape as the emoji block below, and as the desktop
   // @-picker above. All four arrows cycle the highlight (Down/Right next,
@@ -764,6 +803,13 @@ function closePicker() {
   pickerTokenEnd = -1;
 }
 
+function closeChannelPicker() {
+  channelPickerOpen.value = false;
+  channelPickerQuery.value = '';
+  channelPickerTokenStart = -1;
+  channelPickerTokenEnd = -1;
+}
+
 function closeStrip() {
   setNickStrip(false);
   stripTokenStart = -1;
@@ -876,6 +922,7 @@ function refreshPicker() {
     closePicker();
     closeStrip();
     closeEmojiStrip();
+    closeChannelPicker();
     return;
   }
   const value = text.value;
@@ -888,12 +935,32 @@ function refreshPicker() {
   if (shortcode && shortcode.name.length >= 2) {
     closePicker();
     closeStrip();
+    closeChannelPicker();
     void showEmojiStrip();
     return;
   }
   closeEmojiStrip();
 
   const { token, start, end } = tokenAtCursor(value, cursor);
+
+  // `#channel` token → the channel picker, on every platform (no compact-strip
+  // variant; see issue #154). It's a standalone popover, so the nick picker
+  // and both StatusBar strips close while it's up. Opens as soon as `#` is
+  // typed so you get the full joined-channel list; the picker self-hides when
+  // nothing matches (its v-if gates on candidate count), so a stray `#5` or a
+  // channel you're not in just shows no popover.
+  if (token.startsWith('#')) {
+    closePicker();
+    closeStrip();
+    channelPickerOpen.value = true;
+    channelPickerQuery.value = token;
+    channelPickerTokenStart = start;
+    channelPickerTokenEnd = end;
+    return;
+  }
+  // Any other token means a channel isn't being edited — tear down a picker the
+  // previous keystroke may have opened before routing to the nick UIs below.
+  closeChannelPicker();
 
   // Slash commands never trigger nick completion in either UI.
   if (token.startsWith('/')) {
@@ -971,6 +1038,31 @@ function onPickerSelect(nick: string): void {
     const el = inputEl.value;
     if (!el) return;
     const caret = before.length + nick.length + suffix.length;
+    el.focus();
+    el.setSelectionRange(caret, caret);
+  });
+}
+
+function onChannelPickerSelect(channel: string): void {
+  const value = text.value;
+  if (channelPickerTokenStart < 0) {
+    closeChannelPicker();
+    return;
+  }
+  const before = value.slice(0, channelPickerTokenStart);
+  const after = value.slice(channelPickerTokenEnd);
+  // Channels just get a trailing space — there's no "addressing" form like
+  // nicks' ': ', and the '#' is already part of the inserted name. The sent
+  // `#channel` renders as a clickable join link for the recipient
+  // (RenderSegments → openChannel), which is the whole point (issue #154).
+  cycling = true;
+  text.value = before + channel + ' ' + after;
+  cycling = false;
+  closeChannelPicker();
+  queueMicrotask(() => {
+    const el = inputEl.value;
+    if (!el) return;
+    const caret = before.length + channel.length + 1;
     el.focus();
     el.setSelectionRange(caret, caret);
   });
@@ -1059,6 +1151,7 @@ watch(active, (newActive, oldActive) => {
   resetCompletion();
   closePicker();
   closeStrip();
+  closeChannelPicker();
   closeEmojiStrip();
   closeColorPicker();
   resetHistoryNav();
@@ -1255,6 +1348,7 @@ async function submit() {
   resetCompletion();
   closePicker();
   closeStrip();
+  closeChannelPicker();
   closeEmojiStrip();
   closeColorPicker();
   const raw = text.value;
