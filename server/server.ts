@@ -15,6 +15,7 @@ import { purgeExpiredSessions } from './db/sessions.js';
 import { resolveSessionSecret } from './utils/sessionSecret.js';
 import { getEdition, isNodeMode } from './utils/edition.js';
 import { startOrchestratorClient, stopOrchestratorClient } from './services/orchestratorClient.js';
+import { startIdentd, stopIdentd, isIdentdEnabled, identdPort } from './services/identd.js';
 
 const PORT = Number(process.env.PORT || 8010);
 const EDITION = getEdition();
@@ -33,6 +34,11 @@ if (isNodeMode() && !nodeUploadConfigured()) {
     '[lurker] node edition is active but LURKER_NODE_UPLOAD_URL / LURKER_NODE_UPLOAD_API_KEY are unset — image and text uploads will fail (400) until they are configured',
   );
 }
+if (isNodeMode() && !isIdentdEnabled()) {
+  console.warn(
+    '[lurker] node edition is active but LURKER_IDENTD_ENABLED is unset — IRC networks cannot attribute individual users; they will appear with an unverified ~ident behind the cell IP',
+  );
+}
 
 const app = buildApp(SESSION_SECRET);
 const server = http.createServer(app);
@@ -42,6 +48,13 @@ purgeExpiredSessions();
 setInterval(purgeExpiredSessions, 60 * 60 * 1000).unref();
 
 systemLog.log({ scope: 'server', text: `Lurker server starting up (edition: ${EDITION})` });
+
+// Built-in identd (opt-in via LURKER_IDENTD_ENABLED). A multi-user gateway
+// needs it so IRC networks can attribute each user behind the shared IP; bind
+// it before connections register their idents.
+if (isIdentdEnabled()) {
+  startIdentd(identdPort());
+}
 
 ircManager.initAll();
 
@@ -58,6 +71,7 @@ function shutdown(signal: string): void {
   console.log(`[lurker] received ${signal}, shutting down`);
   systemLog.log({ scope: 'server', level: 'warn', text: `Received ${signal}, shutting down` });
   stopOrchestratorClient();
+  stopIdentd();
   ircManager.shutdown();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 5000).unref();

@@ -40,6 +40,23 @@ LURKER_DOMAIN=""
 # Apple, Google, and Mozilla's push services require.
 ADMIN_EMAIL=""
 
+# ─── Optional: built-in identd (RFC 1413) ───────────────────────────────────
+#
+# Set to "true" to run Lurker's built-in identd on port 113. For a MULTI-USER
+# instance this lets IRC networks attribute each user individually behind the
+# shared server IP (and is what networks like Libera ask of a hosted service) —
+# users then appear with a verified ident rather than an unverified "~ident".
+# The script publishes :113 and opens it in the firewall. Leave blank for a
+# single-user instance that doesn't need it.
+#
+# Requires a Lurker image that includes identd (ghcr.io/amiantos/lurker:latest
+# once that lands). Docker note: the IRC server's :113 callback has to map back
+# to the exact source port of the outbound IRC connection; Docker's bridge NAT
+# preserves source ports at normal scale, so this works as-is — if you ever see
+# unverified idents under heavy concurrency, run the lurker service with
+# `network_mode: host` instead.
+ENABLE_IDENTD=""
+
 # ─── No edits needed below this line ────────────────────────────────────────
 
 set -euo pipefail
@@ -171,6 +188,10 @@ configure_firewall() {
   ufw allow 80/tcp
   ufw allow 443/tcp
   ufw deny 8015/tcp
+  if [ "$ENABLE_IDENTD" = "true" ]; then
+    # IRC servers connect back to :113 to verify each user's ident.
+    ufw allow 113/tcp
+  fi
   ufw --force enable
   ufw status verbose || true
 }
@@ -186,14 +207,34 @@ deploy() {
   curl -fsSL -o docker-compose.caddy.yml "$REPO_RAW/docker-compose.caddy.yml"
   curl -fsSL -o Caddyfile "$REPO_RAW/deploy/Caddyfile"
 
+  local compose_files="docker-compose.yml:docker-compose.caddy.yml"
+
+  # identd overlay, layered AFTER Caddy (which resets the lurker ports), so it
+  # re-publishes :113 and turns on the built-in identd while the web port stays
+  # internal to Caddy. Generated locally so `pull` + `up -d` updates keep it.
+  if [ "$ENABLE_IDENTD" = "true" ]; then
+    log "identd enabled — publishing :113 and turning on the built-in identd."
+    cat > docker-compose.identd.yml <<'YAML'
+services:
+  lurker:
+    ports:
+      - '113:113'
+    environment:
+      - LURKER_IDENTD_ENABLED=true
+      - LURKER_IDENTD_PORT=113
+YAML
+    compose_files="${compose_files}:docker-compose.identd.yml"
+  fi
+
   # Compose interpolates LURKER_DOMAIN/ADMIN_EMAIL into docker-compose.caddy.yml
   # — Caddy reads them for TLS, Lurker reads them for passkeys and push.
-  # COMPOSE_FILE records the overlay so plain `docker compose` commands —
-  # including future `pull` + `up -d` updates — pick up Caddy automatically.
+  # COMPOSE_FILE records the overlay stack so plain `docker compose` commands —
+  # including future `pull` + `up -d` updates — pick up Caddy (and identd)
+  # automatically.
   cat > .env <<EOF
 LURKER_DOMAIN=${LURKER_DOMAIN}
 ADMIN_EMAIL=${ADMIN_EMAIL}
-COMPOSE_FILE=docker-compose.yml:docker-compose.caddy.yml
+COMPOSE_FILE=${compose_files}
 EOF
 
   compose pull
@@ -221,3 +262,7 @@ log "${PUBLIC_IP} if you haven't already — Caddy retries Let's Encrypt"
 log "until it resolves, then https://${LURKER_DOMAIN} serves over HTTPS."
 log "Passkeys and web push are pre-configured; once you've created your"
 log "admin account, opt in per device from Lurker's settings."
+if [ "$ENABLE_IDENTD" = "true" ]; then
+  log "Built-in identd is running on :113 — connect to a network and check that"
+  log "your ident shows up verified (no leading ~) via /whois on yourself."
+fi

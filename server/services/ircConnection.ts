@@ -26,6 +26,10 @@ import { matchesAny as matchesIgnoreMask } from './maskMatch.js';
 import { listMasks as listIgnoredMasks } from '../db/ignoredMasks.js';
 import * as systemLog from './systemLog.js';
 import { IRC_VERSION, APP_VERSION } from '../utils/userAgent.js';
+import { findUserById } from '../db/users.js';
+import { isNodeMode } from '../utils/edition.js';
+import { deriveIdent } from '../utils/ident.js';
+import { registerIdent, unregisterIdent, isIdentdEnabled } from './identd.js';
 
 // Shown to peers as the QUIT reason on a clean disconnect. Most IRC clients
 // surface this in JOIN/PART messages, so it doubles as a Lurker
@@ -164,6 +168,9 @@ export class IrcConnection {
   nickAttempt: number;
   regainNick: string | null;
   pendingRegainSetup: boolean;
+  // Local source port of the live socket, while identd is enabled — so we can
+  // unregister this connection's ident from the identd map when it closes.
+  identdLocalPort: number | null;
 
   constructor({ network, onEvent }: { network: Network; onEvent: (event: EnrichedEvent) => void }) {
     this.network = network;
@@ -214,6 +221,7 @@ export class IrcConnection {
     // tells us the server supports it (005 arrives after 001/'registered').
     this.regainNick = null;
     this.pendingRegainSetup = false;
+    this.identdLocalPort = null;
     this.bind();
   }
 
@@ -479,6 +487,10 @@ export class IrcConnection {
       this.runConnectCommands();
     });
     c.on('close', () => {
+      // Final safety net (clean disconnect/dispose may not always emit
+      // 'socket close'); unregisterIdent is idempotent.
+      unregisterIdent(this.identdLocalPort);
+      this.identdLocalPort = null;
       this.userModes.clear();
       this.stopLagPinger();
       this.cancelPendingConnectCommands();
@@ -651,6 +663,10 @@ export class IrcConnection {
     // log line.
     c.on('socket close', (err: Record<string, unknown>) => {
       this.setState('disconnected');
+      // Release this socket's identd mapping (a reconnect gets a new local port
+      // via the 'socket connected' handler above).
+      unregisterIdent(this.identdLocalPort);
+      this.identdLocalPort = null;
       if (err && (err.message || err.code)) {
         const code = err.code ? `${err.code}: ` : '';
         const where = `${this.network.host}:${this.network.port}`;
@@ -685,6 +701,31 @@ export class IrcConnection {
       });
     });
     c.on('connecting', () => this.setState('connecting'));
+
+    // Built-in identd: the moment the raw socket connects, map its local source
+    // port → this user's ident so the identd server (services/identd.ts) can
+    // answer the IRC server's :113 callback. Without it a multi-user gateway's
+    // users are indistinguishable (and unverified) behind one shared IP.
+    c.on('socket connected', () => {
+      if (!isIdentdEnabled()) return;
+      const socket = (
+        this.client as unknown as {
+          connection?: { transport?: { socket?: { localPort?: number } } };
+        }
+      ).connection?.transport?.socket;
+      const localPort = socket?.localPort;
+      if (!localPort) return;
+      this.identdLocalPort = localPort;
+      registerIdent(
+        localPort,
+        deriveIdent({
+          nodeMode: isNodeMode(),
+          accountUsername: findUserById(this.network.user_id)?.username || '',
+          networkUsername: this.network.username,
+          nick: this.network.nick,
+        }),
+      );
+    });
 
     // RPL_UMODEIS arrives when the server sends our current umode (e.g. on
     // login or in response to /MODE <self>). irc-framework normalises it to
