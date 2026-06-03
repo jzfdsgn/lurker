@@ -125,8 +125,10 @@ describe('reportUploadSoon', () => {
       width: null,
       height: null,
     });
-    // Fire-and-forget — let the resolved-promise microtask settle.
-    await new Promise((r) => setTimeout(r, 20));
-    expect(listUnsyncedUploads(500).some((r) => r.id === id)).toBe(false);
+    // Fire-and-forget — poll until the inline report has marked the row synced
+    // (deterministic; no fixed sleep that could flake on a loaded CI).
+    await vi.waitFor(() => {
+      expect(listUnsyncedUploads(500).some((r) => r.id === id)).toBe(false);
+    });
   });
 });
