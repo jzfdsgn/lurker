@@ -107,6 +107,7 @@ onMounted(() => {
   gap: var(--space-4);
   padding: var(--space-7);
   outline: none;
+  animation: lightbox-fade-in 100ms ease-out;
 }
 
 .topbar {
@@ -171,5 +172,16 @@ onMounted(() => {
 .empty {
   font-style: italic;
   padding: var(--space-10);
+}
+
+@keyframes lightbox-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>
