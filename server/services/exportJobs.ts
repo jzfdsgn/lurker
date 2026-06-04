@@ -124,8 +124,9 @@ async function runBuild(
   job: ExportJob,
   opts: { userId: number; includeMessages: boolean; outPath: string; filename: string },
 ): Promise<void> {
+  const out = fs.createWriteStream(opts.outPath, { mode: 0o600 });
+  let failed = false;
   try {
-    const out = fs.createWriteStream(opts.outPath, { mode: 0o600 });
     await buildExportZip(
       db,
       opts.userId,
@@ -148,8 +149,8 @@ async function runBuild(
     }
     emit(opts.userId, job.id);
   } catch (err) {
+    failed = true;
     markError(job.id, err instanceof Error ? err.message : String(err));
-    safeUnlink(opts.outPath);
     emit(opts.userId, job.id);
     systemLog.log({
       scope: 'export',
@@ -157,6 +158,12 @@ async function runBuild(
       text: `Export job ${job.id} failed: ${err instanceof Error ? err.message : String(err)}`,
     });
   } finally {
+    // Always release the write handle. On success archiver's pipe has already
+    // ended it (destroy is then a harmless no-op); on a mid-build failure the
+    // pipe leaves it open, so close it here rather than leak the fd. Drop the
+    // partial artifact only after the handle is closed.
+    out.destroy();
+    if (failed) safeUnlink(opts.outPath);
     lastEmitAt.delete(job.id);
   }
 }
