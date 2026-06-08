@@ -16,7 +16,16 @@
       ><template v-if="!isMobile"
         >{{ promptLabel }}<span v-if="awayLabel" class="away">&nbsp;{{ awayLabel }}</span
         >&nbsp;</template
-      >&gt;</span
+      ><span
+        v-if="hasHistory"
+        ref="promptBtnEl"
+        role="button"
+        class="prompt-recall"
+        title="recall a previous input"
+        @mousedown.prevent
+        @click="toggleHistory"
+        >&gt;</span
+      ><template v-else>&gt;</template></span
     >
     <textarea
       ref="inputEl"
@@ -91,6 +100,18 @@
       @select="onChannelPickerSelect"
       @close="closeChannelPicker"
     />
+    <!-- Previous-input recall menu, opened by tapping the `>` prompt — the
+         pointer path to history for mobile, where Up-arrow is unreachable
+         (issue #204). Anchored to the form like the pickers above; `toggle-el`
+         is the prompt button so its own taps don't double-dismiss. -->
+    <HistoryPicker
+      :open="historyPickerOpen"
+      :entries="historyEntries"
+      :anchor="formEl"
+      :toggle-el="promptBtnEl"
+      @select="onHistorySelect"
+      @close="closeHistoryPicker"
+    />
     <Teleport to="body">
       <LongMessageUploadModal
         v-if="longMessageModalOpen"
@@ -131,6 +152,7 @@ import {
 import type { EmojiMatch } from '../utils/emojiData.js';
 import NickPicker from './NickPicker.vue';
 import ChannelPicker from './ChannelPicker.vue';
+import HistoryPicker from './HistoryPicker.vue';
 import LongMessageUploadModal from './LongMessageUploadModal.vue';
 import { useSelfLabel } from '../composables/useSelfLabel.js';
 import { useViewport } from '../composables/useViewport.js';
@@ -179,6 +201,12 @@ const channelPickerQuery = ref('');
 const channelPickerEl = ref<InstanceType<typeof ChannelPicker> | null>(null);
 let channelPickerTokenStart = -1;
 let channelPickerTokenEnd = -1;
+// Previous-input recall menu (issue #204). Unlike the nick/channel pickers it
+// isn't tied to a token under the cursor — it's a tap on the `>` prompt that
+// lists the whole buffer history. `promptBtnEl` is that toggle, kept here so
+// HistoryPicker can exclude it from its outside-tap dismissal.
+const historyPickerOpen = ref(false);
+const promptBtnEl = ref<HTMLElement | null>(null);
 // Suggestion-strip and colour-picker visibility / contents live in
 // useComposerOverlay so StatusBar can render them as overlays without prop
 // drilling. Token-span book-keeping (which slice of the draft a pick
@@ -216,6 +244,12 @@ const text = computed({
 const buffer = computed(() =>
   active.value ? buffers.byKey(`${active.value.networkId}::${active.value.target}`) : null,
 );
+// The active buffer's input history (chronological), surfaced to the `>` recall
+// menu. `hasHistory` gates the prompt's tap affordance — no history, no button.
+const historyEntries = computed(() =>
+  active.value ? inputHistory.forBuffer(active.value.networkId, active.value.target) : [],
+);
+const hasHistory = computed(() => historyEntries.value.length > 0);
 const ownNick = computed(() => {
   const a = active.value;
   if (!a) return '';
@@ -831,6 +865,10 @@ function closeChannelPicker() {
   channelPickerTokenEnd = -1;
 }
 
+function closeHistoryPicker() {
+  historyPickerOpen.value = false;
+}
+
 function closeStrip() {
   setNickStrip(false);
   stripTokenStart = -1;
@@ -1114,12 +1152,52 @@ function onStripSelect(nick: string): void {
   });
 }
 
+// Tap on the `>` prompt: toggle the recall menu. Opening it closes the other
+// suggesters so only one overlay is ever up (mirrors how they close each
+// other). Gated on history existing — the prompt button only renders when
+// `hasHistory`, but guard anyway in case the list emptied between render and tap.
+function toggleHistory(): void {
+  if (historyPickerOpen.value) {
+    closeHistoryPicker();
+    return;
+  }
+  if (!hasHistory.value) return;
+  closePicker();
+  closeStrip();
+  closeChannelPicker();
+  closeEmojiStrip();
+  closeColorPicker();
+  historyPickerOpen.value = true;
+}
+
+// Pick a row: replace the composer outright and drop the caret at the end —
+// identical to an Up-arrow recall (reuses setInputAndCaretEnd). The current
+// draft is discarded, not stashed; the menu is a deliberate "jump to this past
+// line", not a reversible walk. `cycling` inside setInputAndCaretEnd keeps the
+// resulting onInput from firing a typing notification or resetting state.
+function onHistorySelect(entry: string): void {
+  closeHistoryPicker();
+  // The menu opens on a tap, bypassing the keystroke handlers that normally
+  // clear these — so a pick can land on top of a live Tab-completion session
+  // or an in-progress Up/Down walk. setInputAndCaretEnd suppresses onInput
+  // (its cycling guard), so clear them here or they'd act on the old text:
+  // Tab would keep cycling a stale completion, Down would restore a stale draft.
+  resetCompletion();
+  resetHistoryNav();
+  setInputAndCaretEnd(entry);
+  queueMicrotask(() => inputEl.value?.focus());
+}
+
 function onInput() {
   if (cycling) return;
   // User edited the recalled line — exit walk mode but keep what they typed.
   // Done before the sendable gate so this still fires on :server: buffers
   // where `/raw` history is just as relevant.
   if (historyIndex !== null) resetHistoryNav();
+  // Same rationale: a keystroke dismisses the tap-opened recall menu, and it
+  // must fire before the sendable gate so it also closes on :server: buffers
+  // (editable but not "sendable"), where the menu can be open over /raw history.
+  closeHistoryPicker();
   // Any edit invalidates the "second press confirms" override — otherwise the
   // user could be holding a flood-confirm token from an entirely different
   // draft. Cheap to clear unconditionally.
@@ -1175,6 +1253,7 @@ watch(active, (newActive, oldActive) => {
   closeChannelPicker();
   closeEmojiStrip();
   closeColorPicker();
+  closeHistoryPicker();
   resetHistoryNav();
   // A switch between buffers swaps the draft text via the `text` computed,
   // but any unused split-confirm token doesn't transfer — a fresh buffer is
@@ -1372,6 +1451,7 @@ async function submit() {
   closeChannelPicker();
   closeEmojiStrip();
   closeColorPicker();
+  closeHistoryPicker();
   const raw = text.value;
   if (!raw.trim() || !active.value) return;
   const { networkId, target } = active.value;
@@ -1823,6 +1903,28 @@ function handleCommand(line: string, networkId: number, target: string): boolean
 }
 .prompt .away {
   color: var(--warn);
+}
+/* The `>` glyph doubles as the recall-menu toggle (issue #204). It stays a
+   bare glyph visually; the tap target is enlarged by a pseudo-element so the
+   hit box grows without any negative-margin reflow that could nudge the input
+   row height or the first-line baseline. */
+.prompt-recall {
+  position: relative;
+  cursor: pointer;
+  /* Disables the iOS double-tap-zoom heuristic and its ~300ms click delay. */
+  touch-action: manipulation;
+}
+.prompt-recall::before {
+  content: '';
+  position: absolute;
+  /* Expand the hittable area on all sides. The rightward bleed lands under the
+     textarea (a later sibling that paints on top), so it never steals caret
+     taps; the upward bleed sits below the StatusBar's suggestion strip, which
+     is z-raised and wins any overlap. */
+  top: -10px;
+  bottom: -10px;
+  left: -10px;
+  right: -8px;
 }
 .upload-btn {
   background: none;
