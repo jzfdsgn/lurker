@@ -31,10 +31,13 @@
          applies. Detached → reattach to live; scrolled-up → snap down. Renders
          in both modes — merging the former desktop-only [N new ↓] button in
          means mobile finally gets a way back to the present too. -->
-      <button v-if="showPresent" class="seg return-present" type="button" @click="onReturnToPresent">
-        Return to present<template v-if="presentCount > 0">
-          ({{ presentCount }} new)</template
-        >
+      <button
+        v-if="showPresent"
+        class="seg return-present"
+        type="button"
+        @click="onReturnToPresent"
+      >
+        Return to present<template v-if="presentCount > 0"> ({{ presentCount }} new)</template>
         ↓
       </button>
       <span v-if="peerStatusLabel" class="seg peer-status" :class="peerStatusClass">{{
