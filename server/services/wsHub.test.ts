@@ -15,6 +15,7 @@ let closeBuffer: typeof import('../db/closedBuffers.js').closeBuffer;
 let isClosed: typeof import('../db/closedBuffers.js').isClosed;
 let setClearedState: typeof import('../db/bufferReads.js').setClearedState;
 let buildBufferBacklog: typeof import('./wsHub.js').buildBufferBacklog;
+let buildOfflineBacklogFrames: typeof import('./wsHub.js').buildOfflineBacklogFrames;
 let handleOpenBuffer: typeof import('./wsHub.js').handleOpenBuffer;
 
 let userId: number;
@@ -26,7 +27,8 @@ beforeAll(async () => {
   ({ insertMessage } = await import('../db/messages.js'));
   ({ closeBuffer, isClosed } = await import('../db/closedBuffers.js'));
   ({ setClearedState } = await import('../db/bufferReads.js'));
-  ({ buildBufferBacklog, handleOpenBuffer } = await import('./wsHub.js'));
+  ({ buildBufferBacklog, buildOfflineBacklogFrames, handleOpenBuffer } =
+    await import('./wsHub.js'));
 
   userId = createUser('alice').id;
   const net = createNetwork(userId, {
@@ -100,6 +102,79 @@ describe('buildBufferBacklog', () => {
     const frame = buildBufferBacklog(userId, networkId, '#clear');
     expect(frame.clearedBeforeId).toBe(boundary);
     expect(frame.clearedAt).toBe(ts);
+  });
+});
+
+describe('buildOfflineBacklogFrames', () => {
+  // Tests run with no live IRC connection, so every network is "offline" — the
+  // exact case a paused/disconnected user hits. Each test uses a fresh network
+  // so it doesn't depend on history seeded by sibling tests.
+  it('ships persisted buffers for a network with no live connection', () => {
+    const net = createNetwork(userId, {
+      name: 'offnet',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'alice',
+    });
+    const offId = net!.id;
+    const seedOff = (target: string, text: string): void => {
+      insertMessage({
+        networkId: offId,
+        target,
+        time: new Date().toISOString(),
+        type: 'message',
+        nick: 'bob',
+        text,
+        self: false,
+      });
+    };
+    seedOff('#offline', 'a');
+    seedOff('#offline', 'b');
+    seedOff('dave', 'dm');
+
+    const byTarget = new Map(
+      buildOfflineBacklogFrames(userId)
+        .filter((f) => f.networkId === offId)
+        .map((f) => [f.target as string, f]),
+    );
+
+    // Channel history is shipped, marked parted (no live connection tracks it).
+    const chan = byTarget.get('#offline')!;
+    expect(chan.kind).toBe('backlog');
+    expect((chan.events as unknown[]).length).toBe(2);
+    expect(chan.joined).toBe(false);
+    // DM buffers have no join concept → reported joined so they never dim.
+    expect(byTarget.get('dave')!.joined).toBe(true);
+    // The uncloseable server pseudo-buffer is always present.
+    expect(byTarget.has(`:server:${offId}`)).toBe(true);
+  });
+
+  it('skips a closed buffer but never the server pseudo-buffer', () => {
+    const net = createNetwork(userId, {
+      name: 'offnet2',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'alice',
+    });
+    const offId = net!.id;
+    insertMessage({
+      networkId: offId,
+      target: '#hidden',
+      time: new Date().toISOString(),
+      type: 'message',
+      nick: 'bob',
+      text: 'x',
+      self: false,
+    });
+    closeBuffer(userId, offId, '#hidden');
+
+    const targets = buildOfflineBacklogFrames(userId)
+      .filter((f) => f.networkId === offId)
+      .map((f) => f.target);
+    expect(targets).not.toContain('#hidden');
+    expect(targets).toContain(`:server:${offId}`);
   });
 });
 

@@ -42,3 +42,46 @@ describe('ircManager pause linchpin', () => {
     expect(ircManager.getConnection(user.id, net.id)).toBeNull();
   });
 });
+
+describe('ircManager.snapshotForUser offline networks', () => {
+  it('returns a disconnected blob for a network with no live connection', () => {
+    const user = createUser('snap-offline');
+    const net = createNetwork(user.id, {
+      name: 'n',
+      host: 'irc.example.invalid',
+      port: 6697,
+      tls: true,
+      nick: 'zoe',
+      autoconnect: false,
+    });
+    if (!net) throw new Error('createNetwork returned undefined');
+
+    const snap = ircManager.snapshotForUser(user.id) as Array<Record<string, unknown>>;
+    expect(snap).toHaveLength(1);
+    expect(snap[0].networkId).toBe(net.id);
+    expect(snap[0].state).toBe('disconnected');
+    expect(snap[0].nick).toBe('zoe');
+    expect(snap[0].channels).toEqual([]);
+  });
+
+  it('still snapshots a paused user’s networks so their buffers stay readable', () => {
+    const user = createUser('snap-paused');
+    const net = createNetwork(user.id, {
+      name: 'n',
+      host: 'irc.example.invalid',
+      port: 6697,
+      tls: true,
+      nick: 'p',
+      autoconnect: false,
+    });
+    if (!net) throw new Error('createNetwork returned undefined');
+    setUserPaused(user.id, true);
+
+    // The pause gate forbids a connection, yet the snapshot must not be empty —
+    // otherwise the "you can read your history" banner has nothing to show.
+    const snap = ircManager.snapshotForUser(user.id) as Array<Record<string, unknown>>;
+    expect(snap).toHaveLength(1);
+    expect(snap[0].networkId).toBe(net.id);
+    expect(snap[0].state).toBe('disconnected');
+  });
+});

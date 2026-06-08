@@ -419,15 +419,45 @@ class IrcManager extends EventEmitter {
     const notifyByNetwork = listChannelNotifyForUser(userId);
     const ignoresByNetwork = ignoresGrouped(userId);
     const notesByNetwork = listNickNotesGrouped(userId);
-    return this.listConnections(userId).map((conn) => {
-      const snap = conn.snapshot();
-      const pinned = pinsByNetwork.get(snap.networkId) || [];
-      const collapsedNicklists = collapsedByNetwork.get(snap.networkId) || {};
-      const channelNotify = notifyByNetwork.get(snap.networkId) || {};
-      const ignoredMasks = ignoresByNetwork.get(snap.networkId) || [];
-      const nickNotes = notesByNetwork.get(snap.networkId) || [];
-      return { ...snap, pinned, collapsedNicklists, channelNotify, ignoredMasks, nickNotes };
-    });
+    // Attach the per-network user-preference blobs to a base snapshot. Shared by
+    // the live-connection and offline branches so both shapes stay identical.
+    const withExtras = <T extends { networkId: number }>(snap: T) => {
+      const networkId = snap.networkId;
+      return {
+        ...snap,
+        pinned: pinsByNetwork.get(networkId) || [],
+        collapsedNicklists: collapsedByNetwork.get(networkId) || {},
+        channelNotify: notifyByNetwork.get(networkId) || {},
+        ignoredMasks: ignoresByNetwork.get(networkId) || [],
+        nickNotes: notesByNetwork.get(networkId) || [],
+      };
+    };
+    const live = this.listConnections(userId);
+    const liveIds = new Set(live.map((conn) => conn.network.id));
+    const out: unknown[] = live.map((conn) => withExtras(conn.snapshot()));
+    // Networks with no live connection (paused account, manually disconnected,
+    // or never autoconnected) still own persisted buffers. Synthesize a
+    // disconnected blob matching conn.snapshot()'s shape so the client renders
+    // their buffers read-only (state !== 'connected' drives the dim styling)
+    // instead of hiding them until a connection exists. Buffer rows themselves
+    // arrive via the backlog frames, so channels can be empty here — members
+    // are meaningless offline and topic/members repopulate on reconnect.
+    for (const net of listNetworksForUser(userId)) {
+      if (liveIds.has(net.id)) continue;
+      out.push(
+        withExtras({
+          networkId: net.id,
+          state: 'disconnected',
+          nick: net.nick,
+          userModes: '',
+          lagMs: null,
+          away: null,
+          channels: [],
+          peerPresence: {},
+        }),
+      );
+    }
+    return out;
   }
 
   addIgnore(userId: number, networkId: number, mask: string): unknown {

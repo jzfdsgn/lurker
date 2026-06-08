@@ -56,7 +56,7 @@ import { setNicklistCollapsed } from '../db/nicklistCollapsed.js';
 import { addBookmark, removeBookmark, listBookmarkIdsForUser } from '../db/bookmarks.js';
 import { getChannelNotifyAlways, setChannelNotifyAlways } from '../db/channelNotify.js';
 import { getUserAwayState } from '../db/userAwayState.js';
-import { upsertChannel, ownsNetwork } from '../db/networks.js';
+import { upsertChannel, ownsNetwork, listNetworksForUser } from '../db/networks.js';
 import * as chanlistDb from '../db/chanlist.js';
 import { getUserSettings } from '../db/settings.js';
 import { defaultsAsObject } from './settingsRegistry.js';
@@ -293,6 +293,38 @@ export function buildBufferBacklog(userId: number, networkId: number, target: st
     clearedAt: cleared.clearedAt,
     inputHistory: listRecentInputHistory(userId, networkId, target, 200),
   };
+}
+
+// Backlog frames for every network the user owns that has NO live connection —
+// a paused account (the is_paused gate forbids connecting), a manually
+// disconnected network (stopNetwork deletes the connection), or one that was
+// never autoconnected. The live snapshot path is connection-driven, so without
+// these frames an offline network's persisted buffers stay invisible until a
+// connection exists — which a paused user can never establish. Reuses
+// buildBufferBacklog, which reads purely from the DB and reports joined:false
+// when no connection is tracking the channel.
+// `closed` defaults to a fresh query so standalone callers (tests) stay simple;
+// sendSnapshot passes the Set it already computed for the live loop to avoid a
+// redundant DB read per snapshot.
+export function buildOfflineBacklogFrames(
+  userId: number,
+  closed: Set<string> = closedKeySetForUser(userId),
+): WsPayload[] {
+  const liveIds = new Set(ircManager.listConnections(userId).map((c) => c.network.id));
+  const frames: WsPayload[] = [];
+  for (const net of listNetworksForUser(userId)) {
+    if (liveIds.has(net.id)) continue;
+    const targets = new Set(listBufferTargets(net.id));
+    targets.add(`:server:${net.id}`);
+    for (const target of targets) {
+      // Server pseudo-buffer is uncloseable; otherwise honor a closed flag.
+      // Nothing is joined on an offline network, so there's no autorejoin race
+      // to defend against here (unlike the live loop in sendSnapshot).
+      if (!target.startsWith(':server:') && closed.has(`${net.id}::${target}`)) continue;
+      frames.push(buildBufferBacklog(userId, net.id, target));
+    }
+  }
+  return frames;
 }
 
 // Handles a client `open-buffer` request (a clicked channel name). Resolves
@@ -855,6 +887,15 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
           inputHistory,
         });
       }
+    }
+    // Offline networks (no live connection) still ship their persisted buffers
+    // so a paused/disconnected user can read history. Frames carry joined:false
+    // and the client dims them via the network's disconnected snapshot state.
+    for (const frame of buildOfflineBacklogFrames(userId, closed)) {
+      for (const e of frame.events as Array<{ id?: number | null }>) {
+        if (e.id != null && e.id > maxSentId) maxSentId = e.id;
+      }
+      send(ws, frame);
     }
     // Advance the resume cursor past everything we just shipped, so the next
     // sendSnapshot (in-band 'snapshot' request, or another IRC-state trigger)
