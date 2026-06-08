@@ -317,9 +317,12 @@ function evaluateUnread(entry: IntersectionObserverEntry): void {
 
 // Vue function ref on the unread divider: called with the element when it
 // mounts and null when it unmounts (e.g. dividerAfterId reset to 0). Keep the
-// observer pointed at the live element across re-renders.
+// observer pointed at the live element across re-renders. The param type is
+// Vue's VNodeRef union; this ref only ever binds a native <div>, but guard
+// with instanceof so the observer is never handed a non-Element (a no-op,
+// not a throw, if a component instance ever slipped through).
 function setUnreadDividerEl(el: Element | ComponentPublicInstance | null): void {
-  const next = (el as HTMLElement) || null;
+  const next = el instanceof HTMLElement ? el : null;
   if (next === unreadDividerEl) return;
   if (unreadDividerEl && unreadObserver) unreadObserver.unobserve(unreadDividerEl);
   unreadDividerEl = next;
