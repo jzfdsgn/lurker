@@ -671,16 +671,17 @@ function onKeydown(e: KeyboardEvent): void {
     return;
   }
   // While the desktop @-nick picker is open with candidates it owns the
-  // navigation keys: arrows move the highlight, Tab confirms it. This runs
-  // ahead of the history-nav, Tab-completion, and Enter-submit handlers below
-  // so they don't double-fire. Enter is intentionally NOT an accept key — it
-  // always sends, even with the picker open (use Tab or click to accept); a
-  // key that means "send" shouldn't quietly mean "complete" when a picker
-  // happens to be up. Escape is left to NickPicker's own document listener.
-  // Gated on hasCandidates() so a no-match token like `@zzz` lets Tab fall
-  // through to word completion. Skipped entirely during an IME composition so
-  // the same arrows/Tab stay free to drive the IME's candidate window. The
-  // picker is desktop-only — the mobile suggestion strip never opens it.
+  // navigation keys: arrows move the highlight, Tab or Enter confirm it. This
+  // runs ahead of the history-nav, Tab-completion, and Enter-submit handlers
+  // below so they don't double-fire. Enter accepts the highlighted nick here
+  // (issue #221): typing `@` is an explicit "I'm completing a nick" signal, so
+  // unlike the prefix-less nick strip further down, Enter-to-accept is
+  // unambiguous — matching Slack/Discord. Shift+Enter still inserts a newline.
+  // Escape is left to NickPicker's own document listener. Gated on
+  // hasCandidates() so a no-match token like `@zzz` lets Enter/Tab fall through
+  // to send / word completion. Skipped entirely during an IME composition so
+  // the same arrows/Tab/Enter stay free to drive the IME's candidate window.
+  // The picker is desktop-only — the mobile suggestion strip never opens it.
   if (pickerOpen.value && !e.isComposing && nickPickerEl.value?.hasCandidates()) {
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       if (!e.altKey && !e.metaKey && !e.ctrlKey) {
@@ -688,18 +689,19 @@ function onKeydown(e: KeyboardEvent): void {
         nickPickerEl.value.moveActive(e.key === 'ArrowUp' ? 1 : -1);
         return;
       }
-    } else if (e.key === 'Tab') {
+    } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
       e.preventDefault();
       nickPickerEl.value.confirmActive();
       return;
     }
   }
   // The `#`-channel picker mirrors the nick picker above: while open with
-  // candidates it owns arrows (move highlight) and Tab (confirm), Enter still
-  // sends, and Escape is left to ChannelPicker's own document listener. Gated
-  // on hasCandidates() so a no-match `#zzz` lets Tab fall through to in-place
-  // completion below. refreshPicker keeps this and the nick picker from being
-  // open at once, so the two blocks can't both fire.
+  // candidates it owns arrows (move highlight) and Tab/Enter (confirm), and
+  // Escape is left to ChannelPicker's own document listener. `#` is an explicit
+  // prefix, so Enter accepts here too (issue #221); Shift+Enter still newlines.
+  // Gated on hasCandidates() so a no-match `#zzz` lets Enter/Tab fall through to
+  // send / in-place completion below. refreshPicker keeps this and the nick
+  // picker from being open at once, so the two blocks can't both fire.
   if (channelPickerOpen.value && !e.isComposing && channelPickerEl.value?.hasCandidates()) {
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       if (!e.altKey && !e.metaKey && !e.ctrlKey) {
@@ -707,22 +709,25 @@ function onKeydown(e: KeyboardEvent): void {
         channelPickerEl.value.moveActive(e.key === 'ArrowUp' ? 1 : -1);
         return;
       }
-    } else if (e.key === 'Tab') {
+    } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
       e.preventDefault();
       channelPickerEl.value.confirmActive();
       return;
     }
   }
   // The mobile/compact nick strip owns navigation keys while open with
-  // candidates — same shape as the emoji block below, and as the desktop
-  // @-picker above. All four arrows cycle the highlight (Down/Right next,
-  // Up/Left previous), Tab confirms the active chip, Escape closes the
-  // strip. refreshPicker ensures the strip and the @-picker are never open
-  // at once, so the two blocks can't both fire. Tab here intentionally
-  // confirms the highlighted chip rather than falling through to in-place
-  // Tab-completion — the strip is the primary completion UI when it's up.
-  // Enter is deliberately left out as an accept key — it always sends (tap a
-  // chip or press Tab to accept).
+  // candidates. All four arrows cycle the highlight (Down/Right next, Up/Left
+  // previous), Tab confirms the active chip, Escape closes the strip.
+  // refreshPicker ensures the strip and the @-picker are never open at once,
+  // so the two blocks can't both fire. Tab here intentionally confirms the
+  // highlighted chip rather than falling through to in-place Tab-completion —
+  // the strip is the primary completion UI when it's up.
+  //
+  // Unlike the @/#/: suggesters above and below, Enter is deliberately NOT an
+  // accept key here — it always sends (tap a chip or press Tab to accept).
+  // This strip is prefix-less: it pops up on any plain word that matches a
+  // nick while you type an ordinary message, so a key that means "send" must
+  // not quietly mean "complete" (issue #221).
   if (overlay.nickOpen && !e.isComposing && hasNickCandidates()) {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -749,16 +754,18 @@ function onKeydown(e: KeyboardEvent): void {
   }
   // The emoji suggester owns the navigation keys while it's open with
   // candidates — all four arrows cycle the highlight (Down/Right step toward
-  // the next chip, Up/Left toward the previous), Tab confirms, Escape
+  // the next chip, Up/Left toward the previous), Tab or Enter confirm, Escape
   // closes. Runs ahead of the history-nav and Enter-submit handlers so they
-  // don't double-fire. Enter is intentionally not an accept key — it always
-  // sends (tap a chip or press Tab to accept). Hijacking Left/Right means the
-  // caret can't move inside the shortcode while the strip is up — acceptable,
-  // since the caret sits at the end of the `:query` anyway and Escape frees
-  // it. Bare arrows only: modifier+arrow still does its normal caret jump /
-  // buffer-nav. Skipped during an IME composition. The emoji strip and the
-  // nick picker are never open at once (refreshPicker closes one before
-  // opening the other), so the two blocks can't both fire.
+  // don't double-fire. `:shortcode` is an explicit prefix, so Enter accepts the
+  // highlighted emoji here (issue #221), matching Slack/Discord; Shift+Enter
+  // still newlines, and the hasEmojiCandidates() gate lets a no-match `:zz`
+  // fall through to send. Hijacking Left/Right means the caret can't move
+  // inside the shortcode while the strip is up — acceptable, since the caret
+  // sits at the end of the `:query` anyway and Escape frees it. Bare arrows
+  // only: modifier+arrow still does its normal caret jump / buffer-nav. Skipped
+  // during an IME composition. The emoji strip and the nick picker are never
+  // open at once (refreshPicker closes one before opening the other), so the
+  // two blocks can't both fire.
   if (overlay.emojiOpen && !e.isComposing && hasEmojiCandidates()) {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -777,7 +784,7 @@ function onKeydown(e: KeyboardEvent): void {
         moveEmojiActive(forward ? 1 : -1);
         return;
       }
-    } else if (e.key === 'Tab') {
+    } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
       e.preventDefault();
       confirmEmojiActive();
       return;
