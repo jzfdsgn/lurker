@@ -13,6 +13,47 @@ export interface ApiRequestOptions {
   headers?: Record<string, string>;
 }
 
+// One-shot guard so an unrecoverable 401 can't loop the page reload.
+const AUTH_RECOVERY_FLAG = 'lurker:authRecoveryAttempted';
+
+// Pure decision (exported for tests): a 401 from a normal authed call means the
+// session is dead — on a hosted cell the cell has already cleared the stale
+// lurker_session + cp_session, so we send the user back to `/` to sign in again.
+// Skip the auth / control-plane endpoints (they 401 by design before sign-in),
+// and only bounce once per tab so a genuinely-unrecoverable 401 falls through to
+// the app's normal logged-out handling instead of reloading forever.
+export function shouldBounceToLogin(url: string, status: number, alreadyTried: boolean): boolean {
+  if (status !== 401 || alreadyTried) return false;
+  if (url.startsWith('/api/auth/') || url.startsWith('/_cp/')) return false;
+  return true;
+}
+
+function bounceToLoginOnAuthFailure(url: string, status: number): void {
+  let alreadyTried = false;
+  try {
+    alreadyTried = sessionStorage.getItem(AUTH_RECOVERY_FLAG) === '1';
+  } catch {
+    return; // no sessionStorage (private-mode edge) → don't risk a reload loop
+  }
+  if (!shouldBounceToLogin(url, status, alreadyTried)) return;
+  try {
+    sessionStorage.setItem(AUTH_RECOVERY_FLAG, '1');
+  } catch {
+    /* ignore — best effort */
+  }
+  window.location.assign('/');
+}
+
+function clearAuthRecoveryGuard(): void {
+  // A request succeeded → the session works; clear the marker so a later session
+  // loss can recover again.
+  try {
+    sessionStorage.removeItem(AUTH_RECOVERY_FLAG);
+  } catch {
+    /* ignore */
+  }
+}
+
 // The API speaks untyped JSON, so the response type defaults to `any`. Callers
 // that want a checked shape can pass it explicitly: `api<{ user: User }>(url)`.
 export async function api<T = any>(
@@ -39,12 +80,14 @@ export async function api<T = any>(
     }
   }
   if (!res.ok) {
+    bounceToLoginOnAuthFailure(url, res.status);
     const message = (data && data.error) || res.statusText || 'request failed';
     const err = new Error(message) as ApiError;
     err.status = res.status;
     err.data = data;
     throw err;
   }
+  clearAuthRecoveryGuard();
   return data as T;
 }
 
@@ -80,8 +123,10 @@ export function apiMultipart<T = any>(
         }
       }
       if (xhr.status >= 200 && xhr.status < 300) {
+        clearAuthRecoveryGuard();
         resolve(data as T);
       } else {
+        bounceToLoginOnAuthFailure(url, xhr.status);
         const message = (data && data.error) || xhr.statusText || 'upload failed';
         const err = new Error(message) as ApiError;
         err.status = xhr.status;

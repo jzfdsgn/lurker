@@ -8,6 +8,15 @@ import { findUserById, touchUserLastSeen } from '../db/users.js';
 import type { User } from '../db/users.js';
 
 export const SESSION_COOKIE = 'lurker_session';
+// The control plane's session cookie (mirrors lurker-control-plane's
+// middleware/session.ts CP_SESSION_COOKIE; same cookie options as ours). On a
+// hosted cell a tenant request only reaches us because the reverse proxy
+// accepted cp_session and then injected the lurker_session it minted — so when
+// we can't honor that lurker_session (e.g. the cell's SESSION_SECRET rotated on
+// a rebuild, invalidating the signature), the fix is to clear BOTH cookies and
+// let the client bounce to the sign-in page for a clean re-auth, rather than
+// leave a valid cp_session paired with a dead lurker_session that never recovers.
+export const CP_SESSION_COOKIE = 'cp_session';
 
 export function getCookieOptions(): CookieOptions {
   // Secure is opt-in via COOKIE_SECURE=true. Tying it to NODE_ENV silently
@@ -40,6 +49,26 @@ export function loadSession(req: Request): { session: Session; user: User } | nu
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const ctx = loadSession(req);
   if (!ctx) {
+    // If the request carried a lurker_session we can't honor — a stale cookie
+    // whose signature no longer verifies (cell SESSION_SECRET rotated on a
+    // rebuild → it lands in req.cookies, not req.signedCookies) or whose session
+    // row is gone — clear it AND cp_session. A refresh then deletes both dead
+    // cookies and the reverse proxy serves the sign-in page, so the user re-auths
+    // cleanly instead of getting wedged with a good cp_session + dead session.
+    // A request with NO lurker_session never reaches here on a hosted cell (the
+    // proxy mints one when absent), and on standalone there's no cp_session to
+    // clear — so gating the clear on "a session cookie was present" is safe.
+    // Detect that from the RAW Cookie header: cookie-parser drops a
+    // bad-signature signed cookie from both req.cookies and req.signedCookies
+    // (the SESSION_SECRET-rotation case), so neither reflects that one was sent.
+    const hadStaleSession = (req.headers.cookie ?? '')
+      .split(/;\s*/)
+      .some((c) => c.startsWith(`${SESSION_COOKIE}=`));
+    if (hadStaleSession) {
+      const clearOpts = { ...getCookieOptions(), maxAge: undefined };
+      res.clearCookie(SESSION_COOKIE, clearOpts);
+      res.clearCookie(CP_SESSION_COOKIE, clearOpts);
+    }
     res.status(401).json({ error: 'unauthorized' });
     return;
   }
