@@ -216,7 +216,7 @@ const filtered = computed<BuiltinNetwork[]>(() => {
   text-align: left;
   border: 0;
   border-radius: var(--radius);
-  padding: var(--space-3);
+  padding: var(--space-7);
   background: var(--bg-soft);
   cursor: pointer;
 }
