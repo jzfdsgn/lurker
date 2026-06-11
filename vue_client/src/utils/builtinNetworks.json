@@ -11,8 +11,9 @@
     "saslLikelyRequired": true,
     "tags": [
       "foss",
-      "tech",
-      "programming"
+      "programming",
+      "anime",
+      "videogames"
     ]
   },
   {
@@ -25,9 +26,7 @@
     "channels": 5248,
     "saslSupported": false,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "IRCnet",
@@ -39,9 +38,7 @@
     "channels": 1913,
     "saslSupported": true,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "Rizon",
@@ -54,7 +51,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "anime"
     ]
   },
@@ -85,7 +81,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "tech"
     ]
   },
@@ -100,7 +95,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "spanish"
     ]
   },
@@ -116,7 +110,6 @@
     "saslLikelyRequired": false,
     "tags": [
       "gaming",
-      "general",
       "international"
     ]
   },
@@ -146,9 +139,7 @@
     "channels": 2517,
     "saslSupported": false,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "IRC-Hispano",
@@ -161,7 +152,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "spanish"
     ]
   },
@@ -176,7 +166,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "malay"
     ]
   },
@@ -190,9 +179,7 @@
     "channels": 447,
     "saslSupported": true,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "SimosNap",
@@ -205,7 +192,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "italian"
     ]
   },
@@ -220,8 +206,7 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "gaming",
-      "general"
+      "gaming"
     ]
   },
   {
@@ -234,9 +219,7 @@
     "channels": 5582,
     "saslSupported": true,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "EuropNet",
@@ -249,7 +232,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "french"
     ]
   },
@@ -263,9 +245,7 @@
     "channels": 664,
     "saslSupported": true,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "EsperNet",
@@ -278,7 +258,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "gaming"
     ]
   },
@@ -292,9 +271,7 @@
     "channels": 87,
     "saslSupported": true,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "MansionNET",
@@ -308,8 +285,7 @@
     "saslLikelyRequired": false,
     "tags": [
       "privacy",
-      "programming",
-      "general"
+      "programming"
     ]
   },
   {
@@ -339,7 +315,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "bulgarian"
     ]
   },
@@ -354,7 +329,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "bulgarian"
     ]
   },
@@ -369,7 +343,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "malay"
     ]
   },
@@ -399,7 +372,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -414,7 +386,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "support",
       "international"
     ]
@@ -490,7 +461,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "french"
     ]
   },
@@ -505,8 +475,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "filesharing",
-      "general"
+      "filesharing"
     ]
   },
   {
@@ -520,7 +489,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -535,7 +503,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "dutch"
     ]
   },
@@ -550,7 +517,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -565,7 +531,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "tech"
     ]
   },
@@ -580,7 +545,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -610,7 +574,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "italian"
     ]
   },
@@ -625,7 +588,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "tech",
       "gaming"
     ]
@@ -641,7 +603,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "bulgarian"
     ]
   },
@@ -656,7 +617,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "anime",
       "retro-computing"
     ]
@@ -672,7 +632,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "support",
       "international"
     ]
@@ -721,7 +680,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "italian"
     ]
   },
@@ -751,7 +709,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international",
       "german"
     ]
@@ -767,7 +724,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "privacy",
       "international"
     ]
@@ -799,7 +755,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "tech",
       "gaming"
     ]
@@ -815,7 +770,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "tech",
       "international"
     ]
@@ -831,7 +785,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "turkish"
     ]
   },
@@ -846,7 +799,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -862,7 +814,6 @@
     "saslLikelyRequired": false,
     "tags": [
       "filesharing",
-      "general",
       "gaming",
       "international"
     ]
@@ -893,7 +844,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "tech",
       "international"
     ]
@@ -927,7 +877,6 @@
     "saslLikelyRequired": false,
     "tags": [
       "foss",
-      "general",
       "international"
     ]
   },
@@ -942,7 +891,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "turkish"
     ]
   },
@@ -957,7 +905,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "french"
     ]
   },
@@ -972,7 +919,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "gaming"
     ]
   },
@@ -1003,7 +949,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "french"
     ]
   },
@@ -1035,7 +980,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "turkish"
     ]
   },
@@ -1050,7 +994,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "gaming"
     ]
   },
@@ -1065,7 +1008,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -1080,7 +1022,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -1094,9 +1035,7 @@
     "channels": 460,
     "saslSupported": false,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "EpiKnet",
@@ -1109,7 +1048,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "french"
     ]
   },
@@ -1124,7 +1062,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "portuguese"
     ]
   },
@@ -1139,7 +1076,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "polish"
     ]
   },
@@ -1154,7 +1090,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -1169,7 +1104,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -1184,7 +1118,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "tech",
       "foss",
       "international"
@@ -1200,9 +1133,7 @@
     "channels": 107,
     "saslSupported": true,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "VirtuaLife",
@@ -1215,7 +1146,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "portuguese"
     ]
   },
@@ -1245,9 +1175,7 @@
     "channels": 219,
     "saslSupported": true,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "2600net",
@@ -1293,7 +1221,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -1308,7 +1235,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international",
       "support"
     ]
@@ -1324,7 +1250,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "privacy",
       "tech",
       "international"
@@ -1341,7 +1266,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   },
@@ -1355,9 +1279,7 @@
     "channels": 41,
     "saslSupported": false,
     "saslLikelyRequired": false,
-    "tags": [
-      "general"
-    ]
+    "tags": []
   },
   {
     "name": "NetIRC",
@@ -1370,7 +1292,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "tech",
       "gaming",
       "international"
@@ -1387,7 +1308,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "tech"
     ]
   },
@@ -1402,7 +1322,6 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "lithuanian"
     ]
   },
@@ -1417,7 +1336,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "german"
     ]
   },
@@ -1432,7 +1350,6 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general",
       "international"
     ]
   }
