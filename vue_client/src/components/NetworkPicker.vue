@@ -55,23 +55,28 @@
         <button type="button" class="net-card" @click="$emit('select', net)">
           <span class="net-head">
             <span class="net-name">{{ net.name }}</span>
-            <span v-if="net.tags.length" class="net-tags">{{ net.tags.join(', ') }}</span>
+            <span v-if="displayTags(net).length" class="net-tags">
+              {{ displayTags(net).join(', ') }}
+            </span>
           </span>
-          <span class="net-stats">
-            <span
-              v-if="net.users != null"
-              class="stat"
-              :title="`~${net.users.toLocaleString()} users (netsplit.de average)`"
-            >
-              <i class="fa-solid fa-users"></i> {{ formatCount(net.users) }}
+          <span class="net-statsrow">
+            <span class="net-stats">
+              <span
+                v-if="net.users != null"
+                class="stat"
+                :title="`~${net.users.toLocaleString()} users (netsplit.de average)`"
+              >
+                <i class="fa-solid fa-users"></i> {{ formatCount(net.users) }}
+              </span>
+              <span
+                v-if="net.channels != null"
+                class="stat"
+                :title="`~${net.channels.toLocaleString()} channels (netsplit.de average)`"
+              >
+                <i class="fa-solid fa-hashtag"></i> {{ formatCount(net.channels) }}
+              </span>
             </span>
-            <span
-              v-if="net.channels != null"
-              class="stat"
-              :title="`~${net.channels.toLocaleString()} channels (netsplit.de average)`"
-            >
-              <i class="fa-solid fa-hashtag"></i> {{ formatCount(net.channels) }}
-            </span>
+            <span v-if="hasLurker(net)" class="net-lurker">#lurker available</span>
           </span>
         </button>
       </li>
@@ -89,10 +94,19 @@ import { computed, ref } from 'vue';
 import {
   builtinNetworks,
   builtinNetworkTags,
+  LURKER_TAG,
   type BuiltinNetwork,
 } from '../utils/builtinNetworks.js';
 
 defineEmits<{ select: [net: BuiltinNetwork]; manual: [] }>();
+
+// The lurker marker is shown as a badge, not in the card's tag list.
+function displayTags(net: BuiltinNetwork): string[] {
+  return net.tags.filter((t) => t !== LURKER_TAG);
+}
+function hasLurker(net: BuiltinNetwork): boolean {
+  return net.tags.includes(LURKER_TAG);
+}
 
 const query = ref('');
 // Single-select tag filter: clicking a chip selects it (clearing any other);
@@ -233,17 +247,34 @@ const filtered = computed<BuiltinNetwork[]>(() => {
 .net-name {
   color: var(--fg);
   font-weight: 600;
+  flex-shrink: 0;
 }
-/* Tags: plain comma-separated text, top-right opposite the name. */
+/* Plain comma-separated tags, top-right opposite the name; one line, ellipsis
+   if they can't fit (never wrap). */
 .net-tags {
+  flex: 1;
+  min-width: 0;
   color: var(--fg-muted);
   text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* Counts sit under the name. */
+/* Counts (left) and the #lurker badge (right) share the line under the name. */
+.net-statsrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
 .net-stats {
   display: flex;
   gap: var(--space-3);
   color: var(--fg-muted);
+  white-space: nowrap;
+}
+.net-lurker {
+  color: var(--warn);
   white-space: nowrap;
 }
 .stat i {

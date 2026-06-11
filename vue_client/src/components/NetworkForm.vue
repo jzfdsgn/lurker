@@ -87,7 +87,7 @@
         </label>
         <label v-if="!isEdit">
           <span>Default channel</span>
-          <input v-model="form.default_channel" placeholder="#lurker" />
+          <input v-model="form.default_channel" :placeholder="channelPlaceholder" />
         </label>
         <label>
           <span>Commands to run on connect</span>
@@ -132,7 +132,7 @@ import AppModal from './AppModal.vue';
 import NetworkPicker from './NetworkPicker.vue';
 import { useNetworksStore, type Network } from '../stores/networks.js';
 import { useConfigStore } from '../stores/config.js';
-import type { BuiltinNetwork } from '../utils/builtinNetworks.js';
+import { LURKER_TAG, type BuiltinNetwork } from '../utils/builtinNetworks.js';
 
 const props = withDefaults(
   defineProps<{
@@ -187,6 +187,9 @@ function onPick(net: BuiltinNetwork): void {
   form.host = net.host;
   form.port = net.port;
   form.tls = net.tls;
+  // Lurker-friendly networks have a #lurker channel to land in; otherwise don't
+  // auto-join a guessed lobby (names vary) — leave it blank for the user.
+  form.default_channel = net.tags.includes(LURKER_TAG) ? '#lurker' : '';
   picked.value = net;
   step.value = 'form';
 }
@@ -210,6 +213,12 @@ const showSaslHint = computed(
 // When SASL is effectively required (a hosted cell on a network that blocks
 // unauthenticated cloud IPs), drop the "(optional)" qualifier on the labels.
 const saslRequired = computed(() => showSaslHint.value);
+
+// Guide the default-channel field: #lurker for a lurker-tagged network, else a
+// nudge toward common lobby names since there's no universal default.
+const channelPlaceholder = computed(() =>
+  picked.value && !picked.value.tags.includes(LURKER_TAG) ? '#chat, #lobby, #general' : '#lurker',
+);
 
 const loading = ref(false);
 const error = ref<string | null>(null);

@@ -26,12 +26,24 @@ export interface BuiltinNetwork {
 
 // Sorted most-popular-first so the picker's default order is meaningful; entries
 // without a user count sink to the bottom but keep their relative input order.
-export const builtinNetworks: BuiltinNetwork[] = (data as BuiltinNetwork[]).toSorted(
-  (a, b) => (b.users ?? -1) - (a.users ?? -1),
-);
+// Networks carrying this tag have an active #lurker channel. The picker floats
+// them to the top, badges them ("#lurker available"), and defaults their join
+// channel to #lurker. It's a marker, not a browse category, so it's kept out of
+// the filter facets and the card's tag list.
+export const LURKER_TAG = 'lurker';
 
-// Distinct tags across the catalogue, alphabetised — the picker renders these as
-// toggle chips. Derived rather than hardcoded so editing the JSON is enough.
+// Lurker-friendly networks first, then most-popular-first within each group.
+export const builtinNetworks: BuiltinNetwork[] = (data as BuiltinNetwork[]).toSorted((a, b) => {
+  const lurkerDelta = Number(b.tags.includes(LURKER_TAG)) - Number(a.tags.includes(LURKER_TAG));
+  if (lurkerDelta !== 0) return lurkerDelta;
+  return (b.users ?? -1) - (a.users ?? -1);
+});
+
+// Distinct browse tags, alphabetised — the picker renders these as filter chips.
+// Derived rather than hardcoded so editing the JSON is enough; LURKER_TAG is
+// excluded (it's shown as a badge, not offered as a filter category).
 export const builtinNetworkTags: string[] = [
   ...new Set(builtinNetworks.flatMap((n) => n.tags)),
-].toSorted();
+]
+  .filter((t) => t !== LURKER_TAG)
+  .toSorted();
