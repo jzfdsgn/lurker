@@ -298,22 +298,12 @@ const filtered = computed<BuiltinNetwork[]>(() => {
   text-decoration: underline;
 }
 
-/* Phones: the card's horizontal name/tags + counts/badge rows get cramped, so
-   stack everything vertically — name, then tags, then counts, then #lurker. */
+/* Phones: drop the tags and the #lurker badge — too cramped to be worth it —
+   leaving just the name and the counts. */
 @media (max-width: 480px) {
-  .net-head,
-  .net-statsrow {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
-  }
-  /* Tags now own a full-width line, so left-align and let them wrap. */
-  .net-tags {
-    flex: none;
-    max-width: 100%;
-    text-align: left;
-    white-space: normal;
-    overflow: visible;
+  .net-tags,
+  .net-lurker {
+    display: none;
   }
 }
 </style>
