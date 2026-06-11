@@ -18,7 +18,6 @@ export interface BuiltinNetwork {
   users: number | null;
   /** Approximate channel count (netsplit snapshot). null if unknown. */
   channels: number | null;
-  saslSupported: boolean;
   /** True when a client on a cloud/datacenter IP likely needs SASL to connect (e.g. Libera). */
   saslLikelyRequired: boolean;
   tags: string[];

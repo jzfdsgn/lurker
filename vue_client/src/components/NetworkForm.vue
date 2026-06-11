@@ -43,35 +43,33 @@
         <span>Real name (optional)</span>
         <input v-model="form.realname" />
       </label>
-      <template v-if="showSasl">
-        <p v-if="showSaslHint" class="sasl-hint">
-          <strong>{{ picked?.name }}</strong> blocks unauthenticated connections from hosted
-          servers, so the SASL account and password below are
-          <strong>not optional</strong> — register your nick with the network first, then enter it
-          here.
-        </p>
-        <div class="row">
-          <label class="grow">
-            <span>SASL account{{ saslRequired ? '' : ' (optional)' }}</span>
-            <input
-              v-model="form.sasl_account"
-              :placeholder="form.nick || 'defaults to nick'"
-              autocomplete="off"
-            />
-          </label>
-          <label class="grow">
-            <span>SASL password{{ saslRequired ? '' : ' (optional)' }}</span>
-            <input
-              v-model="form.sasl_password"
-              type="password"
-              autocomplete="off"
-              :placeholder="
-                isEdit && props.network?.has_sasl_password ? '(saved — type to replace)' : ''
-              "
-            />
-          </label>
-        </div>
-      </template>
+      <p v-if="showSaslHint" class="sasl-hint">
+        <strong>{{ picked?.name }}</strong> blocks unauthenticated connections from hosted
+        servers, so the SASL account and password below are
+        <strong>not optional</strong> — register your nick with the network first, then enter it
+        here.
+      </p>
+      <div class="row">
+        <label class="grow">
+          <span>SASL account{{ saslRequired ? '' : ' (optional)' }}</span>
+          <input
+            v-model="form.sasl_account"
+            :placeholder="form.nick || 'defaults to nick'"
+            autocomplete="off"
+          />
+        </label>
+        <label class="grow">
+          <span>SASL password{{ saslRequired ? '' : ' (optional)' }}</span>
+          <input
+            v-model="form.sasl_password"
+            type="password"
+            autocomplete="off"
+            :placeholder="
+              isEdit && props.network?.has_sasl_password ? '(saved — type to replace)' : ''
+            "
+          />
+        </label>
+      </div>
       <button type="button" class="advanced-toggle" @click="showAdvanced = !showAdvanced">
         {{ showAdvanced ? '− Advanced options' : '+ Advanced options' }}
       </button>
@@ -194,14 +192,16 @@ function onPick(net: BuiltinNetwork): void {
   step.value = 'form';
 }
 function onManual(): void {
+  // Clear anything a prior pick prefilled so "enter manually" starts blank
+  // (the connection fields onPick touches); user-typed nick/realname/creds stay.
   picked.value = null;
+  form.name = '';
+  form.host = '';
+  form.port = 6697;
+  form.tls = true;
+  form.default_channel = '#lurker';
   step.value = 'form';
 }
-
-// Hide the SASL fields entirely when a picked network doesn't support SASL
-// (e.g. EFnet, Undernet) — entering SASL there is pointless. Manual entry and
-// editing (no `picked`) always show them, since we can't know the network.
-const showSasl = computed(() => !picked.value || picked.value.saslSupported);
 
 // Node (hosted-cell) clients connect from a datacenter IP, where some networks
 // (e.g. Libera) refuse unauthenticated connections — nudge the user to fill in
