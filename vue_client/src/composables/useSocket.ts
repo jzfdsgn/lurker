@@ -446,7 +446,10 @@ function handleMessage(raw: string): void {
   }
   if (payload.kind === 'channel-notify-changed') {
     const channelNotify = useChannelNotifyStore();
-    channelNotify.applyChange(payload.networkId, payload.target, !!payload.notifyAlways);
+    channelNotify.applyChange(payload.networkId, payload.target, {
+      notifyAlways: !!payload.notifyAlways,
+      muted: !!payload.muted,
+    });
     return;
   }
   if (payload.kind === 'ignore-list-updated') {

@@ -54,7 +54,12 @@ import {
 } from '../db/pinnedBuffers.js';
 import { setNicklistCollapsed } from '../db/nicklistCollapsed.js';
 import { addBookmark, removeBookmark, listBookmarkIdsForUser } from '../db/bookmarks.js';
-import { getChannelNotifyAlways, setChannelNotifyAlways } from '../db/channelNotify.js';
+import {
+  getChannelNotifyAlways,
+  setChannelNotifyAlways,
+  setChannelMuted,
+  getChannelFlags,
+} from '../db/channelNotify.js';
 import { getUserAwayState } from '../db/userAwayState.js';
 import { upsertChannel, ownsNetwork, listNetworksForUser } from '../db/networks.js';
 import * as chanlistDb from '../db/chanlist.js';
@@ -1352,13 +1357,29 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         // Always-notify is a channel-level concept. DMs are blanket-controlled
         // by notifications.dm.enabled; server pseudo-buffers can't carry it.
         if (!networkId || !target.startsWith('#')) break;
-        const notifyAlways = !!msg.notifyAlways;
-        setChannelNotifyAlways(userId, networkId, target, notifyAlways);
+        setChannelNotifyAlways(userId, networkId, target, !!msg.notifyAlways);
+        // Broadcast the full flag pair (notifyAlways + muted) so the muted flag
+        // isn't clobbered when only notify_always changed, and vice versa.
         fanOut(userId, {
           kind: 'channel-notify-changed',
           networkId,
           target,
-          notifyAlways,
+          ...getChannelFlags(userId, networkId, target),
+        });
+        break;
+      }
+      case 'set-channel-muted': {
+        const networkId = Number(msg.networkId);
+        const target = typeof msg.target === 'string' ? msg.target : '';
+        // Mute is a buffer-list display concern and channel-only — DMs always
+        // want their unread shown, server pseudo-buffers can't carry it.
+        if (!networkId || !target.startsWith('#')) break;
+        setChannelMuted(userId, networkId, target, !!msg.muted);
+        fanOut(userId, {
+          kind: 'channel-notify-changed',
+          networkId,
+          target,
+          ...getChannelFlags(userId, networkId, target),
         });
         break;
       }

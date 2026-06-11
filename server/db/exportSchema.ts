@@ -292,7 +292,7 @@ export const EXPORT_TABLES = Object.freeze({
     scope: 'user_id',
     section: 'data',
     fkRekey: { user_id: 'users', network_id: 'networks' },
-    columns: ['user_id', 'network_id', 'target', 'notify_always', 'updated_at'],
+    columns: ['user_id', 'network_id', 'target', 'notify_always', 'muted', 'updated_at'],
   },
 
   user_drafts: {

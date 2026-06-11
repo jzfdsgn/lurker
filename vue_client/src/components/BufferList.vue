@@ -99,8 +99,8 @@
                 :title="`${buf.highlighted} highlight${buf.highlighted === 1 ? '' : 's'}`"
                 >●</span
               >
-              <span v-if="countFor(buf.unread, buf.highlighted) > 0" class="badge">{{
-                unreadLabel(countFor(buf.unread, buf.highlighted))
+              <span v-if="displayCount(buf) > 0" class="badge">{{
+                unreadLabel(displayCount(buf))
               }}</span>
               <button
                 v-if="!isServerBuffer(buf) && !hasUnreadIndicator(buf)"
@@ -147,8 +147,8 @@
               :title="`${buf.highlighted} highlight${buf.highlighted === 1 ? '' : 's'}`"
               >●</span
             >
-            <span v-if="countFor(buf.unread, buf.highlighted) > 0" class="badge">{{
-              unreadLabel(countFor(buf.unread, buf.highlighted))
+            <span v-if="displayCount(buf) > 0" class="badge">{{
+              unreadLabel(displayCount(buf))
             }}</span>
             <button
               v-if="!isServerBuffer(buf) && !hasUnreadIndicator(buf)"
@@ -205,6 +205,7 @@ import { useNetworksStore, type Network, type PeerPresenceEntry } from '../store
 import { useBuffersStore, type Buffer } from '../stores/buffers.js';
 import { useDraftStore } from '../stores/drafts.js';
 import { usePinsStore } from '../stores/pins.js';
+import { useChannelNotifyStore } from '../stores/channelNotify.js';
 import { useSettingsStore } from '../stores/settings.js';
 import { useBufferActions } from '../composables/useBufferActions.js';
 import { useNetworkActions } from '../composables/useNetworkActions.js';
@@ -217,6 +218,7 @@ const networks = useNetworksStore();
 const buffers = useBuffersStore();
 const drafts = useDraftStore();
 const pins = usePinsStore();
+const channelNotify = useChannelNotifyStore();
 const settings = useSettingsStore();
 const bufferActions = useBufferActions();
 const networkActions = useNetworkActions();
@@ -240,15 +242,30 @@ function countFor(unread: number, highlights: number): number {
   return 0;
 }
 
+// A muted channel drops the plain-unread signal from the buffer list: a "full"
+// count downgrades to highlights-only so ordinary traffic stops incrementing
+// the badge, and the `unread` row class (color + bold + off-screen arrow) is
+// withheld below. Highlights pass through untouched — they still color the row
+// and show the ● per the global display mode, which is the whole point of
+// muting a busy-but-followed room. Mute is channel-only; DMs/server never muted.
+function isChannelMuted(buf: Buffer | null): boolean {
+  return !!buf && buf.target.startsWith('#') && channelNotify.muted(buf.networkId, buf.target);
+}
+function displayCount(buf: Buffer): number {
+  const mode =
+    isChannelMuted(buf) && unreadDisplay.value === 'full' ? 'highlights' : unreadDisplay.value;
+  if (mode === 'full') return buf.unread;
+  if (mode === 'highlights') return buf.highlighted;
+  return 0;
+}
+
 // Hover-revealed kebab lives in the same right-edge slot as the unread/
 // highlight badges. When the row has unread state, the badge wins — the
 // kebab stays hidden so it doesn't overlay the indicator the user is
 // scanning for. Right-click on the row still opens the same action menu.
 function hasUnreadIndicator(buf: Buffer | null): boolean {
   if (!buf) return false;
-  return (
-    (buf.highlighted > 0 && showHighlightBadge.value) || countFor(buf.unread, buf.highlighted) > 0
-  );
+  return (buf.highlighted > 0 && showHighlightBadge.value) || displayCount(buf) > 0;
 }
 
 // Per-network local mirror of the pinned buffer list, kept as concrete buffer
@@ -375,7 +392,10 @@ function onRowActionsClick(e: MouseEvent, buf: Buffer): void {
 function rowClasses(buf: Buffer, networkId: number): Record<string, boolean> {
   return {
     active: isActive(networkId, buf.target),
-    unread: buf.unread > 0,
+    // Muted channels withhold the plain-unread cue (color/bold/edge arrow all
+    // key off this class). `highlighted` is left untouched so mentions still
+    // light the row up in the highlight color.
+    unread: buf.unread > 0 && !isChannelMuted(buf),
     highlighted: buf.highlighted > 0,
     'not-joined': isUnjoined(buf, networkId),
     'peer-away': isPeerAway(buf),

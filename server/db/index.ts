@@ -524,6 +524,13 @@ if (columnExists('peer_presence_state', 'offline_datetime')) {
 // marker. Nullable; only meaningful when state='away'.
 ensureColumn('peer_presence_state', 'away_message', 'TEXT');
 
+// Per-channel "mute" for the buffer list: suppresses the plain-unread signal
+// (count + row color + off-screen unread arrow) for this channel without
+// touching highlights or notifications. Display-only — the server stores and
+// syncs it but never acts on it. Sits in channel_notify_settings alongside
+// notify_always; a row now persists if EITHER flag is set (see channelNotify.ts).
+ensureColumn('channel_notify_settings', 'muted', 'INTEGER NOT NULL DEFAULT 0');
+
 ensureColumn('messages', 'extra', 'TEXT');
 // nick!user@host of the sender, captured at ingest so client-side hostmask
 // ignore filters can match incoming and persisted messages. NULL for system
