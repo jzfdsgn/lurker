@@ -10,7 +10,12 @@
     size="sm"
     @close="$emit('close')"
   >
-    <form class="net-form" @submit.prevent="submit">
+    <NetworkPicker v-if="step === 'pick'" @select="onPick" @manual="onManual" />
+
+    <form v-else class="net-form" @submit.prevent="submit">
+      <button v-if="!isEdit" type="button" class="back-link" @click="step = 'pick'">
+        ← {{ picked ? picked.name : 'pick a network' }}
+      </button>
       <label>
         <span>Name</span>
         <input v-model="form.name" placeholder="Libera" required />
@@ -37,6 +42,10 @@
         <span>Real name (optional)</span>
         <input v-model="form.realname" />
       </label>
+      <p v-if="showSaslHint" class="sasl-hint">
+        <strong>{{ picked?.name }}</strong> usually requires SASL auth when connecting from a
+        hosted server. Enter your account name and password below.
+      </p>
       <div class="row">
         <label class="grow">
           <span>SASL account (optional)</span>
@@ -115,7 +124,10 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue';
 import AppModal from './AppModal.vue';
+import NetworkPicker from './NetworkPicker.vue';
 import { useNetworksStore, type Network } from '../stores/networks.js';
+import { useConfigStore } from '../stores/config.js';
+import type { BuiltinNetwork } from '../utils/builtinNetworks.js';
 
 const props = withDefaults(
   defineProps<{
@@ -127,6 +139,7 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ close: [] }>();
 const networks = useNetworksStore();
+const config = useConfigStore();
 
 const isEdit = computed(() => !!props.network);
 
@@ -156,6 +169,32 @@ const form = reactive({
 const showAdvanced = ref(
   !!props.network &&
     (!!netRaw?.has_password || !!netRaw?.connect_commands || netRaw?.autoconnect === false),
+);
+
+// Add-flow opens on the network picker (#169); editing jumps straight to the
+// form. Picking a built-in prefills the connection fields so the user only has
+// to supply a nick.
+const step = ref<'pick' | 'form'>(isEdit.value ? 'form' : 'pick');
+const picked = ref<BuiltinNetwork | null>(null);
+
+function onPick(net: BuiltinNetwork): void {
+  form.name = net.name;
+  form.host = net.host;
+  form.port = net.port;
+  form.tls = net.tls;
+  picked.value = net;
+  step.value = 'form';
+}
+function onManual(): void {
+  picked.value = null;
+  step.value = 'form';
+}
+
+// Node (hosted-cell) clients connect from a datacenter IP, where some networks
+// (e.g. Libera) refuse unauthenticated connections — nudge the user to fill in
+// SASL. Self-hosted (standalone) connections don't hit this, so it's node-only.
+const showSaslHint = computed(
+  () => step.value === 'form' && config.isNode && !!picked.value?.saslLikelyRequired,
 );
 
 const loading = ref(false);
@@ -269,7 +308,8 @@ label small {
   text-transform: none;
   letter-spacing: normal;
 }
-.advanced-toggle {
+.advanced-toggle,
+.back-link {
   align-self: flex-start;
   background: transparent;
   border: 0;
@@ -278,8 +318,18 @@ label small {
   cursor: pointer;
   text-transform: lowercase;
 }
-.advanced-toggle:hover {
+.advanced-toggle:hover,
+.back-link:hover {
   text-decoration: underline;
+}
+.sasl-hint {
+  margin: 0;
+  color: var(--fg-muted);
+  border-left: 2px solid var(--accent);
+  padding-left: var(--space-3);
+}
+.sasl-hint strong {
+  color: var(--fg);
 }
 .advanced {
   display: flex;
