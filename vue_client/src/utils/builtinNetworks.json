@@ -24,9 +24,7 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "community",
-      "social"
+      "general"
     ]
   },
   {
@@ -39,8 +37,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "community"
+      "general"
     ]
   },
   {
@@ -53,8 +50,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "community",
+      "general",
       "anime"
     ]
   },
@@ -83,9 +79,8 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "tech",
-      "community"
+      "general",
+      "tech"
     ]
   },
   {
@@ -98,8 +93,7 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "social",
-      "community",
+      "general",
       "spanish"
     ]
   },
@@ -114,7 +108,7 @@
     "saslLikelyRequired": false,
     "tags": [
       "gaming",
-      "community",
+      "general",
       "international"
     ]
   },
@@ -143,9 +137,7 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "community",
-      "social"
+      "general"
     ]
   },
   {
@@ -158,8 +150,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "social",
-      "community",
+      "general",
       "spanish"
     ]
   },
@@ -173,9 +164,7 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "community",
-      "social",
+      "general",
       "malay"
     ]
   },
@@ -189,8 +178,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "community"
+      "general"
     ]
   },
   {
@@ -203,8 +191,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "social",
+      "general",
       "italian"
     ]
   },
@@ -219,7 +206,7 @@
     "saslLikelyRequired": false,
     "tags": [
       "gaming",
-      "community"
+      "general"
     ]
   },
   {
@@ -232,9 +219,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "community",
-      "social",
-      "general-chat"
+      "general"
     ]
   },
   {
@@ -247,9 +232,7 @@
     "saslSupported": false,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "social",
-      "community",
+      "general",
       "french"
     ]
   },
@@ -263,9 +246,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "community",
-      "social"
+      "general"
     ]
   },
   {
@@ -278,8 +259,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "community",
+      "general",
       "gaming"
     ]
   },
@@ -293,8 +273,7 @@
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
-      "general-chat",
-      "community"
+      "general"
     ]
   },
   {
@@ -303,13 +282,13 @@
     "port": 6697,
     "tls": true,
     "website": "https://inthemansion.com",
-    "users": null,
+    "users": 100,
     "saslSupported": true,
     "saslLikelyRequired": false,
     "tags": [
       "privacy",
       "programming",
-      "community"
+      "general"
     ]
   }
 ]
