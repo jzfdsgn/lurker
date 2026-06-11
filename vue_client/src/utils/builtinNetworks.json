@@ -1,0 +1,212 @@
+[
+  {
+    "name": "Libera.Chat",
+    "host": "irc.libera.chat",
+    "port": 6697,
+    "tls": true,
+    "website": "https://libera.chat",
+    "users": 32976,
+    "saslLikelyRequired": true,
+    "tags": []
+  },
+  {
+    "name": "Undernet",
+    "host": "irc.undernet.org",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.undernet.org",
+    "users": 15212,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "IRCnet",
+    "host": "open.ircnet.net",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.ircnet.com",
+    "users": 14376,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "Rizon",
+    "host": "irc.rizon.net",
+    "port": 6697,
+    "tls": true,
+    "website": "https://rizon.net",
+    "users": 9208,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "hackint",
+    "host": "irc.hackint.org",
+    "port": 6697,
+    "tls": true,
+    "website": "https://hackint.org",
+    "users": 8624,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "EFnet",
+    "host": "irc.efnet.org",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.efnet.org",
+    "users": 8553,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "Chatzona",
+    "host": "irc.chatzona.org",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.chatzona.org",
+    "users": 6742,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "QuakeNet",
+    "host": "irc.quakenet.org",
+    "port": 6667,
+    "tls": false,
+    "website": "https://www.quakenet.org",
+    "users": 6335,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "freenode",
+    "host": "irc.freenode.net",
+    "port": 6697,
+    "tls": true,
+    "website": "https://freenode.net",
+    "users": 5428,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "DALnet",
+    "host": "irc.dal.net",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.dal.net",
+    "users": 5206,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "IRC-Hispano",
+    "host": "ssl.irc-hispano.org",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.irc-hispano.org",
+    "users": 3905,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "KampungChat",
+    "host": "irc.kampungchat.org",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.kampungchat.org",
+    "users": 3725,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "HybridIRC",
+    "host": "irc.hybridirc.com",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.hybridirc.com",
+    "users": 3313,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "SimosNap",
+    "host": "irc.simosnap.com",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.simosnap.org",
+    "users": 2967,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "GameSurge",
+    "host": "irc.gamesurge.net",
+    "port": 6667,
+    "tls": false,
+    "website": "https://gamesurge.net",
+    "users": 2181,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "Snoonet",
+    "host": "irc.snoonet.org",
+    "port": 6697,
+    "tls": true,
+    "website": "https://snoonet.org",
+    "users": 2144,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "EuropNet",
+    "host": "irc.europnet.org",
+    "port": 6697,
+    "tls": true,
+    "website": "https://www.europnet.org",
+    "users": 2065,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "synIRC",
+    "host": "irc.synirc.net",
+    "port": 6697,
+    "tls": true,
+    "website": "https://synirc.net",
+    "users": 1707,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "EsperNet",
+    "host": "irc.esper.net",
+    "port": 6697,
+    "tls": true,
+    "website": "https://esper.net",
+    "users": 1609,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "DigitalIRC",
+    "host": "irc.digitalirc.org",
+    "port": 6697,
+    "tls": true,
+    "website": "https://digitalirc.org",
+    "users": 1402,
+    "saslLikelyRequired": false,
+    "tags": []
+  },
+  {
+    "name": "MansionNET",
+    "host": "irc.inthemansion.com",
+    "port": 6697,
+    "tls": true,
+    "website": "https://inthemansion.com",
+    "users": null,
+    "saslLikelyRequired": false,
+    "tags": []
+  }
+]
