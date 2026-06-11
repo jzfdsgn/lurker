@@ -66,6 +66,24 @@ export function useBufferActions(): BufferActionsAPI {
               onClick: () => channelNotify.setNotifyAlways(buf.networkId, buf.target, true),
             },
       );
+      // Mute hides the unread count + row color for ordinary traffic, leaving
+      // highlights (and notifications) intact — for busy rooms you want to stay
+      // in but not have nagging at you. Icon mirrors the always-notify pattern:
+      // solid bell-slash = muted, regular bell-slash = not.
+      const isMuted = channelNotify.muted(buf.networkId, buf.target);
+      items.push(
+        isMuted
+          ? {
+              label: 'Unmute channel',
+              icon: 'fa-solid fa-bell-slash',
+              onClick: () => channelNotify.setMuted(buf.networkId, buf.target, false),
+            }
+          : {
+              label: 'Mute channel',
+              icon: 'fa-regular fa-bell-slash',
+              onClick: () => channelNotify.setMuted(buf.networkId, buf.target, true),
+            },
+      );
     } else {
       // DM target is the peer's nick — open the profile/note actions directly.
       // Channels can't carry a per-nick action from this menu (which nick?),
