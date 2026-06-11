@@ -136,7 +136,8 @@ const filtered = computed<BuiltinNetwork[]>(() => {
   const q = query.value.trim().toLowerCase();
   const tag = active.value;
   return builtinNetworks.filter((n) => {
-    if (q && !n.name.toLowerCase().includes(q) && !n.tags.some((t) => t.includes(q))) return false;
+    if (q && !n.name.toLowerCase().includes(q) && !n.tags.some((t) => t.toLowerCase().includes(q)))
+      return false;
     if (tag && !n.tags.includes(tag)) return false;
     return true;
   });
