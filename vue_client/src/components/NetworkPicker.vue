@@ -49,12 +49,12 @@
     </div>
 
     <ul class="list">
-      <li v-for="net in filtered" :key="net.name" class="net-card">
-        <div class="net-head">
-          <span class="net-name">{{ net.name }}</span>
-          <span v-if="net.tags.length" class="net-tags">{{ net.tags.join(', ') }}</span>
-        </div>
-        <div class="net-meta">
+      <li v-for="net in filtered" :key="net.name">
+        <button type="button" class="net-card" @click="$emit('select', net)">
+          <span class="net-head">
+            <span class="net-name">{{ net.name }}</span>
+            <span v-if="net.tags.length" class="net-tags">{{ net.tags.join(', ') }}</span>
+          </span>
           <span class="net-stats">
             <span
               v-if="net.users != null"
@@ -71,19 +71,6 @@
               <i class="fa-solid fa-hashtag"></i> {{ formatCount(net.channels) }}
             </span>
           </span>
-          <a
-            v-if="net.website"
-            class="net-site"
-            :href="net.website"
-            target="_blank"
-            rel="noopener noreferrer"
-            :title="`Visit the ${net.name} website (opens in a new tab)`"
-          >
-            {{ siteLabel(net.website) }} <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </a>
-        </div>
-        <button type="button" class="choose" @click="$emit('select', net)">
-          Choose {{ net.name }}
         </button>
       </li>
       <li v-if="!filtered.length" class="none">No networks match.</li>
@@ -121,14 +108,6 @@ function formatCount(n: number): string {
   if (n >= 10000) return `${Math.round(n / 1000)}k`;
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
   return String(n);
-}
-
-// Strip scheme/www/trailing slash so the link reads as a bare domain.
-function siteLabel(url: string): string {
-  return url
-    .replace(/^https?:\/\//, '')
-    .replace(/^www\./, '')
-    .replace(/\/+$/, '');
 }
 
 // Text search matches network name OR any tag (partial), so typing "gam" finds
@@ -225,49 +204,24 @@ const filtered = computed<BuiltinNetwork[]>(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-7);
+  gap: var(--space-3);
 }
-/* The card is a plain info container; the only interactive elements are the
-   explicit "Choose" button and the website link (no whole-card click target).
-   No border — cards are separated by the list's vertical gap. */
+/* Whole card selects the network. No border — a filled background distinguishes
+   each card, with a brighter wash on hover. */
 .net-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-/* Stats (left) + website (right) share one line under the name. */
-.net-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.choose {
   width: 100%;
-  margin-top: var(--space-1);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--fg);
-  padding: var(--space-2);
+  text-align: left;
+  border: 0;
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  background: var(--bg-soft);
   cursor: pointer;
 }
-.choose:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
-}
-.net-site {
-  color: var(--fg-muted);
-  text-decoration: none;
-}
-.net-site:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-.net-site i {
-  opacity: 0.75;
+.net-card:hover {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-soft));
 }
 .net-head {
   display: flex;
