@@ -436,9 +436,11 @@ export class IrcConnection {
       }
       // Dedup guard: if formatServerNumeric already renders this numeric, the
       // 'raw' handler above produced the line — don't double-render. Only
-      // genuinely unclaimed numerics fall through to the catch-all.
-      if (formatServerNumeric(cmd)) return;
-      const text = formatUnknownNumeric(cmd);
+      // genuinely unclaimed numerics fall through to the catch-all. Pass the
+      // sanitized {command, params} (not the raw cmd) so a malformed params
+      // value can't throw inside the formatters and crash the connection.
+      if (formatServerNumeric({ command, params })) return;
+      const text = formatUnknownNumeric({ command, params });
       if (!text) return;
       this.publish({ type: 'motd', target: this.serverTarget(), text });
     });

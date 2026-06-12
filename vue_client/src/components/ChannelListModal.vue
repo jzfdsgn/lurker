@@ -67,6 +67,7 @@ import AppModal from './AppModal.vue';
 import { useChanlistStore, resultKey, type ChanlistRow } from '../stores/chanlist.js';
 import { useNetworksStore } from '../stores/networks.js';
 import { useBuffersStore } from '../stores/buffers.js';
+import { useToastsStore } from '../stores/toasts.js';
 import { socketSend } from '../composables/useSocket.js';
 import { formatRelative } from '../utils/timestamp.js';
 
@@ -173,8 +174,18 @@ function onJoin(ch: ChanlistRow): void {
   // If we're already in the channel (or have its buffer parted), just switch to
   // it; otherwise join and wait for the channel-joined confirmation before
   // focusing, so a refused join doesn't strand the user in a blank buffer
-  // (#260). joinOrActivate handles both, plus rejection toasts.
-  buffers.joinOrActivate(props.networkId, ch.channel);
+  // (#260). joinOrActivate handles both, plus rejection toasts. It returns false
+  // only when a JOIN had to be sent but the socket is closed — surface that so
+  // the click isn't a silent no-op (the modal still closes).
+  if (!buffers.joinOrActivate(props.networkId, ch.channel)) {
+    useToastsStore().push({
+      kind: 'warn',
+      title: 'Not connected',
+      body: `Can't join ${ch.channel} while disconnected.`,
+      networkId: props.networkId,
+      ttlMs: 5000,
+    });
+  }
   emit('close');
 }
 

@@ -165,9 +165,9 @@ function applyEvent(event: any): void {
     case 'channel-joined':
       buffers.ensure(event.networkId, event.target);
       buffers.setJoined(event.networkId, event.target, true);
-      // A join started from the channel-list modal waits for this confirmation
-      // before focusing the buffer (#260) — activate it now. No-op for joins
-      // that weren't pending (e.g. typed /join, reconnect rejoins).
+      // A pending join (from the channel list or a typed /join) waits for this
+      // confirmation before focusing the buffer (#260) — activate it now. No-op
+      // for joins that weren't pending (e.g. reconnect rejoins).
       buffers.confirmPendingJoin(event.networkId, event.target);
       break;
     case 'join-error':

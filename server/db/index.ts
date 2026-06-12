@@ -911,10 +911,12 @@ if (schemaVersion < 9) {
   // stray-case channel events into the case we joined with; this one-shot merges
   // any already-forked buffers into their canonical case across every
   // target-keyed table. Canonical = the case variant carrying the most messages
-  // (the buffer you actually used), tie-broken alphabetically for determinism —
-  // which is the case you joined with. Channels that never drifted (a single
-  // case) map to themselves and are left untouched, so #idleRPG stays #idleRPG.
-  // DM targets (no '#' prefix) are never touched. Fresh installs match no rows.
+  // — i.e. the buffer you actually used, which is the case you joined with. Ties
+  // (equal message counts) break by `target ASC`, purely for determinism — that
+  // tie-break is arbitrary, not meaningful. Channels that never drifted (a
+  // single case) map to themselves and are left untouched, so #idleRPG stays
+  // #idleRPG. DM targets (no '#' prefix) are never touched. Fresh installs match
+  // no rows.
   const foldChannelCase = db.transaction(() => {
     db.exec(`
       CREATE TEMP TABLE _chan_canon AS
@@ -978,9 +980,16 @@ if (schemaVersion < 9) {
       ON CONFLICT(user_id, network_id, target) DO UPDATE SET
         last_read_message_id =
           MAX(buffer_reads.last_read_message_id, excluded.last_read_message_id),
-        cleared_before_message_id =
-          COALESCE(buffer_reads.cleared_before_message_id, excluded.cleared_before_message_id),
-        cleared_at = COALESCE(buffer_reads.cleared_at, excluded.cleared_at),
+        -- Keep the *furthest* /clear boundary (and its matching cleared_at) so
+        -- folding can't un-clear messages the user cleared in the other variant.
+        -- NULLIF restores NULL when neither row had a marker.
+        cleared_before_message_id = NULLIF(
+          MAX(COALESCE(buffer_reads.cleared_before_message_id, 0),
+              COALESCE(excluded.cleared_before_message_id, 0)), 0),
+        cleared_at = CASE
+          WHEN COALESCE(excluded.cleared_before_message_id, 0)
+               > COALESCE(buffer_reads.cleared_before_message_id, 0)
+          THEN excluded.cleared_at ELSE buffer_reads.cleared_at END,
         updated_at = MAX(buffer_reads.updated_at, excluded.updated_at)
     `);
     db.exec(`DELETE FROM buffer_reads WHERE ${needsFold('buffer_reads')}`);
