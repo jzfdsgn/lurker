@@ -54,12 +54,16 @@ function byDisplayName(a: Contact, b: Contact): number {
 export type FriendPresence = 'online' | 'away' | 'offline' | 'unknown';
 
 // The presence row (online/away/offline/back) for one target, or null when
-// unknown (network without MONITOR + no shared channel).
+// unknown. A disconnected network has no live MONITOR feed, so any cached state
+// is stale — treat as offline. Connected-but-no-row stays null (unknown =
+// "potentially online"), which is the normal case on networks without MONITOR.
 function targetPresence(
   networks: ReturnType<typeof useNetworksStore>,
   t: ContactTarget,
 ): { state: string | null } | null {
-  return (networks.states as any)[t.networkId]?.peerPresence?.[t.nick.toLowerCase()] ?? null;
+  const netState = (networks.states as any)[t.networkId];
+  if (netState && netState.state !== 'connected') return { state: 'offline' };
+  return netState?.peerPresence?.[t.nick.toLowerCase()] ?? null;
 }
 
 export const useFriendsStore = defineStore('friends', {

@@ -569,7 +569,12 @@ function isUnjoined(buf: Buffer, networkId: number): boolean {
 }
 
 function peerOf(buf: Buffer): PeerPresenceEntry | null {
-  return networks.states[buf.networkId]?.peerPresence?.[buf.target.toLowerCase()] ?? null;
+  const netState = networks.states[buf.networkId];
+  // Disconnected from the network → presence is stale, so the peer reads as
+  // offline. Connected-but-no-row stays unknown (no MONITOR / not seen yet).
+  if (netState && netState.state !== 'connected')
+    return { nick: buf.target, state: 'offline', stateAt: null, awayMessage: null };
+  return netState?.peerPresence?.[buf.target.toLowerCase()] ?? null;
 }
 function isPeerOffline(buf: Buffer): boolean {
   return isDmBuffer(buf) && derivePeerOffline(peerOf(buf));

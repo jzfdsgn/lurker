@@ -216,7 +216,12 @@ const peerForActive = computed(() => {
   if (!isDmBuffer.value) return null;
   const a = active.value;
   if (!a) return null;
-  return networks.states[a.networkId]?.peerPresence?.[a.target.toLowerCase()] || null;
+  const netState = networks.states[a.networkId];
+  // Disconnected → presence is stale, so the peer reads as offline. Connected
+  // with no row stays unknown (no MONITOR / not seen yet).
+  if (netState && netState.state !== 'connected')
+    return { nick: a.target, state: 'offline', stateAt: null, awayMessage: null };
+  return netState?.peerPresence?.[a.target.toLowerCase()] || null;
 });
 const peerStatusLabel = computed(() => {
   const peer = peerForActive.value;
