@@ -24,8 +24,8 @@
         >
           <span
             class="indicator"
-            :class="lurkerConnected ? 'good' : 'bad'"
-            :title="lurkerConnected ? 'Connected to lurker' : 'Disconnected from lurker'"
+            :class="friendsConnected ? 'good' : 'bad'"
+            :title="friendsStatusTitle"
           ></span>
           <span class="name">FRIENDS</span>
         </div>
@@ -470,6 +470,20 @@ function isActive(networkId: number, target: string): boolean {
 }
 
 const isFriendsActive = computed(() => networks.activeKey === FRIENDS_KEY);
+// The FRIENDS dot is green only when friends are actually reachable: the lurker
+// service is up AND at least one IRC network is connected. If every network is
+// down, it's red even though the lurker session itself is fine.
+const anyNetworkConnected = computed(() =>
+  networks.networks.some((n) => networks.states[n.id]?.state === 'connected'),
+);
+const friendsConnected = computed(() => lurkerConnected.value && anyNetworkConnected.value);
+const friendsStatusTitle = computed(() =>
+  !lurkerConnected.value
+    ? 'Disconnected from lurker'
+    : !anyNetworkConnected.value
+      ? 'Not connected to any network'
+      : 'Connected',
+);
 function selectFriends(): void {
   friends.activateFeed();
 }
