@@ -23,12 +23,12 @@
         <div class="card-head">
           <span class="dot" :class="friends.primaryPresence(c.id)"></span>
           <span class="name">{{ c.displayName }}</span>
-          <span class="summary">{{ summary(c) }}</span>
           <span class="spacer"></span>
           <button
             type="button"
-            class="link"
+            class="icon-btn"
             title="Edit friend"
+            aria-label="Edit friend"
             @click="friends.openEditorForContact(c)"
           >
             <i class="fa-solid fa-user-pen"></i>
@@ -37,11 +37,9 @@
 
         <ul class="targets">
           <li v-for="t in c.targets" :key="`${t.networkId}::${t.nick}`" class="target">
-            <span class="dot small" :class="friends.presenceForTarget(t.networkId, t.nick)"></span>
             <span class="net">{{ networkName(t.networkId) }}</span>
-            <span class="nick">{{ t.nick }}</span>
-            <span v-if="t.isPrimary" class="primary" title="Primary — opens on click">★</span>
-            <span class="tstate">{{ friends.presenceForTarget(t.networkId, t.nick) }}</span>
+            <span class="nick" :class="nickClass(t)">{{ t.nick }}</span>
+            <span class="spacer"></span>
             <span class="row-actions">
               <button
                 type="button"
@@ -75,12 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  useFriendsStore,
-  primaryTargetOf,
-  type Contact,
-  type ContactTarget,
-} from '../stores/friends.js';
+import { useFriendsStore, type ContactTarget } from '../stores/friends.js';
 import { useNetworksStore } from '../stores/networks.js';
 
 // Emits the raw search query string for "view activity" — the parent opens the
@@ -102,15 +95,11 @@ function searchQueryFor(t: ContactTarget): string {
   return `from:${t.nick}${onTok}`;
 }
 
-// One-line summary under the name, describing the PRIMARY target (the DM Open DM
-// opens) and naming its network. The per-network breakdown below shows the rest.
-function summary(c: Contact): string {
-  const state = friends.primaryPresence(c.id);
-  const net = primaryTargetOf(c) ? networkName(primaryTargetOf(c)!.networkId) : '';
-  if (state === 'online') return net ? `Online on ${net}` : 'Online';
-  if (state === 'away') return 'Away';
-  if (state === 'offline') return net ? `Offline on ${net}` : 'Offline';
-  return 'Presence unknown';
+// Format the nick by presence, mirroring DM rows in the buffer list: online =
+// normal, away = dimmed, offline = dimmed + italic. Primary nick is bold.
+function nickClass(t: ContactTarget): Record<string, boolean> {
+  const state = friends.presenceForTarget(t.networkId, t.nick);
+  return { away: state === 'away', offline: state === 'offline', primary: t.isPrimary };
 }
 </script>
 
@@ -159,20 +148,12 @@ function summary(c: Contact): string {
 .card-head .name {
   font-weight: 700;
 }
-.card-head .summary {
-  color: var(--fg-muted);
-  margin-left: var(--space-2);
-}
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--fg-muted);
   flex: 0 0 auto;
-}
-.dot.small {
-  width: 6px;
-  height: 6px;
 }
 .dot.online {
   background: var(--good);
@@ -201,16 +182,21 @@ function summary(c: Contact): string {
 }
 .target .net {
   min-width: 8em;
+  color: var(--fg-muted);
 }
+/* Nick carries presence, mirroring DM rows in the buffer list. */
 .target .nick {
+  color: var(--fg);
+}
+.target .nick.away {
   color: var(--fg-muted);
 }
-.target .primary {
-  color: var(--accent);
-}
-.target .tstate {
-  margin-left: auto;
+.target .nick.offline {
   color: var(--fg-muted);
+  font-style: italic;
+}
+.target .nick.primary {
+  font-weight: 700;
 }
 .target .row-actions {
   display: inline-flex;
@@ -230,16 +216,5 @@ function summary(c: Contact): string {
 .icon-btn:disabled {
   opacity: 0.35;
   cursor: default;
-}
-.link {
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  font: inherit;
-  padding: 0 var(--space-2);
-}
-.link:hover {
-  color: var(--fg);
 }
 </style>

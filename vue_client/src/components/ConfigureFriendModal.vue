@@ -42,10 +42,7 @@
           <button type="button" class="add-row" @click="addRow">
             <i class="fa-solid fa-plus"></i> Add nick
           </button>
-          <p class="meta">
-            A friend can have several nicks per network. The primary nick is the DM that opens when
-            you click them.
-          </p>
+          <p class="meta">The primary nick is the DM that opens when you click the friend.</p>
         </template>
       </fieldset>
 
