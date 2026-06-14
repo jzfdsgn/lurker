@@ -536,8 +536,8 @@ function friendUnread(c: Contact): number {
 function friendHighlights(c: Contact): number {
   return friendDmBuffer(c)?.highlighted ?? 0;
 }
-// Kebab / right-click menu on a friend row. Edit + remove, mirroring how DM
-// rows expose buffer actions (and giving a discoverable path beyond right-click).
+// Kebab / right-click menu on a friend row. Edit only — removal lives behind
+// the modal's Remove button so a destructive action isn't one stray click away.
 function openFriendActions(e: MouseEvent, c: Contact): void {
   const el = e.currentTarget as Element;
   const rect = el.getBoundingClientRect();
@@ -547,11 +547,6 @@ function openFriendActions(e: MouseEvent, c: Contact): void {
         label: 'Edit Friend…',
         icon: 'fa-solid fa-user-pen',
         onClick: () => friends.openEditorForContact(c),
-      },
-      {
-        label: 'Remove Friend',
-        icon: 'fa-solid fa-user-minus',
-        onClick: () => friends.removeContact(c.id),
       },
     ],
     rect.right,
