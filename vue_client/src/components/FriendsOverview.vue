@@ -37,6 +37,7 @@
 
         <ul class="targets">
           <li v-for="t in c.targets" :key="`${t.networkId}::${t.nick}`" class="target">
+            <span class="dot small" :class="friends.presenceForTarget(t.networkId, t.nick)"></span>
             <span class="net">{{ networkName(t.networkId) }}</span>
             <span class="nick" :class="nickClass(t)">{{ t.nick }}</span>
             <span class="spacer"></span>
@@ -154,6 +155,10 @@ function nickClass(t: ContactTarget): Record<string, boolean> {
   border-radius: 50%;
   background: var(--fg-muted);
   flex: 0 0 auto;
+}
+.dot.small {
+  width: 6px;
+  height: 6px;
 }
 .dot.online {
   background: var(--good);
