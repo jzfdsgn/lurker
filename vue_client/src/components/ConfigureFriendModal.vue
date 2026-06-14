@@ -51,10 +51,15 @@
       </p>
 
       <div class="actions">
-        <button type="button" class="btn-secondary" @click="onClose">Cancel</button>
-        <button v-if="isEditing" type="button" class="btn-secondary danger" @click="onDelete">
+        <button
+          v-if="isEditing"
+          type="button"
+          class="btn-secondary danger remove"
+          @click="onDelete"
+        >
           Remove
         </button>
+        <button type="button" class="btn-secondary" @click="onClose">Cancel</button>
         <button type="submit" class="btn-primary" :disabled="!canSave">Save</button>
       </div>
     </form>
@@ -216,6 +221,11 @@ input[type='text']:disabled {
   justify-content: flex-end;
   gap: var(--space-4);
   margin-top: var(--space-2);
+}
+/* Push Remove to the far left, away from Cancel/Save, so the destructive action
+   isn't adjacent to the positive ones. */
+.actions .remove {
+  margin-right: auto;
 }
 .btn-primary,
 .btn-secondary {
