@@ -503,10 +503,9 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
-  --control-rail: calc(var(--icon-lg) + (2 * var(--space-2)));
   background: rgba(0, 0, 0, 0.84);
   display: grid;
-  grid-template-rows: var(--control-rail) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-4);
   padding: var(--space-7);
   outline: none;
@@ -548,7 +547,6 @@ onBeforeUnmount(() => {
   /* Icon-only button — size the glyph, not text weight (fa-solid is already
      weight 900). */
   font-size: var(--icon-lg);
-  line-height: 1;
   padding: var(--space-2) var(--space-4);
 }
 .control:hover {
