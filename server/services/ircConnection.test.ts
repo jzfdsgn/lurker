@@ -1,9 +1,11 @@
 // Copyright (c) 2026 Brad Root
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ircLineParser } from 'irc-framework';
+import type { ConnectOptions } from 'irc-framework';
 import {
+  IrcConnection,
   canonicalChannelTarget,
   computeFallbackNick,
   formatServerNumeric,
@@ -229,5 +231,53 @@ describe('canonicalChannelTarget (#268)', () => {
     expect(canonicalChannelTarget('SomeNick', channels)).toBe('SomeNick');
     expect(canonicalChannelTarget(':server:7', channels)).toBe(':server:7');
     expect(canonicalChannelTarget(undefined, channels)).toBeUndefined();
+  });
+});
+
+describe('tls certificate trust setting', () => {
+  function makeConn(trusted_certificates: number): IrcConnection {
+    return new IrcConnection({
+      network: {
+        id: 1,
+        user_id: 1,
+        name: 'n',
+        host: 'irc.example.test',
+        port: 6697,
+        tls: 1,
+        trusted_certificates,
+        nick: 'nick',
+        username: null,
+        realname: null,
+        server_password: null,
+        autoconnect: 1,
+        sasl_account: null,
+        sasl_password: null,
+        connect_commands: null,
+        position: 0,
+        created_at: new Date().toISOString(),
+      },
+      onEvent: () => {},
+    });
+  }
+
+  it('passes rejectUnauthorized based on trusted_certificates', () => {
+    const trusted = makeConn(1);
+    const untrusted = makeConn(0);
+    trusted.publish = vi.fn<(event: unknown) => void>();
+    untrusted.publish = vi.fn<(event: unknown) => void>();
+    const trustedConnect = vi.fn<(options: ConnectOptions) => void>();
+    const untrustedConnect = vi.fn<(options: ConnectOptions) => void>();
+    trusted.client.connect = trustedConnect;
+    untrusted.client.connect = untrustedConnect;
+
+    trusted.connect();
+    untrusted.connect();
+
+    expect(trustedConnect).toHaveBeenCalledWith(
+      expect.objectContaining({ tls: true, rejectUnauthorized: true }),
+    );
+    expect(untrustedConnect).toHaveBeenCalledWith(
+      expect.objectContaining({ tls: true, rejectUnauthorized: false }),
+    );
   });
 });

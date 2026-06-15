@@ -1770,6 +1770,7 @@ export class IrcConnection {
       host: this.network.host,
       port: this.network.port,
       tls: !!this.network.tls,
+      rejectUnauthorized: this.network.trusted_certificates !== 0,
       nick,
       username: this.network.username || nick,
       gecos: this.network.realname || nick,
