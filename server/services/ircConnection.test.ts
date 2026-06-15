@@ -8,6 +8,7 @@ import {
   IrcConnection,
   canonicalChannelTarget,
   computeFallbackNick,
+  formatWhoisRaw,
   formatServerNumeric,
   formatUnknownNumeric,
   joinRejectionMessage,
@@ -279,5 +280,25 @@ describe('tls certificate trust setting', () => {
     expect(untrustedConnect).toHaveBeenCalledWith(
       expect.objectContaining({ tls: true, rejectUnauthorized: false }),
     );
+  });
+});
+
+describe('formatWhoisRaw', () => {
+  it('formats the raw whois payload as a single server-buffer line', () => {
+    expect(
+      formatWhoisRaw({
+        nick: 'alice',
+        ident: 'a',
+        hostname: 'host.example',
+        channels: '#a #b',
+      }),
+    ).toBe(
+      'WHOIS alice: {"nick":"alice","ident":"a","hostname":"host.example","channels":"#a #b"}',
+    );
+  });
+
+  it('returns null for missing nick', () => {
+    expect(formatWhoisRaw({ ident: 'a' })).toBeNull();
+    expect(formatWhoisRaw(null)).toBeNull();
   });
 });
