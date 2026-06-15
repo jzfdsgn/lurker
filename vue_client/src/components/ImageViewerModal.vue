@@ -7,7 +7,6 @@
   <div
     ref="overlayEl"
     class="lightbox"
-    :class="{ 'lightbox--zoomed': isZoomed }"
     tabindex="-1"
     role="dialog"
     aria-modal="true"
@@ -87,12 +86,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const LOAD_TIMEOUT_MS = 20_000;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const MOVE_SLOP_PX = 6;
+// When an image's aspect already matches the stage there is nothing to fill into,
+// so a fit<->fill toggle falls back to this modest zoom for inspecting detail.
+const FILL_FALLBACK_ZOOM = 2;
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_SLOP_PX = 32;
 
 const props = defineProps<{
   url: string;
@@ -142,6 +146,8 @@ type PinchStart = {
 const activePointers = new Map<number, ActivePointer>();
 let dragStart: DragStart | null = null;
 let pinchStart: PinchStart | null = null;
+let pinchOccurred = false;
+let lastTap: { time: number; x: number; y: number } | null = null;
 
 const isZoomed = computed(() => scale.value > MIN_ZOOM);
 const zoomControlLabel = computed(() => (isZoomed.value ? 'zoom out' : 'zoom in'));
@@ -157,16 +163,6 @@ watch(
   () => props.url,
   (nextUrl) => startLoading(nextUrl),
 );
-
-// Entering/leaving the zoomed state is the only thing that changes the stage and
-// image layout (a transform never reflows), so re-clamp the pan exactly once the
-// new layout has settled instead of on every pointer move.
-watch(isZoomed, async () => {
-  await nextTick();
-  const reclamped = clampPan(panX.value, panY.value, scale.value);
-  panX.value = reclamped.x;
-  panY.value = reclamped.y;
-});
 
 function onLoad(): void {
   clearLoadTimer();
@@ -238,7 +234,25 @@ function toggleZoom(point: Point): void {
     return;
   }
 
-  zoomAt(point, MAX_ZOOM);
+  zoomAt(point, fillTarget());
+}
+
+// The scale that makes the contain-fitted image cover the stage on both axes
+// (offsetWidth/Height are the fit size; a transform never changes them).
+function coverScale(): number {
+  const stage = stageEl.value;
+  const image = imageEl.value;
+  if (stage == null || image == null || image.offsetWidth === 0 || image.offsetHeight === 0)
+    return MIN_ZOOM;
+
+  return Math.max(stage.clientWidth / image.offsetWidth, stage.clientHeight / image.offsetHeight);
+}
+
+// "Screen fill" target for a fit<->fill toggle: cover the stage, but fall back to
+// a modest zoom when the image already fills it, and never exceed MAX_ZOOM.
+function fillTarget(): number {
+  const cover = coverScale();
+  return clamp(cover > MIN_ZOOM + 0.01 ? cover : FILL_FALLBACK_ZOOM, MIN_ZOOM, MAX_ZOOM);
 }
 
 function zoomAt(point: Point, nextScale: number): void {
@@ -269,6 +283,8 @@ function resetZoom(): void {
   activePointers.clear();
   dragStart = null;
   pinchStart = null;
+  pinchOccurred = false;
+  lastTap = null;
   isDragging.value = false;
   isPinching.value = false;
   suppressNextClick.value = false;
@@ -339,7 +355,16 @@ function onImagePointerMove(event: PointerEvent): void {
 }
 
 function onImagePointerEnd(event: PointerEvent): void {
-  if (!activePointers.has(event.pointerId)) return;
+  const ending = activePointers.get(event.pointerId);
+  if (ending == null) return;
+
+  // A clean single-finger tap: the last pointer lifting, touch input, no pinch
+  // during the gesture, and no real movement.
+  const wasTap =
+    event.pointerType === 'touch' &&
+    activePointers.size === 1 &&
+    !pinchOccurred &&
+    !pointerMoved(ending);
 
   activePointers.delete(event.pointerId);
   releasePointer(event.pointerId);
@@ -360,6 +385,29 @@ function onImagePointerEnd(event: PointerEvent): void {
 
   dragStart = null;
   isDragging.value = false;
+  pinchOccurred = false;
+
+  if (wasTap) handleTap(event);
+}
+
+// Touch has no click-to-zoom; a double-tap toggles fit<->fill at the tap point,
+// matching the platform convention. A lone tap just arms the next one.
+function handleTap(event: PointerEvent): void {
+  const point = pointFromClient(event.clientX, event.clientY);
+  if (point == null) return;
+
+  const isDoubleTap =
+    lastTap != null &&
+    event.timeStamp - lastTap.time < DOUBLE_TAP_MS &&
+    Math.hypot(event.clientX - lastTap.x, event.clientY - lastTap.y) < DOUBLE_TAP_SLOP_PX;
+
+  if (isDoubleTap) {
+    lastTap = null;
+    toggleZoom(point);
+    return;
+  }
+
+  lastTap = { time: event.timeStamp, x: event.clientX, y: event.clientY };
 }
 
 function startPinch(): void {
@@ -376,6 +424,7 @@ function startPinch(): void {
   dragStart = null;
   isDragging.value = false;
   isPinching.value = true;
+  pinchOccurred = true;
   suppressNextClick.value = true;
 }
 
@@ -530,12 +579,6 @@ onBeforeUnmount(() => {
   outline: none;
   animation: lightbox-fade-in 100ms ease-out;
 }
-.lightbox--zoomed {
-  gap: var(--space-2);
-  padding-right: 0;
-  padding-bottom: 0;
-  padding-left: 0;
-}
 
 .topbar {
   grid-column: 1;
@@ -547,10 +590,6 @@ onBeforeUnmount(() => {
   padding-top: env(safe-area-inset-top);
   padding-right: env(safe-area-inset-right);
   z-index: 1;
-}
-.lightbox--zoomed .topbar {
-  padding-right: calc(env(safe-area-inset-right) + var(--space-7));
-  padding-left: calc(env(safe-area-inset-left) + var(--space-7));
 }
 .controls {
   display: flex;
