@@ -51,7 +51,7 @@
         }}</span>
         <span v-if="splitLabel" class="seg split" :class="splitClass">{{ splitLabel }}</span>
         <span v-if="typingSegments.length" class="seg typing"
-          ><i class="fa-regular fa-keyboard" title="Typing"></i>
+          ><i class="fa-regular fa-keyboard" role="img" aria-label="Typing" title="Typing"></i>
           <template v-for="(seg, i) in typingSegments" :key="i"
             ><span :style="seg.color ? { color: seg.color } : null">{{ seg.text }}</span></template
           ></span
@@ -69,6 +69,7 @@
           class="tool-btn"
           :disabled="!sendable"
           title="upload image"
+          aria-label="upload image"
           @click="onPickFile"
         >
           <i class="fa-solid fa-paperclip"></i>
@@ -82,6 +83,7 @@
           class="tool-btn"
           :disabled="!sendable"
           title="mIRC formatting (Cmd/Ctrl+B/I/U for bold/italic/underline)"
+          aria-label="mIRC formatting"
           @mousedown.prevent
           @click="onToggleColorPicker"
         >
