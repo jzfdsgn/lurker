@@ -9,6 +9,7 @@ import {
   canonicalChannelTarget,
   computeFallbackNick,
   formatWhoisRaw,
+  formatSocketCloseErrorMessage,
   formatServerNumeric,
   formatUnknownNumeric,
   joinRejectionMessage,
@@ -300,5 +301,50 @@ describe('formatWhoisRaw', () => {
   it('returns null for missing nick', () => {
     expect(formatWhoisRaw({ ident: 'a' })).toBeNull();
     expect(formatWhoisRaw(null)).toBeNull();
+  });
+});
+
+describe('formatSocketCloseErrorMessage', () => {
+  const where = 'irc.example.test:6697';
+
+  it('rewrites self-signed certificate failures with a user-friendly setting hint', () => {
+    expect(
+      formatSocketCloseErrorMessage(
+        {
+          code: 'DEPTH_ZERO_SELF_SIGNED_CERT',
+          message:
+            'self-signed certificate; if the root CA is installed locally, try running Node.js with --use-system-ca',
+        },
+        where,
+        true,
+      ),
+    ).toBe(
+      `Connection failed (${where}): The server certificate is self-signed or expired. To connect anyway, uncheck "Only allow trusted certificates" in this network's settings and reconnect.`,
+    );
+  });
+
+  it('rewrites expired certificate failures with the same user-friendly hint', () => {
+    expect(
+      formatSocketCloseErrorMessage(
+        {
+          code: 'CERT_HAS_EXPIRED',
+          message: 'certificate has expired',
+        },
+        where,
+        true,
+      ),
+    ).toBe(
+      `Connection failed (${where}): The server certificate is self-signed or expired. To connect anyway, uncheck "Only allow trusted certificates" in this network's settings and reconnect.`,
+    );
+  });
+
+  it('keeps non-certificate errors unchanged', () => {
+    expect(
+      formatSocketCloseErrorMessage(
+        { code: 'ECONNREFUSED', message: 'connect ECONNREFUSED 127.0.0.1:6697' },
+        where,
+        true,
+      ),
+    ).toBe(`Connection failed (${where}): ECONNREFUSED: connect ECONNREFUSED 127.0.0.1:6697`);
   });
 });

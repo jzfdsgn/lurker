@@ -751,9 +751,12 @@ export class IrcConnection {
       unregisterIdent(this.identdLocalPort);
       this.identdLocalPort = null;
       if (err && (err.message || err.code)) {
-        const code = err.code ? `${err.code}: ` : '';
         const where = `${this.network.host}:${this.network.port}`;
-        const text = `Connection failed (${where}): ${code}${err.message || 'unknown error'}`;
+        const text = formatSocketCloseErrorMessage(
+          err,
+          where,
+          this.network.trusted_certificates !== 0,
+        );
         this.publish({
           type: 'error',
           target: this.serverTarget(),
@@ -2125,6 +2128,36 @@ export function formatWhoisRaw(whois: Record<string, unknown> | null | undefined
   } catch (_) {
     return `WHOIS ${nick}`;
   }
+}
+
+const TLS_SELF_SIGNED_OR_EXPIRED_CODES = new Set([
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'CERT_HAS_EXPIRED',
+]);
+const TLS_SELF_SIGNED_OR_EXPIRED_PATTERNS = [
+  /self-signed certificate/i,
+  /certificate has expired/i,
+];
+
+function isSelfSignedOrExpiredTlsError(code: string, message: string): boolean {
+  if (TLS_SELF_SIGNED_OR_EXPIRED_CODES.has(code)) return true;
+  return TLS_SELF_SIGNED_OR_EXPIRED_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+export function formatSocketCloseErrorMessage(
+  err: Record<string, unknown>,
+  where: string,
+  onlyTrustedCertificates: boolean,
+): string {
+  const code = typeof err.code === 'string' ? err.code : '';
+  const message =
+    typeof err.message === 'string' && err.message.length > 0 ? err.message : 'unknown error';
+  if (onlyTrustedCertificates && isSelfSignedOrExpiredTlsError(code, message)) {
+    return `Connection failed (${where}): The server certificate is self-signed or expired. To connect anyway, uncheck "Only allow trusted certificates" in this network's settings and reconnect.`;
+  }
+  const codePrefix = code ? `${code}: ` : '';
+  return `Connection failed (${where}): ${codePrefix}${message}`;
 }
 
 // Convert a server-sourced numeric reply (parsed IrcMessage) into a single
