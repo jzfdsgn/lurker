@@ -175,10 +175,10 @@ const form = reactive({
 // forces the section open.
 const showAdvanced = ref(
   !!props.network &&
-    (    !!netRaw?.has_password ||
-    !!netRaw?.connect_commands ||
-    netRaw?.autoconnect === false ||
-    netRaw?.trusted_certificates === false),
+    (!!netRaw?.has_password ||
+      !!netRaw?.connect_commands ||
+      netRaw?.autoconnect === false ||
+      netRaw?.trusted_certificates === false),
 );
 
 // Add-flow opens on the network picker (#169); editing jumps straight to the
