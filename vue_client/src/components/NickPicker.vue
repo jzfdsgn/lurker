@@ -230,12 +230,7 @@ watch(
   padding: var(--space-6);
   min-height: 44px;
   cursor: pointer;
-  /* Thin separator between each suggestion — same --border as the panel edge. */
-  border-bottom: 1px solid var(--border);
   user-select: none;
-}
-.row:last-child {
-  border-bottom: none;
 }
 /* Single highlight, shared by mouse and keyboard: hovering a row sets
    activeIndex (see @mouseenter), so .active alone covers both — no separate

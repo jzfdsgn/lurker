@@ -175,12 +175,7 @@ watch(
   padding: var(--space-6);
   min-height: 44px;
   cursor: pointer;
-  /* Thin separator between each suggestion — same --border as the panel edge. */
-  border-bottom: 1px solid var(--border);
   user-select: none;
-}
-.row:last-child {
-  border-bottom: none;
 }
 /* Tap-only menu — no externally driven activeIndex to coordinate with, so a
    plain :hover highlight is fine (unlike the nick/channel pickers, which avoid
