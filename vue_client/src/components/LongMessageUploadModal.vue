@@ -15,7 +15,7 @@
       instead?
     </p>
     <pre class="preview">{{ content }}</pre>
-    <footer class="foot">
+    <footer class="modal-footer">
       <button type="button" class="btn-secondary" @click="$emit('cancel')">Cancel</button>
       <button
         ref="primaryBtn"
@@ -79,12 +79,5 @@ onMounted(() => {
   word-break: break-word;
   font-family: inherit;
   color: var(--fg-muted);
-}
-.foot {
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-4);
 }
 </style>

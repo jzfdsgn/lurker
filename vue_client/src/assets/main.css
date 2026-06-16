@@ -310,6 +310,40 @@ button:disabled {
   }
 }
 
+/* Modal action footer — a toolbar pinned to the bottom of the card. AppModal's
+   card is a flex column with a capped height, so a footer placed as the last
+   flex child (after a flex:1 scrollable body) stays pinned and visible while
+   the body scrolls. One system, promoted out of the per-modal .footer/.actions/
+   .foot copies that had drifted — same move the .btn-* block made in #267.
+
+   Right-aligned by default (the Cancel/Save dialog case). A flex `.spacer`
+   shifts items left for toolbar-style footers (profile, network), and
+   margin-right:auto on a lone destructive button pushes it away from the
+   positive actions. The border-top mirrors the head's divider on the far edge;
+   like the head it stays inset by the card padding rather than breaking out. */
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+}
+.modal-footer .spacer {
+  flex: 1;
+}
+
+/* A form (or wrapper) that fills the modal card so its own `.modal-footer` pins
+   to the bottom: it becomes the card's growable flex column, with a scrollable
+   body above the footer sibling. Keeping the footer inside the form preserves
+   native Enter-to-submit (the submit button stays form-associated). */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 input,
 select,
 textarea {
