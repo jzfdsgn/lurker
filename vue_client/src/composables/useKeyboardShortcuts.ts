@@ -7,7 +7,7 @@ import { useBuffersStore } from '../stores/buffers.js';
 import { usePinsStore } from '../stores/pins.js';
 import { useFriendsStore } from '../stores/friends.js';
 import { socketSend } from './useSocket.js';
-import { flattenBufferOrder, flattenUnreadOrder, FRIENDS_GROUP_ID } from '../utils/bufferOrder.js';
+import { flattenBufferOrder, flattenUnreadOrder } from '../utils/bufferOrder.js';
 import { FRIENDS_KEY } from '../lib/virtualBuffers.js';
 
 export interface KeyboardShortcutsOptions {
@@ -24,6 +24,12 @@ function markAllRead(): void {
 
 function isCmd(e: KeyboardEvent): boolean {
   return e.metaKey || e.ctrlKey;
+}
+
+// Server pseudo-buffers (`:server:<id>`) are skipped by keyboard nav — a
+// network's console is reached by clicking it, not by cycling channels.
+function isServerEntry(target: string): boolean {
+  return target.startsWith(':server:');
 }
 
 // IRCCloud-style global shortcuts. Wired at the document level so they fire
@@ -82,33 +88,21 @@ export function useKeyboardShortcuts({
     else buffers.activate(entry.networkId, entry.target);
   }
 
-  // The nav group of the active buffer for per-network (Alt+Up/Down) scoping.
-  // The FRIENDS feed and any friend's primary DM resolve to FRIENDS_GROUP_ID so
-  // cycling that group stays in it — and cycling a real network skips it —
-  // rather than friend DMs leaking into their underlying network's rotation.
-  function activeGroupId(): string | number | null {
-    const key = networks.activeKey;
-    if (!key) return null;
-    if (key === FRIENDS_KEY) return FRIENDS_GROUP_ID;
-    if (friends.primaryDmKeys.has(key.toLowerCase())) return FRIENDS_GROUP_ID;
-    return networks.activeBuffer?.networkId ?? null;
-  }
-
-  function step(delta: number, scope: string): void {
-    let list = order();
-    if (scope === 'network') {
-      const gid = activeGroupId();
-      if (gid != null) list = list.filter((e) => e.groupId === gid);
-    } else if (scope === 'unread') {
-      list = unreadOrder();
-    }
+  function step(delta: number, scope: 'all' | 'unread'): void {
+    // Both Alt+Arrow (all buffers) and Shift+Alt+Arrow (unread only) walk the
+    // full sidebar order across every network — neither is scoped to the
+    // current network — and both skip the server buffers.
+    const list = (scope === 'unread' ? unreadOrder() : order()).filter(
+      (e) => !isServerEntry(e.target),
+    );
     if (list.length === 0) return;
     const activeKey = networks.activeKey;
     let idx = list.findIndex((e) => e.key === activeKey);
     if (idx === -1) {
       // Active buffer isn't in the filtered list (e.g. unread navigation when
-      // current buffer has no unread). Pick the first item in the requested
-      // direction so wrap-around still feels predictable.
+      // the current buffer has no unread, or the user is sitting on a server
+      // console). Pick the first item in the requested direction so wrap-around
+      // still feels predictable.
       idx = delta > 0 ? -1 : list.length;
     }
     const next = (idx + delta + list.length) % list.length;
@@ -158,7 +152,7 @@ export function useKeyboardShortcuts({
     // don't collide with browser shortcuts (Cmd+Alt+Arrow tab switching, etc.)
     if (e.altKey && !isCmd(e) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       const delta = e.key === 'ArrowDown' ? 1 : -1;
-      const scope = e.shiftKey ? 'unread' : 'network';
+      const scope = e.shiftKey ? 'unread' : 'all';
       // MessageInput's keydown handler also listens for ArrowUp/ArrowDown
       // (input history) but explicitly ignores them when Alt is held, so
       // these buffer-nav combos don't double-trigger.
