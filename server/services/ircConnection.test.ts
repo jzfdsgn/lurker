@@ -386,8 +386,9 @@ describe('addPeerWatch live presence seed (#302)', () => {
 
     conn.trackFriend('offlinepal', 42);
 
-    expect(raw).toHaveBeenCalledWith('MONITOR + offlinepal');
-    expect(raw).toHaveBeenCalledWith('MONITOR S');
+    // Order matters: the nick must be added before MONITOR S, or the status
+    // dump won't include it.
+    expect(raw.mock.calls.map((c) => c[0])).toEqual(['MONITOR + offlinepal', 'MONITOR S']);
   });
 
   it('issues no MONITOR traffic when the server does not support it', () => {
