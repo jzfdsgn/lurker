@@ -786,7 +786,7 @@ describe('built-in identd registration', () => {
     try {
       await fn(query);
     } finally {
-      server.close();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   }
 

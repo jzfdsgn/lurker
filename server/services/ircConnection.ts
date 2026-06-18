@@ -836,10 +836,11 @@ export class IrcConnection {
     });
     c.on('connecting', () => this.setState('connecting'));
 
-    // Built-in identd: the moment the raw socket connects, map its local source
-    // port → this user's ident so the identd server (services/identd.ts) can
-    // answer the IRC server's :113 callback. Without it a multi-user gateway's
-    // users are indistinguishable (and unverified) behind one shared IP.
+    // Built-in identd: the moment the raw socket connects, register this
+    // connection's full 4-tuple (both addresses + both ports) → this user's ident
+    // so the identd server (services/identd.ts) can answer the IRC server's :113
+    // callback. Without it a multi-user gateway's users are indistinguishable
+    // (and unverified) behind one shared IP.
     //
     // This MUST run on 'raw socket connected' (the bare TCP connect, before any
     // TLS handshake) and not 'socket connected' (which irc-framework emits from

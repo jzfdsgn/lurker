@@ -84,6 +84,11 @@ function lookupIdent(
   localAddress: string,
   remoteAddress: string,
 ): { ident?: string; addrMiss: boolean } {
+  // Linear scan, deliberately: N is the cell's live-connection count, which is
+  // capacity-capped (NODE_CAPACITY) and dwarfed by each query's TCP-accept + parse
+  // cost, so a query flood is bounded by connection volume (a firewall/rate-limit
+  // concern), not by this. An index would add register/unregister bookkeeping to
+  // keep in sync — the very dual-state that the port-only bug came from.
   let addrMiss = false;
   for (const e of idents.values()) {
     if (e.localPort !== lport || e.remotePort !== rport) continue;
