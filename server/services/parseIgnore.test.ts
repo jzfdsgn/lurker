@@ -100,3 +100,26 @@ describe('parseIgnoreArgs — flags & errors', () => {
     expect(p('bob -pattern').error).toMatch(/pattern/);
   });
 });
+
+describe('parseIgnoreArgs — scope (#350)', () => {
+  it('defaults to global (scopeNetwork false)', () => {
+    expect(p('bob').scopeNetwork).toBe(false);
+  });
+
+  it('-network / -net scope to the current network', () => {
+    expect(p('-network bob').scopeNetwork).toBe(true);
+    expect(p('-net bob NOHIGHLIGHT').scopeNetwork).toBe(true);
+  });
+
+  it('-global is the explicit default', () => {
+    expect(p('-global bob').scopeNetwork).toBe(false);
+  });
+
+  it('scope flags do not leak into the other dimensions', () => {
+    expect(p('-network bob JOINS')).toMatchObject({
+      mask: 'bob',
+      levels: ['JOINS'],
+      scopeNetwork: true,
+    });
+  });
+});
