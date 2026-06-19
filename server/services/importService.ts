@@ -202,6 +202,16 @@ function insertTable(
       }
     }
 
+    // ignored_masks gained levels/pattern/channels in #301; pre-overhaul
+    // archives carry only mask/created_at. mask is now nullable, but
+    // pattern_kind and levels are NOT NULL, so default a missing key the way the
+    // migration backfilled legacy rows (an ALL-level, substring rule).
+    if (table === 'ignored_masks') {
+      if (row.pattern_kind === undefined) row.pattern_kind = 'substr';
+      if (row.levels === undefined) row.levels = 'ALL';
+      if (row.is_except === undefined) row.is_except = 0;
+    }
+
     // If any required FK ended up undefined (referenced row wasn't in the
     // export), drop the row.
     let drop = false;

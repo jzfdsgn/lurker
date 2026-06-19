@@ -1,0 +1,58 @@
+// Copyright (c) 2026 Brad Root
+// SPDX-License-Identifier: MPL-2.0
+
+// The two per-message stamps decided at insert time, factored out of
+// ircConnection so they can be unit-tested without standing up a live IRC
+// connection: the highlight match (matched_rule_id) and the ignore verdict
+// (from_ignored, plus NOHILIGHT's suppression of the highlight).
+
+import { matchEvent, type CompiledRule } from './highlightEngine.js';
+import { evaluateIgnores, type compileIgnoreRules } from './ignoreMatch.js';
+
+type CompiledIgnore = ReturnType<typeof compileIgnoreRules>;
+
+export interface StampEvent {
+  type: string;
+  nick?: string | null;
+  userhost?: string | null;
+  target: string;
+  text?: string | null;
+  self?: boolean;
+}
+
+// Returns the matched_rule_id (null when no highlight, or when a NOHILIGHT rule
+// suppresses it) and from_ignored (true when a hide rule matches). A NOHILIGHT
+// rule deliberately leaves from_ignored false — the message stays visible and
+// counted, it just never highlights.
+export function decideStamp(
+  event: StampEvent,
+  highlightCompiled: CompiledRule[],
+  ignoreCompiled: CompiledIgnore,
+  isDm: boolean,
+  now?: number,
+): { matchedRuleId: number | null; fromIgnored: boolean } {
+  let matchedRuleId: number | null = null;
+  const { matched, ruleId } = matchEvent(event, highlightCompiled);
+  if (matched) matchedRuleId = ruleId;
+
+  let fromIgnored = false;
+  // Self messages can't be ignored; nick-less system rows have no sender.
+  if (ignoreCompiled.length && event.nick && !event.self) {
+    const verdict = evaluateIgnores(
+      ignoreCompiled,
+      {
+        nick: event.nick,
+        userhost: event.userhost ?? null,
+        target: event.target,
+        text: event.text || '',
+        type: event.type,
+        isDm,
+      },
+      now,
+    );
+    if (verdict.nohilight) matchedRuleId = null;
+    fromIgnored = verdict.hide;
+  }
+
+  return { matchedRuleId, fromIgnored };
+}
