@@ -213,6 +213,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import type { Network } from '../stores/networks.js';
 import type { Buffer } from '../stores/buffers.js';
+import { useSocket } from '../composables/useSocket.js';
 import { useNetworksStore } from '../stores/networks.js';
 import { useChatBootstrap } from '../composables/useChatBootstrap.js';
 import { useActiveBuffer } from '../composables/useActiveBuffer.js';
@@ -250,6 +251,11 @@ import { useNetworkEditor } from '../composables/useNetworkEditor.js';
 import { useJumpToMessage } from '../composables/useJumpToMessage.js';
 
 const networks = useNetworksStore();
+// Registers the WebSocket connect lifecycle (onMounted) for the desktop shell —
+// must be called even though we don't read `connected` here (the LURKER row's
+// status light reads the exported `connected` ref directly). Without this call
+// the socket never opens: red status light + no buffers (#355 regression).
+useSocket();
 const {
   active,
   activeBuf,
