@@ -1112,16 +1112,17 @@ if (schemaVersion < 11) {
   }
 }
 
-if (schemaVersion < 12) {
-  // Issue #355: buffer_reads.network_id was NOT NULL with a composite
-  // PRIMARY KEY (user_id, network_id, target). The app-scoped system buffer has
-  // no network, and a composite PK treats a NULL network_id as distinct (so the
-  // upsert wouldn't dedupe its row). Make network_id nullable and move
-  // uniqueness to the coalesced index idx_buffer_reads_key (created below).
-  // SQLite can't drop NOT NULL or a PK in place, so rebuild; rows copy verbatim
-  // (all existing rows have a real network_id, so they stay unique under the
-  // coalesced key). Detect the old shape via table_info so fresh installs — which
-  // already have the new shape from migrate() — copy zero work.
+// Issue #355: buffer_reads.network_id must be nullable so the app-scoped system
+// buffer (no network) can key on it; uniqueness moved to the coalesced index
+// idx_buffer_reads_key (a composite PK treats a NULL network_id as distinct and
+// wouldn't dedupe the system row). SQLite can't drop NOT NULL / a PK in place, so
+// rebuild; rows copy verbatim (real rows keep their network_id and stay unique
+// under the coalesced key). Gated on the live column shape — NOT a
+// schema_version — so it's idempotent and self-heals a DB left half-migrated (a
+// version-gated block can't fix a DB already stamped past it). Runs once, then
+// the notnull check no-ops. Placed after the ensureColumn block above so the
+// cleared_* columns exist to copy.
+{
   const nrCol = (db.prepare(`PRAGMA table_info(buffer_reads)`).all() as TableInfoRow[]).find(
     (c) => c.name === 'network_id',
   );
