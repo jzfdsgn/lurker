@@ -11,10 +11,49 @@
       :class="{ 'unread-bold': unreadBold }"
       @scroll="scheduleRecompute"
     >
+      <!-- LURKER: the system buffer (#355) as a real top-of-list row. The status
+           light tracks the Lurker connection; the collapse control sits in the
+           corner — always visible (not hover-gated), but yielding the corner to
+           the unread/highlight badge when there is one. (Settings lives in the
+           sidebar footer.) -->
+      <div class="net system-net">
+        <div
+          class="net-head"
+          :class="{ active: isSystemActive }"
+          title="Open Lurker system buffer"
+          @click="selectSystem"
+        >
+          <span
+            class="indicator"
+            :class="lurkerConnected ? 'good' : 'bad'"
+            :title="lurkerConnected ? 'Connected to Lurker' : 'Disconnected from Lurker'"
+          ></span>
+          <span class="name">LURKER</span>
+          <span
+            v-if="systemHighlights > 0 && showHighlightBadge"
+            class="badge highlight"
+            title="unread"
+            >●</span
+          >
+          <span v-if="systemUnread > 0" class="badge">{{ unreadLabel(systemUnread) }}</span>
+          <div class="net-actions">
+            <button
+              type="button"
+              class="net-action"
+              title="Hide channel list"
+              aria-label="Hide channel list"
+              @click.stop="collapseSidebar"
+              @contextmenu.stop.prevent
+            >
+              <i class="fa-solid fa-angles-left"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- FRIENDS pseudo-network: a cross-network gathering of DM shortcuts. The
            header opens the compilation feed (:friends:); each row opens that
-           friend's DM on their primary network. The :system: console stays the
-           sidebar logo button. -->
+           friend's DM on their primary network. -->
       <div v-if="friends.contacts.length || isFriendsActive" class="net friends-net">
         <div
           class="net-head"
@@ -251,7 +290,7 @@ import draggable from 'vuedraggable';
 import { useNetworksStore, type Network, type PeerPresenceEntry } from '../stores/networks.js';
 import { useBuffersStore, type Buffer } from '../stores/buffers.js';
 import { useFriendsStore, primaryTargetOf, type Contact } from '../stores/friends.js';
-import { FRIENDS_KEY } from '../lib/virtualBuffers.js';
+import { FRIENDS_KEY, SYSTEM_KEY } from '../lib/virtualBuffers.js';
 import { connected as lurkerConnected } from '../composables/useSocket.js';
 import { useDraftStore } from '../stores/drafts.js';
 import { usePinsStore } from '../stores/pins.js';
@@ -280,6 +319,25 @@ function isNetworkConnected(net: Network): boolean {
   return networks.states[net.id]?.state === 'connected';
 }
 
+// LURKER system buffer (#355): a real top-of-list row. Its status light tracks
+// the Lurker connection; its unread badge is server-computed (notable lines
+// only). selectSystem routes through activate() so the read-state lifecycle runs.
+const isSystemActive = computed(() => networks.activeKey === SYSTEM_KEY);
+const systemBuf = computed(() => buffers.byKey(SYSTEM_KEY));
+const systemUnread = computed(() =>
+  countFor(systemBuf.value?.unread || 0, systemBuf.value?.highlighted || 0),
+);
+const systemHighlights = computed(() => systemBuf.value?.highlighted || 0);
+function selectSystem(): void {
+  buffers.activate(null, SYSTEM_KEY);
+}
+// The LURKER header's corner control collapses the channel list. (Settings
+// moved to the sidebar footer; the expand control returns to the top of the
+// collapsed rail — see DesktopChat.)
+function collapseSidebar(): void {
+  settings.setValue('look.layout.show_channel_list', false);
+}
+
 // Buffer-list display settings — feed both the row CSS (bold gate) and the
 // badge logic. `unread_display` picks between four modes:
 //   full       → highlight ● + total unread count (default, current behavior)
@@ -302,7 +360,12 @@ function countFor(unread: number, highlights: number): number {
 // and show the ● per the global display mode, which is the whole point of
 // muting a busy-but-followed room. Mute is channel-only; DMs/server never muted.
 function isChannelMuted(buf: Buffer | null): boolean {
-  return !!buf && buf.target.startsWith('#') && channelNotify.muted(buf.networkId, buf.target);
+  return (
+    !!buf &&
+    buf.networkId != null &&
+    buf.target.startsWith('#') &&
+    channelNotify.muted(buf.networkId, buf.target)
+  );
 }
 function displayCount(buf: Buffer): number {
   const mode =
@@ -359,7 +422,7 @@ function unreadLabel(count: number): string {
 }
 
 function hasDraft(buf: Buffer): boolean {
-  return drafts.hasDraft(buf.networkId, buf.target);
+  return buf.networkId != null && drafts.hasDraft(buf.networkId, buf.target);
 }
 
 function labelFor(buf: Buffer): string {
@@ -566,7 +629,8 @@ function openFriendActions(e: MouseEvent, c: Contact): void {
 }
 // A friend's primary DM is shown under FRIENDS, so hide it from its real
 // network's buffer list (dedupe).
-function isFriendPrimaryDm(networkId: number, target: string): boolean {
+function isFriendPrimaryDm(networkId: number | null, target: string): boolean {
+  if (networkId == null) return false;
   return friends.primaryDmKeys.has(`${networkId}::${target.toLowerCase()}`);
 }
 
@@ -588,6 +652,7 @@ function isUnjoined(buf: Buffer, networkId: number): boolean {
 }
 
 function peerOf(buf: Buffer): PeerPresenceEntry | null {
+  if (buf.networkId == null) return null;
   return networks.peerFor(buf.networkId, buf.target);
 }
 function isPeerOffline(buf: Buffer): boolean {
@@ -761,7 +826,9 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--space-2) 0;
+  /* No top padding: the LURKER row is always first and sits flush at the top so
+     it lines up with the topic bar across the sidebar boundary (#355). */
+  padding: 0 0 var(--space-2);
 }
 /* IRCCloud-style affordance: a thin accent bar pinned to the top or bottom
    edge of the list when unread buffers are scrolled out of view that way.
@@ -827,6 +894,23 @@ onBeforeUnmount(() => {
   border-top: 1px solid var(--border);
   margin-top: var(--space-2);
 }
+/* The LURKER row is the sidebar's header — size it to the topic bar beside it:
+   strip the group padding so it sits flush, give its head the topic bar's 8px
+   block padding, and cap it with a 1px rule that lines up with the topic
+   divider. (#355) */
+.system-net {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+.system-net .net-head {
+  padding-block: var(--space-4);
+}
+/* The next group draws its own top separator via `.net + .net`; drop it here so
+   it doesn't double up with the LURKER row's bottom rule. */
+.system-net + .net {
+  border-top: none;
+  margin-top: 0;
+}
 .net-head {
   display: flex;
   align-items: center;
@@ -878,9 +962,9 @@ onBeforeUnmount(() => {
 }
 .net-action {
   padding: 0 var(--space-2);
-  background: var(--bg-soft);
+  background: none;
   border: none;
-  color: var(--fg-muted);
+  color: var(--accent);
   cursor: pointer;
   font: inherit;
   line-height: 1;
@@ -906,6 +990,20 @@ onBeforeUnmount(() => {
   .net-actions {
     display: none;
   }
+}
+
+/* LURKER row (#355): the settings cog is always visible, not hover-gated like
+   the other network rows. When an unread/highlight badge is present it takes
+   the corner and the cog steps aside — the badge is the more important signal,
+   and the cog returns the moment the buffer is read. */
+.system-net .net-actions {
+  opacity: 1;
+  /* Flat (no chip): the cog is always visible here, so unlike the other rows'
+     hover-revealed actions there's no row content to mask behind it. */
+  background: none;
+}
+.system-net .net-head:has(.badge) .net-actions {
+  display: none;
 }
 
 .name {
@@ -1054,7 +1152,7 @@ onBeforeUnmount(() => {
   padding: 0 var(--space-2);
   background: var(--bg-soft);
   border: none;
-  color: var(--fg-muted);
+  color: var(--accent);
   cursor: pointer;
   font: inherit;
   line-height: 1;

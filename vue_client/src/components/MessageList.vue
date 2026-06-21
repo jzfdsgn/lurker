@@ -143,7 +143,7 @@
               >topic set by <NickRef :nick="row.m.nick ?? ''" /><template v-if="row.m.text"
                 >: <LinkedText :text="row.m.text" /></template
             ></template>
-            <template v-else-if="row.m?.type === 'motd'"
+            <template v-else-if="row.m?.type === 'motd' || row.m?.type === 'system'"
               ><LinkedText :text="row.m.text ?? ''"
             /></template>
             <template v-else-if="row.m?.type === 'error'"
@@ -241,6 +241,9 @@ interface ChatMessage {
   newNick?: string;
   kicked?: string;
   userhost?: string;
+  // System-buffer lines (#355): the network this line is about, when any. The
+  // prefix column resolves the network's current name from it.
+  originNetworkId?: number | null;
   [key: string]: unknown;
 }
 
@@ -407,7 +410,8 @@ const messages = computed(() => buffer.value?.messages || []);
 
 const selfLower = computed(() => {
   const b = buffer.value;
-  const sn = b ? networks.states[b.networkId]?.nick : null;
+  // The app-scoped system buffer has no network (and no self nick).
+  const sn = b && b.networkId != null ? networks.states[b.networkId]?.nick : null;
   return sn ? sn.toLowerCase() : null;
 });
 
@@ -422,7 +426,7 @@ const nickSet = computed((): Set<string> => {
   if (b.target && !b.target.startsWith('#') && !b.target.startsWith(':server:')) {
     set.add(b.target);
   }
-  const sn = networks.states[b.networkId]?.nick;
+  const sn = b.networkId != null ? networks.states[b.networkId]?.nick : undefined;
   if (sn) set.add(sn);
   return set;
 });
@@ -436,7 +440,8 @@ function time(iso: string | undefined): string {
 // buffer-cleared fan-out echoes back and clearedBeforeId reverts to 0.
 function onUnclearClick(): void {
   const b = buffer.value;
-  if (!b) return;
+  // /clear never applies to the app-scoped system buffer (no network).
+  if (!b || b.networkId == null) return;
   buffers.unclearBuffer(b.networkId, b.target);
 }
 
@@ -494,7 +499,7 @@ const actionContext: MessageContext = {
       nick: msg.nick,
       user,
       host,
-      networkId: buffer.value?.networkId,
+      networkId: buffer.value?.networkId ?? undefined,
     };
   },
 };
@@ -567,7 +572,7 @@ const effectiveCollapseTimestamps = computed(() => collapseTimestampsEnabled.val
 
 const awayState = computed((): AwayState | null => {
   const b = buffer.value;
-  if (!b || b.target.startsWith(':server:')) return null;
+  if (!b || b.networkId == null || b.target.startsWith(':server:')) return null;
   return networks.states[b.networkId]?.away || null;
 });
 
@@ -786,6 +791,29 @@ const renderRows = computed((): RenderRow[] => {
   return final;
 });
 
+// The origin-network name for a system-buffer line (#355), or null when the
+// line is network-agnostic. Preferred source is the stable id, resolved to the
+// network's *current* name at render time, so a rename (or the networks store
+// loading after the log snapshot) updates the prefix live. Falls back to the
+// `net:<name>` scope label — a snapshot of the name when the line was written —
+// for older rows that predate the id and for a network that no longer exists,
+// so existing lines still carry a label. null = network-agnostic, which
+// prefixText renders as "System" (real server MOTD, type 'motd', is the `--`
+// case — not this).
+function systemNetworkName(m: ChatMessage | undefined): string | null {
+  if (m?.type !== 'system') return null;
+  const id = m.originNetworkId;
+  if (typeof id === 'number') {
+    const name = networks.networkById(id)?.name;
+    if (name) return name;
+  }
+  const scope = m.scope;
+  if (typeof scope === 'string' && scope.startsWith('net:')) {
+    return scope.slice('net:'.length) || null;
+  }
+  return null;
+}
+
 // What goes in column 2. For chat lines this is the nick (right-aligned);
 // for system events it's a tiny indicator glyph (-->, <--, --, !!).
 function prefixText(m: ChatMessage | undefined): string {
@@ -809,6 +837,11 @@ function prefixText(m: ChatMessage | undefined): string {
     case 'topic':
     case 'motd':
       return '--';
+    case 'system':
+      // System-buffer log lines (#355). Tied to a network → that network's
+      // current name; other app-level lines (away/back, server lifecycle,
+      // node, …) → "System".
+      return systemNetworkName(m) ?? 'System';
     case 'error':
       return '!!';
     default:
@@ -849,6 +882,15 @@ function prefixStyle(m: ChatMessage | undefined): CSSProperties | null {
   if (m?.type === 'message' || m?.type === 'notice') {
     if (m.self) return { color: selfColor.value as string };
     const c = nicks.color(m.nick ?? '');
+    return c ? { color: c } : null;
+  }
+  // System-buffer lines tied to a network (#355) color the network name with
+  // the same deterministic palette as nicks, so each network gets a stable,
+  // distinguishable color. Network-agnostic "System" lines have no origin
+  // network and keep the muted prefix styling (the .p-system class).
+  const netName = systemNetworkName(m);
+  if (netName) {
+    const c = nicks.color(netName);
     return c ? { color: c } : null;
   }
   return null;
@@ -919,6 +961,7 @@ function requestMoreHistory() {
 function requestNewerHistory() {
   const buf = buffer.value;
   if (!buf) return;
+  if (buf.networkId == null) return;
   if (!buf.detached || !buf.hasMoreNewer || buf.loadingHistory) return;
   if (buf.target.startsWith(':server:')) return;
   const afterId = buf.newestId ?? buf.messages[buf.messages.length - 1]?.id;
@@ -946,7 +989,7 @@ function maybeRequestNewer() {
   if (!el) return;
   if (el.scrollHeight - el.scrollTop - el.clientHeight > 80) return;
   const buf = buffer.value;
-  if (!buf || !buf.detached || buf.loadingHistory) return;
+  if (!buf || buf.networkId == null || !buf.detached || buf.loadingHistory) return;
   if (buf.target.startsWith(':server:')) return;
   if (buf.hasMoreNewer) {
     requestNewerHistory();
@@ -1094,7 +1137,12 @@ watch(
     // Wholesale replace (fresh backlog from a re-snapshot): both ends shifted
     // and the previous tail is gone — distinct from a cap-evicting append,
     // which shifts both ends but keeps the tail (see `appended` above).
-    const replaced = firstChanged && lastChanged && !appended;
+    // "Filled from empty" counts too: the system-log snapshot landing in the
+    // freshly-activated, still-empty system buffer on load (#355). The activeKey
+    // watcher's scroll already ran while it was empty, and firstChanged/
+    // lastChanged are gated on prevLen>0, so without this it never snaps down.
+    const filledFromEmpty = prevLen === 0 && newLen > 0;
+    const replaced = (firstChanged && lastChanged && !appended) || filledFromEmpty;
     const isDetached = !!buffer.value?.detached;
     await nextTick();
     if (replaced) {
@@ -1218,8 +1266,12 @@ watch(scrollToUnreadToken, async () => {
   const buf = buffer.value;
   const dividerAfterId = buf?.dividerAfterId || 0;
   const dividerPinnedToTop =
-    dividerAfterId > 0 && buf != null && buf.oldestId != null && buf.oldestId > dividerAfterId;
-  if (dividerPinnedToTop && buf.hasMoreOlder && !buf.loadingHistory) {
+    dividerAfterId > 0 &&
+    buf != null &&
+    buf.networkId != null &&
+    buf.oldestId != null &&
+    buf.oldestId > dividerAfterId;
+  if (dividerPinnedToTop && buf.networkId != null && buf.hasMoreOlder && !buf.loadingHistory) {
     stickToBottom.value = false;
     setStuckToBottom(false);
     const wantKey = networks.activeKey;
@@ -1471,7 +1523,6 @@ watch(
 }
 .row-action:hover {
   color: var(--fg);
-  background: var(--bg-soft);
 }
 .row-action.active {
   color: var(--accent);
@@ -1533,6 +1584,12 @@ watch(
 .prefix.p-back,
 .prefix.p-cons {
   color: var(--fg-muted);
+}
+/* "System" lines (#355) read as the full-strength foreground, not muted — the
+   app speaking in its own voice. A network-tied system line overrides this with
+   its hashed network color inline (prefixStyle). */
+.prefix.p-system {
+  color: var(--fg);
 }
 
 .body {

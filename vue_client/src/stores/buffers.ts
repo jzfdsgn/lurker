@@ -5,6 +5,7 @@ import { defineStore } from 'pinia';
 import { useNetworksStore } from './networks.js';
 import { useToastsStore } from './toasts.js';
 import { socketSend } from '../composables/useSocket.js';
+import { SYSTEM_KEY } from '../lib/virtualBuffers.js';
 
 const MAX_PER_BUFFER = 500;
 const MAX_SPEAKERS = 128;
@@ -33,8 +34,14 @@ function nextHistoryToken() {
   return historyTokenCounter;
 }
 
-function key(networkId: number | string, target: string) {
-  return `${networkId}::${target}`;
+// App-scoped buffers (the system buffer, issue #355) have no network: they're
+// keyed by their bare `:sentinel:` target (e.g. `:system:`) so the
+// `${networkId}::${target}` parsers — and every network-scoped consumer
+// (forNetwork, the sidebar) — skip them. Network buffers keep the
+// `${networkId}::${target}` form. networkId == null is what makes a buffer
+// app-scoped; there is no magic network value.
+function key(networkId: number | string | null, target: string) {
+  return networkId == null ? target : `${networkId}::${target}`;
 }
 
 // Resolve the storage key of an already-open buffer for (networkId, target),
@@ -46,7 +53,7 @@ function key(networkId: number | string, target: string) {
 // (`:server:`, `:friends:`…) are fixed keys — exact only, never folded.
 function resolveExistingKey(
   buffers: Record<string, Buffer>,
-  networkId: number | string,
+  networkId: number | string | null,
   target: string,
 ): string | null {
   const exact = key(networkId, target);
@@ -60,11 +67,11 @@ function resolveExistingKey(
   return null;
 }
 
-function typingKey(networkId: number | string, target: string, nick: string) {
+function typingKey(networkId: number | string | null, target: string, nick: string) {
   return `${networkId}::${target}::${nick.toLowerCase()}`;
 }
 
-function clearTypingTimer(networkId: number | string, target: string, nick: string) {
+function clearTypingTimer(networkId: number | string | null, target: string, nick: string) {
   const k = typingKey(networkId, target, nick);
   const id = typingTimers.get(k);
   if (id) {
@@ -101,7 +108,9 @@ export interface SpeakerEntry {
 
 export interface BufferMessage {
   id?: number | null;
-  networkId: number;
+  // null for the app-scoped system buffer (issue #355), which carries no
+  // network; a real id for every IRC buffer.
+  networkId: number | null;
   target: string;
   type: string;
   nick?: string;
@@ -110,8 +119,24 @@ export interface BufferMessage {
   [key: string]: unknown;
 }
 
+// What a buffer *is*, so capabilities (sendable, input, nicklist, server
+// round-trips) dispatch off an explicit discriminant instead of sniffing the
+// target string. 'system' is the app-scoped buffer with no network.
+export type BufferKind = 'channel' | 'dm' | 'server' | 'system';
+
+// Classify a buffer from its identity. App-scoped buffers (networkId == null)
+// are the system buffer today; network buffers split by target shape.
+function deriveKind(networkId: number | null, target: string): BufferKind {
+  if (networkId == null) return 'system';
+  if (target.startsWith('#')) return 'channel';
+  if (target.startsWith(':server:')) return 'server';
+  return 'dm';
+}
+
 export interface Buffer {
-  networkId: number;
+  // null == app-scoped (the system buffer); a real id for every IRC buffer.
+  networkId: number | null;
+  kind: BufferKind;
   target: string;
   messages: BufferMessage[];
   members: BufferMember[];
@@ -143,9 +168,11 @@ export interface Buffer {
   modes?: string;
 }
 
-function makeBuffer(networkId: number | string, target: string): Buffer {
+function makeBuffer(networkId: number | string | null, target: string): Buffer {
+  const nid = networkId == null ? null : Number(networkId);
   return {
-    networkId: Number(networkId),
+    networkId: nid,
+    kind: deriveKind(nid, target),
     target,
     messages: [],
     members: [],
@@ -179,6 +206,9 @@ function makeBuffer(networkId: number | string, target: string): Buffer {
     // upward pager; hasMoreNewer is only meaningful while detached or while
     // the user has paged past the live tail (not currently possible
     // outside detach mode, but the field is here for future symmetry).
+    // Provisional; the buffer's `backlog` frame sets the real value on connect.
+    // The system buffer gets a backlog frame too now (#355), so it's no longer
+    // special-cased here.
     hasMoreOlder: true,
     hasMoreNewer: false,
     loadingHistory: false,
@@ -204,7 +234,7 @@ function makeBuffer(networkId: number | string, target: string): Buffer {
 
 function ensureBuffer(
   state: { buffers: Record<string, Buffer> },
-  networkId: number | string,
+  networkId: number | string | null,
   target: string,
 ): Buffer {
   // Resolve case-insensitively before creating: a DM/channel already open under
@@ -220,7 +250,11 @@ function ensureBuffer(
 
 export const useBuffersStore = defineStore('buffers', {
   state: () => ({
-    buffers: {} as Record<string, Buffer>,
+    // The system buffer (issue #355) is app-scoped (no network) and always
+    // present, so the "Lurker" sidebar header always has a real buffer to open
+    // and command output / lifecycle log lines have somewhere to land before
+    // any network exists. $reset re-seeds it.
+    buffers: { [SYSTEM_KEY]: makeBuffer(null, SYSTEM_KEY) } as Record<string, Buffer>,
   }),
   getters: {
     list: (state) => Object.values(state.buffers),
@@ -266,7 +300,7 @@ export const useBuffersStore = defineStore('buffers', {
     // flat ':'-sentinels (`:server:`, `:friends:`…) are fixed keys — exact only.
     findByTarget:
       (state) =>
-      (networkId: number | string, target: string): Buffer | null => {
+      (networkId: number | string | null, target: string): Buffer | null => {
         const k = resolveExistingKey(state.buffers, networkId, target);
         return k ? state.buffers[k] : null;
       },
@@ -298,6 +332,11 @@ export const useBuffersStore = defineStore('buffers', {
       if (buf.messages.length > MAX_PER_BUFFER)
         buf.messages.splice(0, buf.messages.length - MAX_PER_BUFFER);
       if (buf.oldestId == null && event.id != null) buf.oldestId = event.id;
+      // Active-divider tracking + live mark-read. Applies to the system buffer
+      // too (#355): it's now a normal buffer with a server-owned read pointer
+      // (buffer_reads, null networkId), so a live line marks read the same way —
+      // key() folds the null networkId to the bare :system: key, and the
+      // mark-read below rides through with networkId null.
       if (event.id != null) {
         const networks = useNetworksStore();
         // Compare against the resolved buffer's canonical key, not the event's
@@ -305,7 +344,7 @@ export const useBuffersStore = defineStore('buffers', {
         // `bob` while the user sits in the `Bob` buffer reads as inactive and
         // the divider/read-sync below silently skips (#327). Mirrors the same
         // resolve-then-compare applyReadState does.
-        const isActive = networks.activeKey === `${buf.networkId}::${buf.target}`;
+        const isActive = networks.activeKey === key(buf.networkId, buf.target);
         if (isActive) {
           // While the user is sitting in this buffer, keep the divider
           // tracking the bottom UNLESS there's already an unread boundary
@@ -390,7 +429,20 @@ export const useBuffersStore = defineStore('buffers', {
         // have and append. Keeps live state intact when the server's backlog
         // overlaps with messages we received before the flap.
         const fresh = filtered.filter((e) => e.id == null || e.id > existingMaxId);
-        if (fresh.length > 0) {
+        // The system buffer (networkId null) ships a latest-N slice with no
+        // resume cursor, so a long disconnect can yield a slice whose OLDEST id
+        // is still newer than our tail — meaning rows were missed in between.
+        // Appending would splice a permanent hole (the gap is never refetched:
+        // 'before' paging only goes downward from our stale tail). Detect the
+        // non-overlapping case and replace wholesale instead — land on the live
+        // tail and page up for the rest, honoring the server's hasMoreOlder
+        // (mirrors the opts.reset branch). Network buffers ride a contiguous
+        // since-cursor slice, so this never trips for them (#355).
+        const oldestIncomingId = filtered.find((e) => e.id != null)?.id;
+        if (networkId == null && oldestIncomingId != null && oldestIncomingId > existingMaxId) {
+          buf.messages = filtered.slice(-MAX_PER_BUFFER);
+          buf.hasMoreOlder = opts.hasMoreOlder ?? filtered.length >= 50;
+        } else if (fresh.length > 0) {
           const combined = [...buf.messages, ...fresh];
           buf.messages =
             combined.length > MAX_PER_BUFFER ? combined.slice(-MAX_PER_BUFFER) : combined;
@@ -588,7 +640,11 @@ export const useBuffersStore = defineStore('buffers', {
     // from snapshot) and on WS reconnect (the resume snapshot will reseed
     // cleanly, but only if we let replaceBacklog through — which means
     // detached has to be cleared first).
-    clearDetached(networkId: number | string, target: string, { wipeMessages = false } = {}) {
+    clearDetached(
+      networkId: number | string | null,
+      target: string,
+      { wipeMessages = false } = {},
+    ) {
       const buf = this.buffers[key(networkId, target)];
       if (!buf || !buf.detached) return;
       buf.detached = false;
@@ -608,7 +664,7 @@ export const useBuffersStore = defineStore('buffers', {
         buf.pendingRefetch = true;
       }
     },
-    setLoadingHistory(networkId: number | string, target: string, loading: boolean) {
+    setLoadingHistory(networkId: number | string | null, target: string, loading: boolean) {
       const buf = ensureBuffer(this, networkId, target);
       buf.loadingHistory = loading;
     },
@@ -808,8 +864,9 @@ export const useBuffersStore = defineStore('buffers', {
       const networks = useNetworksStore();
       // Compare against the resolved buffer's canonical key, not the (possibly
       // differently-cased) broadcast target, so badge suppression tracks the
-      // buffer the user is actually sitting in.
-      const isActive = networks.activeKey === `${buf.networkId}::${buf.target}`;
+      // buffer the user is actually sitting in. key() also yields the bare
+      // sentinel for the app-scoped system buffer (networkId null).
+      const isActive = networks.activeKey === key(buf.networkId, buf.target);
       // Suppress the unread badge for the buffer the user is sitting in.
       // A read-state broadcast can briefly carry a non-zero unread for the
       // active buffer when an IRC event lands before the mark-read echo;
@@ -859,7 +916,7 @@ export const useBuffersStore = defineStore('buffers', {
     // phantom divider on the next session. The previous buffer's pointer
     // is already current because pushMessage keeps it synced live while
     // focused (see pushMessage), so leaving it just drops local state.
-    activate(networkId: number | string, target: string) {
+    activate(networkId: number | string | null, target: string) {
       const networks = useNetworksStore();
       // Resolve to the canonical open buffer first (case-insensitive): a DM
       // activated from a member-list nick, /query, the profile modal, or a
@@ -871,7 +928,9 @@ export const useBuffersStore = defineStore('buffers', {
       // target when none is open yet (first writer's case becomes canonical).
       const existing = this.findByTarget(networkId, target);
       const canonTarget = existing ? existing.target : target;
-      const newKey = `${networkId}::${canonTarget}`;
+      // key() yields the bare sentinel for the app-scoped system buffer
+      // (networkId null) and the usual `${networkId}::${target}` otherwise.
+      const newKey = key(networkId, canonTarget);
       const prevKey = networks.activeKey;
       if (prevKey && prevKey !== newKey) {
         const prev = this.buffers[prevKey];
@@ -925,10 +984,14 @@ export const useBuffersStore = defineStore('buffers', {
       // Fire a fresh latest fetch so the user lands on live tail content
       // instead of an empty buffer. The applyLatestReplace response will
       // do its own mark-read against the new tail.
-      if (buf.pendingRefetch) {
+      // Network-buffer only: the system buffer is seeded by its connect backlog
+      // and never detaches (its lines aren't searchable/jumpable), so it doesn't
+      // need the activate-refetch; the guard also excludes the FRIENDS overview.
+      if (networkId != null && buf.pendingRefetch) {
         buf.pendingRefetch = false;
         this.reattachToLive(networkId, canonTarget);
       } else if (
+        networkId != null &&
         buf.messages.length === 0 &&
         buf.hasMoreOlder &&
         !buf.detached &&
@@ -957,7 +1020,9 @@ export const useBuffersStore = defineStore('buffers', {
       // dim reflect current state rather than a possibly-stale cached value.
       // The probe is silent (no /whois reply in the server buffer); only the
       // resulting peer-presence event flows back to update local state.
-      if (canonTarget && !canonTarget.startsWith('#') && !canonTarget.startsWith(':server:')) {
+      // DMs only — channels (#…) and the flat sentinels (:server:, :system:) have
+      // no peer to probe.
+      if (canonTarget && !canonTarget.startsWith('#') && !canonTarget.startsWith(':')) {
         socketSend({ type: 'probe-presence', networkId, nick: canonTarget });
       }
     },

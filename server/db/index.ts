@@ -7,6 +7,18 @@ import fs from 'fs';
 import { isNodeMode } from '../utils/edition.js';
 import { foldBufferCase } from './foldBufferCase.js';
 
+// Guardrail: under vitest, refuse to fall back to the real database. A test
+// that forgets to isolate DATABASE_PATH would otherwise open data/lurker.db and
+// write into it — exactly how ircConnection.test.ts leaked "Joined #anime" rows
+// into the operator's prod DB. Fail loud instead of silently polluting.
+// (server/test-utils/isolateDb.ts is the fix for static-import test files.)
+if (process.env.VITEST && !process.env.DATABASE_PATH) {
+  throw new Error(
+    'db/index.ts: refusing to open the production database (data/lurker.db) under test. ' +
+      'Set DATABASE_PATH to an isolated path — import server/test-utils/isolateDb.ts first, ' +
+      'or use the set-env-then-dynamic-import pattern.',
+  );
+}
 const dbPath = process.env.DATABASE_PATH || path.join(import.meta.dirname, '../../data/lurker.db');
 // Absolute path to the SQLite file, exported so the export worker can open its
 // own readonly connection to the exact same database (and so exportJobs can
@@ -92,12 +104,20 @@ function migrate() {
     );
     CREATE INDEX IF NOT EXISTS idx_messages_buffer ON messages(network_id, target, id DESC);
 
+    -- network_id is nullable: NULL keys the app-scoped system buffer (#355),
+    -- which has no network. The composite PK stays (network buffers dedupe on it,
+    -- and migrations like foldBufferCase use it as an ON CONFLICT target), but a
+    -- composite PK treats a NULL network_id as distinct — so the system buffer's
+    -- row is instead deduped by the coalesced index idx_buffer_reads_key (created
+    -- near the end of this file), which the runtime upserts target.
     CREATE TABLE IF NOT EXISTS buffer_reads (
       user_id INTEGER NOT NULL,
-      network_id INTEGER NOT NULL,
+      network_id INTEGER,
       target TEXT NOT NULL,
       last_read_message_id INTEGER NOT NULL,
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      cleared_before_message_id INTEGER,
+      cleared_at TEXT,
       PRIMARY KEY (user_id, network_id, target),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
@@ -499,6 +519,33 @@ function migrate() {
     );
     CREATE INDEX IF NOT EXISTS idx_data_exports_user ON data_exports(user_id, id DESC);
     CREATE INDEX IF NOT EXISTS idx_data_exports_expires ON data_exports(expires_at);
+
+    -- Durable backing store for the system buffer (the "Lurker" sidebar header,
+    -- issue #355). A line is either GLOBAL (user_id NULL — broadcast to every
+    -- connected user, e.g. "server starting up" or a future admin/control-plane
+    -- notice) or PER-USER (user_id set — that account's own lifecycle log:
+    -- network connect/disconnect, joins, presence batches). Deliberately a
+    -- separate table from the chat-message store: no FTS, no highlight/ignore
+    -- matching, no read-state — an operational log, not chat. source tags origin
+    -- (server | client | admin | control-plane) so the client can style/route
+    -- and so the broadcast follow-up can mark control-plane lines. fields is an
+    -- optional JSON blob. Retention is count-capped per scope (see
+    -- db/systemMessages.ts), so the table stays small even on a busy cell — and
+    -- a persisted global line is still visible to users who connect after it was
+    -- written, which is what an admin notice wants. (See db/systemMessages.ts;
+    -- separate from the messages table on purpose.)
+    CREATE TABLE IF NOT EXISTS system_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      ts TEXT NOT NULL,
+      level TEXT NOT NULL DEFAULT 'info',
+      scope TEXT NOT NULL DEFAULT 'lurker',
+      source TEXT NOT NULL DEFAULT 'server',
+      text TEXT NOT NULL DEFAULT '',
+      fields TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_system_messages_recent ON system_messages(user_id, id);
   `);
 }
 
@@ -658,7 +705,7 @@ ensureColumn('upload_history', 'removed', 'INTEGER NOT NULL DEFAULT 0');
 // Schema versioning lets us retire one-shot recovery blocks once every
 // production DB has run through them. Bump SCHEMA_VERSION when adding a new
 // recovery block, and delete blocks for versions far enough in the past.
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 const schemaVersionRow = db
   .prepare(`SELECT value FROM app_meta WHERE key = 'schema_version'`)
   .get() as { value: string } | undefined;
@@ -1077,6 +1124,58 @@ if (schemaVersion < 11) {
   }
 }
 
+// Issue #355: buffer_reads.network_id must be nullable so the app-scoped system
+// buffer (no network) can key on it; uniqueness moved to the coalesced index
+// idx_buffer_reads_key (a composite PK treats a NULL network_id as distinct and
+// wouldn't dedupe the system row). SQLite can't drop NOT NULL / a PK in place, so
+// rebuild; rows copy verbatim (real rows keep their network_id and stay unique
+// under the coalesced key). Gated on the live column shape — NOT a
+// schema_version — so it's idempotent and self-heals a DB left half-migrated (a
+// version-gated block can't fix a DB already stamped past it). Runs once, then
+// the notnull check no-ops. Placed after the ensureColumn block above so the
+// cleared_* columns exist to copy.
+{
+  const nrCol = (db.prepare(`PRAGMA table_info(buffer_reads)`).all() as TableInfoRow[]).find(
+    (c) => c.name === 'network_id',
+  );
+  if (nrCol && nrCol.notnull === 1) {
+    const rebuild = db.transaction(() => {
+      db.exec(`DROP INDEX IF EXISTS idx_buffer_reads_user`);
+      db.exec(`
+        CREATE TABLE buffer_reads_new (
+          user_id INTEGER NOT NULL,
+          network_id INTEGER,
+          target TEXT NOT NULL,
+          last_read_message_id INTEGER NOT NULL,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          cleared_before_message_id INTEGER,
+          cleared_at TEXT,
+          PRIMARY KEY (user_id, network_id, target),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec(`
+        INSERT INTO buffer_reads_new
+          (user_id, network_id, target, last_read_message_id, updated_at,
+           cleared_before_message_id, cleared_at)
+        SELECT user_id, network_id, target, last_read_message_id, updated_at,
+           cleared_before_message_id, cleared_at
+        FROM buffer_reads
+      `);
+      db.exec(`DROP TABLE buffer_reads`);
+      db.exec(`ALTER TABLE buffer_reads_new RENAME TO buffer_reads`);
+    });
+    const prevFk = db.pragma('foreign_keys', { simple: true });
+    db.pragma('foreign_keys = OFF');
+    try {
+      rebuild();
+    } finally {
+      db.pragma(`foreign_keys = ${prevFk ? 'ON' : 'OFF'}`);
+    }
+  }
+}
+
 if (schemaVersion < SCHEMA_VERSION) {
   db.prepare(
     `INSERT INTO app_meta (key, value) VALUES ('schema_version', ?)
@@ -1094,5 +1193,14 @@ db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_auto_rule_unique
 // rebuilt paths (migrate() ran before the rebuild, so its CREATE is stale here).
 db.exec(`CREATE INDEX IF NOT EXISTS idx_ignored_masks_user_net
          ON ignored_masks(user_id, network_id)`);
+
+// #355 buffer_reads uniqueness: coalesced so a NULL network_id (the app-scoped
+// system buffer) dedupes on upsert; a plain composite index would treat NULL as
+// distinct. Created here (not in migrate()) so it survives the schemaVersion < 12
+// rebuild and applies to fresh installs alike. idx_buffer_reads_user is also
+// recreated since the rebuild drops it.
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_buffer_reads_key
+         ON buffer_reads(user_id, IFNULL(network_id, 0), target)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_buffer_reads_user ON buffer_reads(user_id)`);
 
 export default db;

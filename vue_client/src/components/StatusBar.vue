@@ -393,7 +393,7 @@ function onReturnToPresent() {
   // and trips the wholesale-replace branch in MessageList's watcher (which
   // snaps to bottom and resets stickToBottom); the token is belt-and-
   // suspenders for a slow response.
-  if (buf.detached) buffers.reattachToLive(buf.networkId, buf.target);
+  if (buf.detached && buf.networkId != null) buffers.reattachToLive(buf.networkId, buf.target);
   requestScrollToBottom();
 }
 
@@ -545,17 +545,18 @@ function onToggleColorPicker() {
 .tool-btn {
   background: none;
   border: none;
-  color: var(--fg-muted);
+  color: var(--accent);
   cursor: pointer;
   padding: 0 var(--space-1);
   font-size: inherit;
   line-height: 1.4;
 }
 .tool-btn:hover:not(:disabled) {
-  color: var(--accent);
+  color: var(--fg);
 }
 .tool-btn:disabled {
   opacity: 0.4;
+  color: var(--fg-muted);
   cursor: default;
 }
 /* Emoji suggester chip body — the glyph leads, the `:shortcode:` trails

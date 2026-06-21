@@ -149,6 +149,7 @@ class IrcManager extends EventEmitter {
       systemLog.log({
         userId,
         scope: `net:${network.name}`,
+        fields: { networkId },
         text: `Starting connection to ${network.host}:${network.port}${network.tls ? ' (TLS)' : ''}`,
       });
       connRef.connect();
@@ -168,6 +169,7 @@ class IrcManager extends EventEmitter {
         systemLog.log({
           userId,
           scope: `net:${network.name}`,
+          fields: { networkId },
           text: `Auto-joining ${names.length} ${names.length === 1 ? 'channel' : 'channels'}: ${names.join(', ')}`,
         });
       }
@@ -200,6 +202,7 @@ class IrcManager extends EventEmitter {
     systemLog.log({
       userId,
       scope: `net:${conn.network.name}`,
+      fields: { networkId },
       text: reason ? `Stopping: ${reason}` : 'Stopping',
     });
     conn.disconnect(reason);
@@ -212,6 +215,7 @@ class IrcManager extends EventEmitter {
     systemLog.log({
       userId,
       scope: `net:${conn.network.name}`,
+      fields: { networkId },
       text: reason ? `Disposing: ${reason}` : 'Disposing',
     });
     conn.dispose(reason);
@@ -366,6 +370,14 @@ class IrcManager extends EventEmitter {
       conn.applyAwayState(state);
       n += 1;
     }
+    // Away is user-scoped (every connection), so the system buffer is its home.
+    // Past the no-op guards above, this only fires on a real transition — not on
+    // per-connection reconnect re-asserts (those call applyAwayState directly).
+    systemLog.log({
+      userId,
+      scope: 'away',
+      text: autoSet ? `Auto-away: ${trimmed}` : `You're now marked away: ${trimmed}`,
+    });
     return n;
   }
 
@@ -394,6 +406,11 @@ class IrcManager extends EventEmitter {
       conn.applyAwayState(state);
       n += 1;
     }
+    systemLog.log({
+      userId,
+      scope: 'away',
+      text: autoSet ? 'Auto-away cleared — welcome back' : "You're no longer marked away",
+    });
     return n;
   }
 

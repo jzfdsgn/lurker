@@ -8,7 +8,7 @@
     <!-- Screen: channel list -->
     <section v-if="screen === 'list'" class="screen list">
       <header class="bar">
-        <button type="button" class="logo" title="Open system console" @click="openSystemConsole">
+        <button type="button" class="logo" title="Open system buffer" @click="openSystemConsole">
           lurker
         </button>
         <span v-if="!connected" class="status off" title="Disconnected">●</span>
@@ -101,11 +101,14 @@
           <i class="fa-solid fa-ellipsis-vertical"></i>
         </button>
       </header>
-      <SystemConsole v-if="renderMode === 'console'" />
-      <FriendsOverview v-else-if="renderMode === 'overview'" @view-activity="onViewActivity" />
+      <FriendsOverview v-if="renderMode === 'overview'" @view-activity="onViewActivity" />
       <MessageList v-else :pending-scroll-id="pendingScrollId" />
       <StatusBar compact />
-      <div v-if="hasInput" class="composer-host" :class="{ 'keyboard-open': keyboardOpen }">
+      <div
+        v-if="hasInput"
+        class="composer-host"
+        :class="{ 'keyboard-open': keyboardOpen, 'system-input': isSystemBuffer }"
+      >
         <MessageInput ref="messageInputRef" />
       </div>
     </section>
@@ -186,7 +189,6 @@ import { useContextMenu } from '../composables/useContextMenu.js';
 import type { ContextMenuItem } from '../composables/useContextMenu.js';
 import BufferList from '../components/BufferList.vue';
 import MessageList from '../components/MessageList.vue';
-import SystemConsole from '../components/SystemConsole.vue';
 import FriendsOverview from '../components/FriendsOverview.vue';
 import MessageInput from '../components/MessageInput.vue';
 import MemberList from '../components/MemberList.vue';
@@ -211,8 +213,11 @@ import { useImageModal } from '../composables/useImageModal.js';
 import { useNetworkEditor } from '../composables/useNetworkEditor.js';
 import { useJumpToMessage } from '../composables/useJumpToMessage.js';
 import { useVisualViewport } from '../composables/useVisualViewport.js';
+import { useBuffersStore } from '../stores/buffers.js';
+import { SYSTEM_KEY } from '../lib/virtualBuffers.js';
 
 const networks = useNetworksStore();
+const buffers = useBuffersStore();
 const { connected } = useSocket();
 const { keyboardOpen } = useVisualViewport();
 const {
@@ -223,7 +228,7 @@ const {
   isServerBuffer,
   bufferLabel,
   topic,
-  isSystemConsole,
+  isSystemBuffer,
   isVirtual,
   isFriendsBuffer,
   renderMode,
@@ -237,7 +242,9 @@ const friendCount = computed(() => friends.contacts.length);
 const whois = useWhoisStore();
 
 function openSystemConsole() {
-  networks.activateSystem();
+  // Route through activate() (not networks.activateSystem) so the system buffer
+  // gets the full read-state lifecycle: divider snapshot + mark-read on entry.
+  buffers.activate(null, SYSTEM_KEY);
   // The activeKey watcher only fires on value change. If the user is
   // already on `:system:` (e.g. they hit Back to the list, then re-tap
   // the logo), the watcher won't advance them — drive the screen
@@ -272,7 +279,7 @@ const bufferCogBtn = ref<HTMLElement | null>(null);
 // channel/nick in that case.
 const bufferScope = computed<string | null>(() => {
   const a = active.value;
-  if (!a || isServerBuffer.value || isSystemConsole.value || !a.target) return null;
+  if (!a || isServerBuffer.value || isSystemBuffer.value || !a.target) return null;
   const netName = (a.network as { name?: string } | null)?.name;
   const onTok = netName && !/\s/.test(netName) ? ` on:${netName}` : '';
   return `in:${a.target}${onTok}`;
@@ -573,6 +580,11 @@ useChatBootstrap({ onJump: onJumpToMessage });
 }
 .composer-host :deep(.input) {
   flex: 0 0 auto;
+}
+/* The compact status bar carries the separator border above the input, but it's
+   hidden in the system buffer — give the input its own top border there. */
+.composer-host.system-input :deep(.input) {
+  border-top: 1px solid var(--border);
 }
 
 /* Member list takes the rest of the height on its own screen. */

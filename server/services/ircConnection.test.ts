@@ -1,7 +1,12 @@
 // Copyright (c) 2026 Brad Root
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, it, expect, vi } from 'vitest';
+// MUST be first: redirects DATABASE_PATH to a throwaway file before the static
+// import of ircConnection.js below pulls in db/index.js (which opens its file
+// at module-load time). Without this, the IrcConnections built in these tests
+// write straight into the real data/lurker.db.
+import '../test-utils/isolateDb.js';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import net from 'net';
 import { ircLineParser } from 'irc-framework';
 import type { ConnectOptions } from 'irc-framework';
@@ -20,6 +25,16 @@ import {
   sendRejectionText,
 } from './ircConnection.js';
 import { createIdentdServer, unregisterIdent } from './identd.js';
+import { createUser } from '../db/users.js';
+
+// The bare IrcConnections built below carry user_id: 1, and their join/part
+// handlers write system_messages (FK → users.id). Seed user id 1 in the
+// isolated DB so those incidental writes satisfy the constraint. (These writes
+// used to land in the real data/lurker.db, which already had user 1 — that
+// silent leak is what isolateDb.ts now prevents.)
+beforeAll(() => {
+  createUser('ircconn-test');
+});
 
 describe('computeFallbackNick', () => {
   it('appends 1..9 in order', () => {
@@ -325,6 +340,17 @@ describe('tls certificate trust setting', () => {
     expect(untrustedConnect).toHaveBeenCalledWith(
       expect.objectContaining({ tls: true, rejectUnauthorized: false }),
     );
+  });
+
+  it('logNet writes a system line scoped to the network and stamped with its id (#355)', async () => {
+    const conn = makeConn(1); // network { id: 1, user_id: 1, name: 'n' }
+    conn.logNet('a unique test line', 'warn');
+    const sys = (await import('../db/systemMessages.js')).default;
+    const row = sys.recent(1).find((r) => r.text === 'a unique test line');
+    expect(row).toBeTruthy();
+    expect(row!.scope).toBe('net:n'); // logScope() = net:<current name>
+    expect(row!.level).toBe('warn');
+    expect(row!.fields).toMatchObject({ networkId: 1 }); // stable id for live name resolution
   });
 });
 

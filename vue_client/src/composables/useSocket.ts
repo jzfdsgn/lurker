@@ -20,7 +20,6 @@ import { useNickNotesStore } from '../stores/nickNotes.js';
 import { useFriendsStore } from '../stores/friends.js';
 import { useWhoisStore } from '../stores/whois.js';
 import { useBookmarksStore } from '../stores/bookmarks.js';
-import { useSystemLogStore } from '../stores/systemLog.js';
 import { useDataExportStore } from '../stores/dataExport.js';
 import { useToastsStore } from '../stores/toasts.js';
 import { notifyForEvent, playSound } from './useHighlightNotifier.js';
@@ -263,6 +262,13 @@ function applyEvent(event: any): void {
       }
       break;
     }
+    case 'system': {
+      // App-scoped system-buffer line. It now arrives as a normal buffer event
+      // (the system buffer rides the unified backlog/irc/history path, #355), so
+      // it just appends like any other — keyed to :system: by its null networkId.
+      buffers.pushMessage(event);
+      break;
+    }
     case 'motd':
     case 'error': {
       const decorated = { ...event, target: event.target || `:server:${event.networkId}` };
@@ -380,7 +386,10 @@ function handleMessage(raw: string): void {
     return;
   }
   if (payload.kind === 'backlog') {
-    if (Array.isArray(payload.events)) {
+    // The `?since` resume cursor tracks the `messages` id space only. The system
+    // buffer (networkId null) has its own id sequence, so its ids must NOT feed
+    // the cursor — it's delivered fresh every connect instead (#355).
+    if (payload.networkId != null && Array.isArray(payload.events)) {
       for (const e of payload.events) trackSeenId(e?.id);
     }
     applyBacklog(payload);
@@ -422,7 +431,10 @@ function handleMessage(raw: string): void {
     return;
   }
   if (payload.kind === 'irc') {
-    trackSeenId(payload.id);
+    // System-buffer lines (networkId null) ride the same 'irc' frame now but
+    // carry system-table ids — keep them out of the `messages`-space resume
+    // cursor (#355).
+    if (payload.networkId != null) trackSeenId(payload.id);
     applyEvent(payload);
     return;
   }
@@ -578,16 +590,6 @@ function handleMessage(raw: string): void {
   if (payload.kind === 'send-result') {
     const resolver = pendingAcks.get(payload.clientId);
     if (resolver) resolver({ ok: !!payload.ok, error: payload.error });
-    return;
-  }
-  if (payload.kind === 'system-log-snapshot') {
-    const systemLog = useSystemLogStore();
-    systemLog.applySnapshot(payload.lines || []);
-    return;
-  }
-  if (payload.kind === 'system-log') {
-    const systemLog = useSystemLogStore();
-    systemLog.applyLine(payload.line);
     return;
   }
   if (payload.kind === 'export') {
