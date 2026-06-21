@@ -29,10 +29,10 @@
           <i class="fa-solid fa-magnifying-glass"></i>
         </button>
         <button class="link" @click="showHighlights = true" title="Highlights">
-          <i class="fa-regular fa-bell"></i>
+          <i class="fa-solid fa-bell"></i>
         </button>
         <button class="link" @click="showBookmarks = true" title="Saved messages">
-          <i class="fa-regular fa-bookmark"></i>
+          <i class="fa-solid fa-bookmark"></i>
         </button>
         <button class="link" @click="showUploads = true" title="Recent uploads">
           <i class="fa-solid fa-paperclip"></i>
@@ -676,6 +676,14 @@ useChatBootstrap({ onJump: onJumpToMessage });
   text-align: center;
   padding: var(--space-4) 0;
   border-bottom: 1px solid var(--border);
+}
+/* The global `button:hover` repaints border-color to --accent, which would
+   recolor the bottom rule on hover. Pin it back to --border — and keep it a
+   real border (not a box-shadow) so the rule's 1px keeps the toggle the same
+   height as the LURKER header / topic bar it lines up with. Specificity here
+   (0,3,0) beats the global `button:hover:not(:disabled)` (0,2,1). */
+.rail-toggle:hover:not(:disabled) {
+  border-color: var(--border);
 }
 
 .topic {
