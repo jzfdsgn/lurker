@@ -32,6 +32,68 @@ interface IdentEntry {
 const idents = new Map<number, IdentEntry>();
 let nextIdentId = 0;
 
+// ---------------------------------------------------------------------------
+// Outcome metrics
+// ---------------------------------------------------------------------------
+
+// The residual ident failures are otherwise invisible: when a query matched no
+// live 4-tuple the old code answered NO-USER and logged nothing, so there was no
+// way to tell a registration race (the query beat our own connect callback
+// through the event loop) from a connection that never reached us. These
+// counters — surfaced in `docker logs` by the periodic summary in startIdentd —
+// make the served / rescued / missed split greppable in prod.
+interface IdentdMetrics {
+  accepted: number; // inbound :113 connections accepted
+  queries: number; // well-formed query lines parsed
+  served: number; // answered USERID on the first lookup
+  rescued: number; // answered USERID only after waiting out the registration race
+  silentMiss: number; // no 4-tuple match even after the grace window — answered NO-USER
+  addrMiss: number; // ports matched a live connection but the source address did not
+  invalid: number; // malformed or out-of-range query line
+  noData: number; // connection closed/timed out before sending a query line
+  graceSkipped: number; // grace window declined because too many were already pending
+  abandoned: number; // a parsed query whose socket closed mid-grace before a verdict
+}
+
+const metrics: IdentdMetrics = {
+  accepted: 0,
+  queries: 0,
+  served: 0,
+  rescued: 0,
+  silentMiss: 0,
+  addrMiss: 0,
+  invalid: 0,
+  noData: 0,
+  graceSkipped: 0,
+  abandoned: 0,
+};
+
+export function getIdentdMetrics(): Readonly<IdentdMetrics> {
+  return { ...metrics };
+}
+
+// Tests reset between cases; production never calls this.
+export function resetIdentdMetrics(): void {
+  for (const k of Object.keys(metrics) as (keyof IdentdMetrics)[]) metrics[k] = 0;
+}
+
+// Grace window for the registration race. The IRC server fires its :113 callback
+// the instant it accepts our TCP connection, which can beat our own 'raw socket
+// connected' handler (where registerIdent runs) through a busy event loop — a
+// reconnect storm right after a deploy is the worst case. RFC 1413 servers wait
+// seconds for a reply (DALnet observed at ~30s, solanum similar), so on a TOTAL
+// miss we hold the socket and re-check briefly instead of answering NO-USER at
+// once. A first-lookup hit still answers instantly; only the failure path waits.
+// GRACE_MAX_PENDING bounds how many sockets a :113 scan can pin open.
+const GRACE_MS = 1500;
+const GRACE_STEP_MS = 150;
+const GRACE_MAX_PENDING = 256;
+let gracePending = 0;
+
+// Throttle for the silent-miss warning so a :113 scan can't flood the log; the
+// counter still increments on every miss, only the log line is rate-limited.
+let lastSilentMissWarnAt = 0;
+
 // Collapse IPv4-mapped IPv6 (::ffff:1.2.3.4) to plain IPv4 so an address compares
 // equal whether the kernel reported it mapped (common on dual-stack listeners) or
 // bare — otherwise the inbound query address and the stored outbound address can
@@ -136,10 +198,18 @@ export function isPrivateAddress(address: string): boolean {
 // case, which is the wholesale failure with no otherwise-obvious cause; the
 // once-per-process gate keeps a stray scan hit from becoming log spam.
 let wholesaleFailureWarned = false;
+let lastAddrMissWarnAt = 0;
 function noteAddrMiss(lport: number, rport: number, queryRemoteAddress: string): void {
-  console.warn(
-    `[identd] ${lport},${rport} matched a live connection but query address ${queryRemoteAddress} did not — answering NO-USER`,
-  );
+  // Rate-limit the per-miss warn (a :113 scan hitting a live connection's ports
+  // from the wrong address could otherwise flood it); the addrMiss counter at the
+  // call site stays unthrottled.
+  const now = Date.now();
+  if (now - lastAddrMissWarnAt > 10_000) {
+    lastAddrMissWarnAt = now;
+    console.warn(
+      `[identd] ${lport},${rport} matched a live connection but query address ${queryRemoteAddress} did not — answering NO-USER`,
+    );
+  }
   if (wholesaleFailureWarned) return;
   wholesaleFailureWarned = true;
   if (isPrivateAddress(queryRemoteAddress)) {
@@ -153,46 +223,228 @@ function noteAddrMiss(lport: number, rport: number, queryRemoteAddress: string):
   }
 }
 
+interface GraceConfig {
+  graceMs: number;
+  graceStepMs: number;
+  graceMaxPending: number;
+}
+
+// RFC 1413 reply lines. The query echoes its own port pair back ahead of the
+// verdict, so both halves carry <lport>, <rport>.
+const useridReply = (lport: number, rport: number, ident: string): string =>
+  `${lport}, ${rport} : USERID : UNIX : ${ident}\r\n`;
+const noUserReply = (lport: number, rport: number): string =>
+  `${lport}, ${rport} : ERROR : NO-USER\r\n`;
+
 // RFC 1413: the querying server sends "<our-port> , <their-port>"; we reply
 // "<our-port>, <their-port> : USERID : UNIX : <ident>" or ERROR : NO-USER. The
-// query connection's own addresses complete the 4-tuple we match on.
-function handleConnection(socket: net.Socket): void {
-  socket.setTimeout(10_000);
+// query connection's own addresses complete the 4-tuple we match on. A TOTAL
+// miss (no entry with these ports) is treated as a possible registration race
+// and given the grace window; an ADDRESS mismatch is the enumeration-refusal
+// case and answered NO-USER at once (see lookupIdent / noteAddrMiss).
+function handleConnection(socket: net.Socket, cfg: GraceConfig): void {
+  metrics.accepted++;
+  // Keep the idle timeout safely above the grace window so a raised graceMs can't
+  // let the socket time out mid-rescue.
+  socket.setTimeout(Math.max(10_000, cfg.graceMs + 1_000));
   const queryLocalAddress = normalizeAddress(socket.localAddress);
   const queryRemoteAddress = normalizeAddress(socket.remoteAddress);
   let buf = '';
+  let answered = false;
+  let graceTimer: ReturnType<typeof setTimeout> | null = null;
+  let pendingCounted = false;
+
+  // Release this socket's grace slot exactly once (the slot-leak defense). The
+  // pendingCounted guard makes repeat calls — from finish() and the abandonment
+  // paths — no-ops, so gracePending can't drift and wedge the window shut.
+  const releasePending = (): void => {
+    if (pendingCounted) {
+      gracePending--;
+      pendingCounted = false;
+    }
+  };
+
+  // Single exit: clear any pending grace timer, release the slot, reply.
+  const finish = (line: string): void => {
+    if (graceTimer) {
+      clearTimeout(graceTimer);
+      graceTimer = null;
+    }
+    releasePending();
+    socket.end(line);
+  };
+
   socket.on('data', (chunk: Buffer) => {
+    if (answered) return;
     buf += chunk.toString('latin1');
     const nl = buf.indexOf('\n');
     if (nl === -1) {
-      if (buf.length > 100) socket.destroy(); // junk, no newline — bail
+      // Junk flood with no newline — bail. Mark answered + count as invalid (not
+      // a silent probe) so it doesn't pollute noData, which is the starvation
+      // signal we read for the DALnet-class follow-up.
+      if (buf.length > 100) {
+        answered = true;
+        metrics.invalid++;
+        socket.destroy();
+      }
       return;
     }
     const m = /^\s*(\d{1,5})\s*,\s*(\d{1,5})/.exec(buf.slice(0, nl));
     if (!m) {
-      socket.end('0, 0 : ERROR : INVALID-PORT\r\n');
+      answered = true;
+      metrics.invalid++;
+      finish('0, 0 : ERROR : INVALID-PORT\r\n');
       return;
     }
+    answered = true;
     const lport = Number(m[1]);
     const rport = Number(m[2]);
-    const { ident, addrMiss } = lookupIdent(lport, rport, queryLocalAddress, queryRemoteAddress);
-    if (!ident && addrMiss) noteAddrMiss(lport, rport, queryRemoteAddress);
-    socket.end(
-      ident
-        ? `${lport}, ${rport} : USERID : UNIX : ${ident}\r\n`
-        : `${lport}, ${rport} : ERROR : NO-USER\r\n`,
-    );
+    // `\d{1,5}` lets a 5-digit value like 99999 through; an out-of-range port can
+    // never identify a real connection, so reject it as INVALID-PORT up front
+    // rather than letting it fall into the grace window and burn a grace slot
+    // (and a held socket) for a scanner.
+    if (lport < 1 || lport > 65535 || rport < 1 || rport > 65535) {
+      metrics.invalid++;
+      finish(`${lport}, ${rport} : ERROR : INVALID-PORT\r\n`);
+      return;
+    }
+    metrics.queries++;
+
+    const first = lookupIdent(lport, rport, queryLocalAddress, queryRemoteAddress);
+    if (first.ident) {
+      metrics.served++;
+      finish(useridReply(lport, rport, first.ident));
+      return;
+    }
+    if (first.addrMiss) {
+      metrics.addrMiss++;
+      noteAddrMiss(lport, rport, queryRemoteAddress);
+      finish(noUserReply(lport, rport));
+      return;
+    }
+    // Total miss: most likely our outbound registration hasn't landed yet.
+    // Decline the wait under overload so a scan can't pin sockets open.
+    if (gracePending >= cfg.graceMaxPending) {
+      // Deliberate backpressure, NOT a race loss — kept out of silentMiss (and
+      // thus the win-rate) so a :113 scan can't make the race look like it's
+      // failing.
+      metrics.graceSkipped++;
+      finish(noUserReply(lport, rport));
+      return;
+    }
+    gracePending++;
+    pendingCounted = true;
+    const startedAt = Date.now();
+    const recheck = (): void => {
+      graceTimer = null;
+      if (socket.destroyed) {
+        // Peer abandoned the query mid-wait. Meter it (it was counted in
+        // `queries`) and release the slot.
+        if (pendingCounted) metrics.abandoned++;
+        releasePending();
+        return;
+      }
+      const again = lookupIdent(lport, rport, queryLocalAddress, queryRemoteAddress);
+      if (again.ident) {
+        metrics.rescued++;
+        console.log(
+          `[identd] ${lport},${rport} matched after ${Date.now() - startedAt}ms — outbound registration landed late (connect race); answering USERID`,
+        );
+        finish(useridReply(lport, rport, again.ident));
+        return;
+      }
+      if (again.addrMiss) {
+        // A late same-port/different-address registration. Count it, but do NOT
+        // run noteAddrMiss here: only a FIRST-lookup addrMiss is a trustworthy
+        // wholesale-failure signal — escalating from this benign connect-race
+        // artifact would cry wolf and burn the once-per-process alarm.
+        metrics.addrMiss++;
+        finish(noUserReply(lport, rport));
+        return;
+      }
+      if (Date.now() - startedAt >= cfg.graceMs) {
+        metrics.silentMiss++;
+        const now = Date.now();
+        if (now - lastSilentMissWarnAt > 10_000) {
+          lastSilentMissWarnAt = now;
+          console.warn(
+            `[identd] no live connection for ${lport},${rport} from ${queryRemoteAddress} after ${cfg.graceMs}ms — answering NO-USER (silentMiss=${metrics.silentMiss})`,
+          );
+        }
+        finish(noUserReply(lport, rport));
+        return;
+      }
+      graceTimer = setTimeout(recheck, cfg.graceStepMs);
+    };
+    graceTimer = setTimeout(recheck, cfg.graceStepMs);
   });
+
   socket.on('timeout', () => socket.destroy());
+  socket.on('close', () => {
+    if (graceTimer) {
+      clearTimeout(graceTimer);
+      graceTimer = null;
+    }
+    // A grace-pending socket closing before a verdict was abandoned mid-wait.
+    if (pendingCounted) metrics.abandoned++;
+    releasePending();
+    // Accepted but never delivered a query line — the starvation/connectivity
+    // signature, distinct from a query we did answer with NO-USER.
+    if (!answered) metrics.noData++;
+  });
   socket.on('error', () => {});
 }
 
-/** Build (but don't listen on) an identd server. Exposed for tests. */
-export function createIdentdServer(): net.Server {
-  return net.createServer(handleConnection);
+/** Build (but don't listen on) an identd server. Exposed for tests, which pass
+ * a short grace window to keep the race cases fast and deterministic. */
+export function createIdentdServer(opts: Partial<GraceConfig> = {}): net.Server {
+  const cfg: GraceConfig = {
+    graceMs: opts.graceMs ?? GRACE_MS,
+    graceStepMs: opts.graceStepMs ?? GRACE_STEP_MS,
+    graceMaxPending: opts.graceMaxPending ?? GRACE_MAX_PENDING,
+  };
+  // allowHalfOpen: true is REQUIRED for the grace window. RFC 1413 queriers
+  // commonly half-close (shutdown(SHUT_WR)) right after writing the query; with
+  // the net default (false) that inbound FIN auto-ends our writable side, so a
+  // grace-delayed socket.end(reply) — fired a tick or more later — is silently
+  // discarded and the rescued user stays unverified. We always close explicitly
+  // (every path goes through finish()/destroy(), backstopped by the idle
+  // timeout), so holding the writable side open across the peer's half-close is
+  // safe.
+  return net.createServer({ allowHalfOpen: true }, (socket) => handleConnection(socket, cfg));
 }
 
 let server: net.Server | null = null;
+let summaryTimer: ReturnType<typeof setInterval> | null = null;
+
+// Roll the outcome counters into one greppable line every 10 minutes, but only
+// when something happened since the last tick — an idle cell stays quiet. This
+// is how the race/miss rate becomes observable in prod without per-query spam.
+const SUMMARY_INTERVAL_MS = 10 * 60 * 1000;
+
+function startSummary(): void {
+  if (summaryTimer) return;
+  // Seed from the current cumulative total so the first tick after a restart
+  // doesn't replay stale totals as if they were new activity.
+  let prevAccepted = metrics.accepted;
+  summaryTimer = setInterval(() => {
+    if (metrics.accepted === prevAccepted) return;
+    prevAccepted = metrics.accepted;
+    // "race win-rate" = of the queries matching a real connection we could win or
+    // lose (served+rescued vs silentMiss), how many we answered. Deliberately
+    // excludes addrMiss / noData / graceSkipped (scans + backpressure) so they
+    // can't drag the headline number — every raw counter is on the same line.
+    const resolved = metrics.served + metrics.rescued + metrics.silentMiss;
+    const winRate = resolved
+      ? `${Math.round(((metrics.served + metrics.rescued) / resolved) * 100)}%`
+      : 'n/a';
+    console.log(
+      `[identd] stats: accepted=${metrics.accepted} queries=${metrics.queries} served=${metrics.served} rescued=${metrics.rescued} silentMiss=${metrics.silentMiss} addrMiss=${metrics.addrMiss} invalid=${metrics.invalid} noData=${metrics.noData} graceSkipped=${metrics.graceSkipped} abandoned=${metrics.abandoned} — race win-rate ${winRate}`,
+    );
+  }, SUMMARY_INTERVAL_MS);
+  // Don't let the summary timer keep the process alive on its own.
+  summaryTimer.unref();
+}
 
 export function startIdentd(port: number): void {
   if (server) return;
@@ -206,11 +458,14 @@ export function startIdentd(port: number): void {
     if (srv.listening) srv.close();
     if (server === srv) server = null;
   });
-  srv.listen(port, () =>
+  srv.listen(port, () => {
     console.log(
-      `[identd] listening on :${port} — verifying idents against the full RFC 1413 4-tuple; this relies on the container seeing IRC servers' real inbound source IPs (Docker bridge preserves them; if idents fail wholesale, run with network_mode: host)`,
-    ),
-  );
+      `[identd] listening on :${port} — verifying idents against the full RFC 1413 4-tuple, with a ${GRACE_MS}ms grace window to absorb the connect/registration race; relies on the container seeing IRC servers' real inbound source IPs (Docker bridge preserves them; if idents fail wholesale, run with network_mode: host)`,
+    );
+    // Only once we're actually listening — a failed bind shouldn't leave a stray
+    // interval ticking for a service that never came up.
+    startSummary();
+  });
   server = srv;
 }
 
@@ -218,6 +473,10 @@ export function stopIdentd(): void {
   if (server) {
     server.close();
     server = null;
+  }
+  if (summaryTimer) {
+    clearInterval(summaryTimer);
+    summaryTimer = null;
   }
 }
 
