@@ -43,16 +43,19 @@ const LOOPBACK = '127.0.0.1';
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-// Send one ident query line and collect the reply.
-function query(line: string): Promise<string> {
+// Send one ident query line to `p` and collect the reply. halfClose mirrors an
+// RFC 1413 querier that shutdown(SHUT_WR)s right after the query (write + FIN).
+function queryOn(p: number, line: string, halfClose = false): Promise<string> {
   return new Promise((resolve, reject) => {
-    const c = net.connect(port, '127.0.0.1', () => c.write(line));
+    const c = net.connect(p, '127.0.0.1', () => (halfClose ? c.end(line) : c.write(line)));
     let out = '';
     c.on('data', (d) => (out += d.toString()));
     c.on('end', () => resolve(out));
     c.on('error', reject);
   });
 }
+
+const query = (line: string): Promise<string> => queryOn(port, line);
 
 describe('built-in identd', () => {
   it('returns USERID when the full 4-tuple matches a registered connection', async () => {
@@ -222,15 +225,7 @@ describe('identd grace window (registration race)', () => {
 
   afterAll(() => graceServer.close());
 
-  function graceQuery(line: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const c = net.connect(gracePort, '127.0.0.1', () => c.write(line));
-      let out = '';
-      c.on('data', (d) => (out += d.toString()));
-      c.on('end', () => resolve(out));
-      c.on('error', reject);
-    });
-  }
+  const graceQuery = (line: string): Promise<string> => queryOn(gracePort, line);
 
   // The core fix: a query that arrives before the outbound connection registers
   // its 4-tuple must wait out the window, not get an instant NO-USER.
@@ -248,10 +243,49 @@ describe('identd grace window (registration race)', () => {
     expect(getIdentdMetrics().rescued).toBeGreaterThanOrEqual(1);
   });
 
+  // A querier that half-closes its write side after the query (shutdown(SHUT_WR))
+  // must STILL receive a grace-rescued USERID. With the server socket's
+  // allowHalfOpen=false (the net default), the peer's FIN auto-ends our writable
+  // side before the delayed reply is written, silently dropping it — which would
+  // defeat the grace window for exactly the race it targets.
+  it('delivers a grace-rescued USERID even when the querier half-closes after the query', async () => {
+    const pending = queryOn(gracePort, '42103, 6667\r\n', true); // write + FIN
+    await delay(120);
+    registerIdent({
+      localAddress: LOOPBACK,
+      localPort: 42103,
+      remoteAddress: LOOPBACK,
+      remotePort: 6667,
+      ident: 'halfclose',
+    });
+    expect(await pending).toContain('USERID : UNIX : halfclose');
+  });
+
   it('answers NO-USER when nothing registers before the window expires', async () => {
     const before = getIdentdMetrics().silentMiss;
     expect(await graceQuery('42199, 6667\r\n')).toContain('ERROR : NO-USER');
     expect(getIdentdMetrics().silentMiss).toBe(before + 1);
+  });
+
+  // A query whose connection is RESET mid-grace (peer crashes / network breaks
+  // before a verdict) must be metered as `abandoned`, not vanish — and not be
+  // mistaken for `noData` (which means no query line was ever sent). NB a
+  // graceful half-close (FIN) is NOT an abandonment: with allowHalfOpen the
+  // server rides out the window and answers (see the half-close test above), so
+  // this forces a true RST via resetAndDestroy.
+  it('meters a query whose socket is reset mid-grace as `abandoned`, not noData', async () => {
+    const before = getIdentdMetrics();
+    const c = net.connect(gracePort, '127.0.0.1', () => c.write('42198, 6667\r\n'));
+    c.on('error', () => {});
+    await delay(80); // query parsed, inside the 600ms window, nothing registered
+    c.resetAndDestroy(); // RST, not a graceful FIN
+    // Poll (not a fixed sleep) for the server-side close to be processed.
+    for (let i = 0; i < 50 && getIdentdMetrics().abandoned === before.abandoned; i++) {
+      await delay(10);
+    }
+    const after = getIdentdMetrics();
+    expect(after.abandoned).toBe(before.abandoned + 1);
+    expect(after.noData).toBe(before.noData);
   });
 
   // A first-lookup hit must answer without entering the grace recheck loop.

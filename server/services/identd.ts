@@ -49,9 +49,10 @@ interface IdentdMetrics {
   rescued: number; // answered USERID only after waiting out the registration race
   silentMiss: number; // no 4-tuple match even after the grace window — answered NO-USER
   addrMiss: number; // ports matched a live connection but the source address did not
-  invalid: number; // malformed query line
+  invalid: number; // malformed or out-of-range query line
   noData: number; // connection closed/timed out before sending a query line
   graceSkipped: number; // grace window declined because too many were already pending
+  abandoned: number; // a parsed query whose socket closed mid-grace before a verdict
 }
 
 const metrics: IdentdMetrics = {
@@ -64,6 +65,7 @@ const metrics: IdentdMetrics = {
   invalid: 0,
   noData: 0,
   graceSkipped: 0,
+  abandoned: 0,
 };
 
 export function getIdentdMetrics(): Readonly<IdentdMetrics> {
@@ -196,10 +198,18 @@ export function isPrivateAddress(address: string): boolean {
 // case, which is the wholesale failure with no otherwise-obvious cause; the
 // once-per-process gate keeps a stray scan hit from becoming log spam.
 let wholesaleFailureWarned = false;
+let lastAddrMissWarnAt = 0;
 function noteAddrMiss(lport: number, rport: number, queryRemoteAddress: string): void {
-  console.warn(
-    `[identd] ${lport},${rport} matched a live connection but query address ${queryRemoteAddress} did not — answering NO-USER`,
-  );
+  // Rate-limit the per-miss warn (a :113 scan hitting a live connection's ports
+  // from the wrong address could otherwise flood it); the addrMiss counter at the
+  // call site stays unthrottled.
+  const now = Date.now();
+  if (now - lastAddrMissWarnAt > 10_000) {
+    lastAddrMissWarnAt = now;
+    console.warn(
+      `[identd] ${lport},${rport} matched a live connection but query address ${queryRemoteAddress} did not — answering NO-USER`,
+    );
+  }
   if (wholesaleFailureWarned) return;
   wholesaleFailureWarned = true;
   if (isPrivateAddress(queryRemoteAddress)) {
@@ -234,7 +244,9 @@ const noUserReply = (lport: number, rport: number): string =>
 // case and answered NO-USER at once (see lookupIdent / noteAddrMiss).
 function handleConnection(socket: net.Socket, cfg: GraceConfig): void {
   metrics.accepted++;
-  socket.setTimeout(10_000);
+  // Keep the idle timeout safely above the grace window so a raised graceMs can't
+  // let the socket time out mid-rescue.
+  socket.setTimeout(Math.max(10_000, cfg.graceMs + 1_000));
   const queryLocalAddress = normalizeAddress(socket.localAddress);
   const queryRemoteAddress = normalizeAddress(socket.remoteAddress);
   let buf = '';
@@ -242,18 +254,23 @@ function handleConnection(socket: net.Socket, cfg: GraceConfig): void {
   let graceTimer: ReturnType<typeof setTimeout> | null = null;
   let pendingCounted = false;
 
-  // Single exit: clear any pending grace timer, release the pending slot, reply.
-  // Every gracePending decrement goes through the pendingCounted guard so the
-  // grace-timer path and the socket 'close' path can't double-count.
+  // Release this socket's grace slot exactly once (the slot-leak defense). The
+  // pendingCounted guard makes repeat calls — from finish() and the abandonment
+  // paths — no-ops, so gracePending can't drift and wedge the window shut.
+  const releasePending = (): void => {
+    if (pendingCounted) {
+      gracePending--;
+      pendingCounted = false;
+    }
+  };
+
+  // Single exit: clear any pending grace timer, release the slot, reply.
   const finish = (line: string): void => {
     if (graceTimer) {
       clearTimeout(graceTimer);
       graceTimer = null;
     }
-    if (pendingCounted) {
-      gracePending--;
-      pendingCounted = false;
-    }
+    releasePending();
     socket.end(line);
   };
 
@@ -308,8 +325,10 @@ function handleConnection(socket: net.Socket, cfg: GraceConfig): void {
     // Total miss: most likely our outbound registration hasn't landed yet.
     // Decline the wait under overload so a scan can't pin sockets open.
     if (gracePending >= cfg.graceMaxPending) {
+      // Deliberate backpressure, NOT a race loss — kept out of silentMiss (and
+      // thus the win-rate) so a :113 scan can't make the race look like it's
+      // failing.
       metrics.graceSkipped++;
-      metrics.silentMiss++;
       finish(noUserReply(lport, rport));
       return;
     }
@@ -319,10 +338,10 @@ function handleConnection(socket: net.Socket, cfg: GraceConfig): void {
     const recheck = (): void => {
       graceTimer = null;
       if (socket.destroyed) {
-        if (pendingCounted) {
-          gracePending--;
-          pendingCounted = false;
-        }
+        // Peer abandoned the query mid-wait. Meter it (it was counted in
+        // `queries`) and release the slot.
+        if (pendingCounted) metrics.abandoned++;
+        releasePending();
         return;
       }
       const again = lookupIdent(lport, rport, queryLocalAddress, queryRemoteAddress);
@@ -335,8 +354,11 @@ function handleConnection(socket: net.Socket, cfg: GraceConfig): void {
         return;
       }
       if (again.addrMiss) {
+        // A late same-port/different-address registration. Count it, but do NOT
+        // run noteAddrMiss here: only a FIRST-lookup addrMiss is a trustworthy
+        // wholesale-failure signal — escalating from this benign connect-race
+        // artifact would cry wolf and burn the once-per-process alarm.
         metrics.addrMiss++;
-        noteAddrMiss(lport, rport, queryRemoteAddress);
         finish(noUserReply(lport, rport));
         return;
       }
@@ -363,10 +385,9 @@ function handleConnection(socket: net.Socket, cfg: GraceConfig): void {
       clearTimeout(graceTimer);
       graceTimer = null;
     }
-    if (pendingCounted) {
-      gracePending--;
-      pendingCounted = false;
-    }
+    // A grace-pending socket closing before a verdict was abandoned mid-wait.
+    if (pendingCounted) metrics.abandoned++;
+    releasePending();
     // Accepted but never delivered a query line — the starvation/connectivity
     // signature, distinct from a query we did answer with NO-USER.
     if (!answered) metrics.noData++;
@@ -382,7 +403,15 @@ export function createIdentdServer(opts: Partial<GraceConfig> = {}): net.Server 
     graceStepMs: opts.graceStepMs ?? GRACE_STEP_MS,
     graceMaxPending: opts.graceMaxPending ?? GRACE_MAX_PENDING,
   };
-  return net.createServer((socket) => handleConnection(socket, cfg));
+  // allowHalfOpen: true is REQUIRED for the grace window. RFC 1413 queriers
+  // commonly half-close (shutdown(SHUT_WR)) right after writing the query; with
+  // the net default (false) that inbound FIN auto-ends our writable side, so a
+  // grace-delayed socket.end(reply) — fired a tick or more later — is silently
+  // discarded and the rescued user stays unverified. We always close explicitly
+  // (every path goes through finish()/destroy(), backstopped by the idle
+  // timeout), so holding the writable side open across the peer's half-close is
+  // safe.
+  return net.createServer({ allowHalfOpen: true }, (socket) => handleConnection(socket, cfg));
 }
 
 let server: net.Server | null = null;
@@ -395,20 +424,22 @@ const SUMMARY_INTERVAL_MS = 10 * 60 * 1000;
 
 function startSummary(): void {
   if (summaryTimer) return;
-  let prevAccepted = 0;
+  // Seed from the current cumulative total so the first tick after a restart
+  // doesn't replay stale totals as if they were new activity.
+  let prevAccepted = metrics.accepted;
   summaryTimer = setInterval(() => {
     if (metrics.accepted === prevAccepted) return;
     prevAccepted = metrics.accepted;
     // "race win-rate" = of the queries matching a real connection we could win or
     // lose (served+rescued vs silentMiss), how many we answered. Deliberately
-    // excludes addrMiss/noData (mostly :113 scans) so scan traffic can't drag the
-    // headline number — those are printed raw on the same line.
+    // excludes addrMiss / noData / graceSkipped (scans + backpressure) so they
+    // can't drag the headline number — every raw counter is on the same line.
     const resolved = metrics.served + metrics.rescued + metrics.silentMiss;
     const winRate = resolved
-      ? Math.round(((metrics.served + metrics.rescued) / resolved) * 100)
-      : 100;
+      ? `${Math.round(((metrics.served + metrics.rescued) / resolved) * 100)}%`
+      : 'n/a';
     console.log(
-      `[identd] stats: served=${metrics.served} rescued=${metrics.rescued} silentMiss=${metrics.silentMiss} addrMiss=${metrics.addrMiss} noData=${metrics.noData} graceSkipped=${metrics.graceSkipped} — race win-rate ${winRate}%`,
+      `[identd] stats: accepted=${metrics.accepted} queries=${metrics.queries} served=${metrics.served} rescued=${metrics.rescued} silentMiss=${metrics.silentMiss} addrMiss=${metrics.addrMiss} invalid=${metrics.invalid} noData=${metrics.noData} graceSkipped=${metrics.graceSkipped} abandoned=${metrics.abandoned} — race win-rate ${winRate}`,
     );
   }, SUMMARY_INTERVAL_MS);
   // Don't let the summary timer keep the process alive on its own.
