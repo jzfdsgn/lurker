@@ -86,18 +86,19 @@ export function stripUrls(text: string): string {
 }
 
 // mIRC/IRC formatting control codes: color (\x03[fg][,bg]), hex color
-// (\x04RRGGBB), and the toggles bold/italic/underline/reverse/reset/monospace.
-// These must be removed before whole-word matching: a colored word like
-// `\x0304QUACK!` leaves the digit `4` glued to the front of QUACK, which breaks
-// the word boundary and makes the highlight miss. The color form mirrors the
-// client renderer (vue_client/src/utils/nickColor.ts) exactly so the matcher
-// strips precisely what the user sees: \x03 with an optional 1-2 digit fg and an
-// optional ,bg — a bare \x03 is a reset, and \x03 followed by `,NN` (bg, no fg)
-// is NOT a color code, so its digits stay as text. Matching the control codes
-// literally is the whole point here, so the no-control-regex rule is moot.
+// (\x04RRGGBB), and the toggles. These must be removed before whole-word
+// matching: a colored word like `\x0304QUACK!` leaves the digit `4` glued to the
+// front of QUACK, which breaks the word boundary and makes the highlight miss.
+// The set mirrors the client renderer (vue_client/src/utils/nickColor.ts) EXACTLY
+// so the matcher strips precisely what the user sees — the toggles are bold
+// \x02, monospace \x11, reverse \x16, italic \x1d, strike \x1e, underline \x1f,
+// reset \x0f; and \x03 with an optional 1-2 digit fg + optional ,bg (a bare \x03
+// is a reset, and \x03 followed by `,NN` (bg, no fg) is NOT a color, so its digits
+// stay text). Matching control codes literally is the point, so no-control-regex
+// is moot.
 /* eslint-disable no-control-regex */
 const FORMAT_RE =
-  /\x03(?:\d{1,2}(?:,\d{1,2})?)?|\x04[0-9A-Fa-f]{6}|[\x02\x1d\x1f\x16\x0f\x11\x06]/g;
+  /\x03(?:\d{1,2}(?:,\d{1,2})?)?|\x04[0-9A-Fa-f]{6}|[\x02\x0f\x11\x16\x1d\x1e\x1f]/g;
 /* eslint-enable no-control-regex */
 
 export function stripFormatting(text: string): string {

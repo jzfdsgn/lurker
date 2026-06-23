@@ -67,10 +67,17 @@ describe('buildTextTest — Unicode word boundaries', () => {
 });
 
 describe('stripFormatting / cleanForMatch', () => {
-  it('removes color, hex color, and toggle codes', () => {
+  it('removes color, hex color, and every toggle code (matching the renderer)', () => {
     expect(stripFormatting('\x0304,08QUACK!\x03')).toBe('QUACK!');
     expect(stripFormatting('\x02bold\x0f \x1ditalic\x1d')).toBe('bold italic');
     expect(stripFormatting('\x04FF0000red\x04000000')).toBe('red');
+    // every toggle the renderer handles: bold/mono/reverse/italic/strike/underline/reset
+    expect(stripFormatting('\x02\x11\x16\x1d\x1e\x1f a \x0f')).toBe(' a ');
+    // strike specifically (was missing from FORMAT_RE) — whole-word match sees through it
+    expect(stripFormatting('\x1estruck\x1e')).toBe('struck');
+    expect(buildTextTest('struck', 'plain', false)!(cleanForMatch('a \x1estruck\x1e word'))).toBe(
+      true,
+    );
   });
 
   it('lets whole-word matching see through formatting (the colored-QUACK bug)', () => {
