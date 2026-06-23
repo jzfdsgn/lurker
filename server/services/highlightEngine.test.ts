@@ -189,6 +189,24 @@ describe('matchEvent — mask rules', () => {
     ).toBe(false);
   });
 
+  it('matches a mask-only rule with no message text (no cleaning needed)', () => {
+    const compiled = compileRules([
+      {
+        id: 11,
+        pattern: null,
+        mask: 'bob!*@*',
+        channels: null,
+        kind: 'full',
+        case_sensitive: false,
+        enabled: true,
+      },
+    ]);
+    expect(compiled[0].hasPattern).toBe(false);
+    expect(
+      matchEvent({ type: 'message', text: '', nick: 'bob', userhost: 'bob!u@h' }, compiled).matched,
+    ).toBe(true);
+  });
+
   it('matches a bare-nick mask case-insensitively', () => {
     const compiled = compileRules([
       {

@@ -115,7 +115,8 @@ class HighlightRulesService extends EventEmitter {
     if (!existing) return { ok: false, error: 'rule not found', status: 404 };
     const isAutoManaged = !!existing.auto_managed;
     const update: RuleFields = {};
-    // Auto-managed rules track the network nick — only enable/disable is editable.
+    // Auto-managed rules track the network nick and are fully system-managed —
+    // every field (including enabled) is read-only to the user.
     const blockAuto = (field: string): { ok: false; error: string; status: number } | null =>
       isAutoManaged
         ? { ok: false, error: `cannot edit ${field} of auto-managed rule`, status: 400 }

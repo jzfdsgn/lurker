@@ -88,3 +88,12 @@ describe('parseHighlightArgs — errors', () => {
     expect(p('-regexp -full x').error).toMatch(/mutually exclusive/);
   });
 });
+
+describe('parseHighlightArgs — end-of-flags sentinel', () => {
+  it('treats tokens after -- as positional, allowing leading-dash keywords', () => {
+    const r = p('-- -Werror');
+    expect(r.error).toBeUndefined();
+    expect(r.pattern).toBe('-Werror');
+    expect(p('-full -- -v')).toMatchObject({ pattern: '-v', kind: 'full' });
+  });
+});

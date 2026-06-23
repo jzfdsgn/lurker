@@ -701,13 +701,14 @@ const renderRows = computed((): RenderRow[] => {
       rowNohilight = verdict.nohilight;
     }
 
-    // Render-time highlight match (#349). The server already stamps m.matched at
-    // insert (drives notifications + the highlights feed); evaluating again here
-    // means a rule added/removed/toggled now re-colors on-screen rows live, and
-    // honors -network/-channels/-mask scope. Skip the work when the stamp already
-    // says matched, or for self rows.
+    // Render-time highlight match (#349). The server stamps m.matched at insert
+    // (drives notifications + the highlights feed). For the live tint we evaluate
+    // against the *current* rules instead, so adding a rule lights matching rows
+    // up AND removing/disabling one clears them — honoring -network/-channels/
+    // -mask scope. Client evaluation is authoritative once the rule store has
+    // loaded; until then we fall back to the server stamp.
     let rowHighlight = !!m.matched;
-    if (!rowHighlight && !m.self && networkId) {
+    if (highlights.loaded && !m.self && networkId) {
       rowHighlight = highlights.evaluate(networkId, {
         nick: m.nick,
         userhost: m.userhost ?? null,

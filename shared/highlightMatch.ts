@@ -20,10 +20,12 @@ interface HighlightRule {
 export interface CompiledRule {
   id: number;
   hasMask: boolean;
+  // false for a mask-only rule (no keyword) — lets matchEvent skip cleaning the
+  // text entirely, since a mask+channel hit is sufficient on its own.
+  hasPattern: boolean;
   matchesMask: (nick: string | null, userhost: string | null) => boolean;
   matchesChannel: (target: string) => boolean;
-  // Predicate over the cleaned message text. A mask-only rule (no keyword) tests
-  // always-true, so it highlights every in-scope message from the sender.
+  // Predicate over the cleaned message text (only consulted when hasPattern).
   test: (text: string) => boolean;
 }
 
@@ -54,6 +56,7 @@ export function compileRules(rules: HighlightRule[]): CompiledRule[] {
     compiled.push({
       id: rule.id,
       hasMask,
+      hasPattern: !!rule.pattern,
       matchesMask: buildMaskMatcher(rule.mask ?? null),
       matchesChannel: buildChannelMatcher(rule.channels ?? null),
       test,
@@ -74,12 +77,15 @@ export function matchEvent(
   const target = event.target || '';
   const nick = event.nick ?? null;
   const userhost = event.userhost ?? null;
-  // Clean the text lazily — a mask-only match never needs it.
+  // Clean the text lazily and at most once — a mask-only match never needs it,
+  // so the cost is skipped entirely unless a keyword rule is actually consulted.
   let cleaned: string | null = null;
   const text = () => (cleaned === null ? (cleaned = cleanForMatch(event.text || '')) : cleaned);
   for (const rule of compiled) {
     if (!rule.matchesChannel(target)) continue;
     if (rule.hasMask && !rule.matchesMask(nick, userhost)) continue;
+    // Mask-only rule: a mask + channel hit is sufficient, no text needed.
+    if (!rule.hasPattern) return { matched: true, ruleId: rule.id };
     if (rule.test(text())) return { matched: true, ruleId: rule.id };
   }
   return { matched: false, ruleId: null };

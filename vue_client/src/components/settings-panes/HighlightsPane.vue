@@ -52,8 +52,8 @@
                 aria-hidden="true"
               ></i>
             </button>
-            <!-- Auto-managed (network nick) rules track your nick — only the
-                 enabled toggle applies, so edit/remove show disabled. -->
+            <!-- Auto-managed (network nick) rules are fully system-managed, so the
+                 toggle (above) and edit/remove are all disabled. -->
             <IconButton
               icon="fa-pen"
               label="edit"

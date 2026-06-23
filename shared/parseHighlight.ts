@@ -55,10 +55,22 @@ export function parseHighlightArgs(argLine: string): ParsedHighlight {
   let isMask = false;
   let sawRegexp = false;
   let sawFull = false;
+  // After a bare `--`, every remaining token is positional — lets a keyword that
+  // begins with `-` (e.g. `/highlight -- -Werror`) through the flag parser.
+  let endOfFlags = false;
 
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
     const lower = t.toLowerCase();
+
+    if (!endOfFlags && lower === '--') {
+      endOfFlags = true;
+      continue;
+    }
+    if (endOfFlags) {
+      positionals.push(t);
+      continue;
+    }
 
     if (lower === '-mask') {
       isMask = true;
