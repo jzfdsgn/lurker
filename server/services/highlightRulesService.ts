@@ -153,7 +153,13 @@ class HighlightRulesService extends EventEmitter {
       if (blocked) return blocked;
       update.case_sensitive = !!fields.case_sensitive;
     }
-    if ('enabled' in fields) update.enabled = !!fields.enabled;
+    if ('enabled' in fields) {
+      // Auto-managed nick rules are fully system-managed — no enable/disable
+      // either, so the 🔒 row is entirely read-only.
+      const blocked = blockAuto('enabled');
+      if (blocked) return blocked;
+      update.enabled = !!fields.enabled;
+    }
 
     const finalKind = update.kind || existing.kind;
     const finalPattern = update.pattern ?? existing.pattern;

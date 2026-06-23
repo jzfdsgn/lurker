@@ -38,8 +38,15 @@
               type="button"
               class="toggle"
               :class="{ on: entry.enabled }"
+              :disabled="entry.auto_managed"
               :aria-pressed="entry.enabled"
-              :title="entry.enabled ? 'enabled — click to disable' : 'disabled — click to enable'"
+              :title="
+                entry.auto_managed
+                  ? 'auto-managed (network nick) — always on'
+                  : entry.enabled
+                    ? 'enabled — click to disable'
+                    : 'disabled — click to enable'
+              "
               :aria-label="entry.enabled ? 'enabled' : 'disabled'"
               @click="toggleEnabled(entry, !entry.enabled)"
             >
@@ -456,6 +463,10 @@ async function onRemove(entry: HighlightRule) {
 }
 .toggle.on {
   color: var(--accent);
+}
+.toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 .rule-form {
   display: flex;

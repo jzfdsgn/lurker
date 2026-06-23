@@ -60,13 +60,13 @@ describe('update', () => {
     expect(!res.ok && res.status).toBe(404);
   });
 
-  it('refuses to edit pattern/kind/case_sensitive on an auto-managed rule', () => {
+  it('refuses to edit any field (incl. enabled) on an auto-managed rule', () => {
     const auto = highlightRulesService.upsertAutoNickRule(user.id, net.id, 'alice')!;
     expect(highlightRulesService.update(auto.id, user.id, { pattern: 'new' }).ok).toBe(false);
     expect(highlightRulesService.update(auto.id, user.id, { kind: 'regex' }).ok).toBe(false);
     expect(highlightRulesService.update(auto.id, user.id, { case_sensitive: true }).ok).toBe(false);
-    // enabled IS allowed on auto rules.
-    expect(highlightRulesService.update(auto.id, user.id, { enabled: false }).ok).toBe(true);
+    // Auto rules are fully system-managed: enable/disable is locked too.
+    expect(highlightRulesService.update(auto.id, user.id, { enabled: false }).ok).toBe(false);
   });
 
   it('validates regex on update when kind changes to regex', () => {
