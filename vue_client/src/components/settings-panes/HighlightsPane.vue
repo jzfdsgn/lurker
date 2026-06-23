@@ -7,227 +7,487 @@
   <section id="highlights" class="settings-pane">
     <h2>highlights</h2>
     <p class="section-desc">
-      Rules whose pattern matches an incoming message mark it as a highlight (line accent + sidebar
-      dot). Auto-managed entries track each network's current nick and can only be enabled/disabled.
-      For sender masks, per-network or per-channel scope, use the
-      <code>/highlight</code> command (e.g. <code>/highlight -mask bob!*@*</code>). Configure
-      notification delivery for matched highlights in the Notifications pane.
+      Highlight rules mark matching messages (line accent + sidebar dot). A rule matches a keyword
+      (<code>contains</code>, <code>whole word</code>, <code>glob</code>, or <code>regex</code>)
+      and/or a sender hostmask (<code>nick!user@host</code> with <code>*</code> wildcards), and can
+      be narrowed to specific channels. Rules are <strong>global</strong> by default; scope one to a
+      single network if you only want it there. Everything here is also available through the
+      <code>/highlight</code> command. Configure notification delivery in the Notifications pane.
     </p>
+
+    <p v-if="formError" class="error inline">{{ formError }}</p>
     <p v-if="rulesError" class="error inline">{{ rulesError }}</p>
-    <ul class="rule-list">
-      <li v-for="rule in rules" :key="rule.id" class="rule" :class="{ auto: rule.auto_managed }">
-        <span class="lock" :title="rule.auto_managed ? 'auto-managed (network nick)' : 'user rule'">
-          {{ rule.auto_managed ? '🔒' : '' }}
-        </span>
-        <div class="pat-cell">
-          <input
-            type="text"
-            class="pattern"
-            :value="rule.mask ?? rule.pattern ?? ''"
-            :disabled="rule.auto_managed || !!rule.mask"
-            @change="onRuleField(rule, 'pattern', ($event.target as HTMLInputElement).value)"
-            :placeholder="rule.mask ? 'mask' : 'pattern'"
-          />
-          <span v-if="ruleScopeLabel(rule)" class="scope">{{ ruleScopeLabel(rule) }}</span>
+
+    <p v-if="!highlightGroups.length" class="muted small">
+      No highlights yet. Add one below, or type <code>/highlight &lt;word&gt;</code> in any buffer.
+    </p>
+
+    <template v-for="group in highlightGroups" :key="group.key">
+      <h3 class="subhead">{{ group.name }}</h3>
+      <ul class="device-list">
+        <li v-for="entry in group.entries" :key="entry.id" class="device">
+          <span class="ua">
+            <span v-if="entry.auto_managed" class="lock" title="auto-managed (network nick)"
+              >🔒</span
+            >
+            {{ entry.mask ?? entry.pattern ?? '*' }}
+            <span class="muted small hl-detail">{{ describe(entry) }}</span>
+          </span>
+          <label class="ck inline" title="enabled">
+            <input
+              type="checkbox"
+              :checked="entry.enabled"
+              @change="toggleEnabled(entry, ($event.target as HTMLInputElement).checked)"
+            />
+            <span>{{ entry.enabled ? 'on' : 'off' }}</span>
+          </label>
+          <button v-if="!entry.auto_managed" class="link" @click="startEdit(entry)">edit</button>
+          <button v-if="!entry.auto_managed" class="link danger" @click="onRemove(entry)">
+            remove
+          </button>
+        </li>
+      </ul>
+    </template>
+
+    <h3 class="subhead">{{ editing ? 'edit highlight' : 'add highlight' }}</h3>
+    <div class="rule-form">
+      <!-- Scope -->
+      <div class="field">
+        <span class="field-label">Scope</span>
+        <div class="row">
+          <div class="seg" role="radiogroup" aria-label="Scope">
+            <button
+              type="button"
+              role="radio"
+              :aria-checked="scopeMode === 'global'"
+              :class="{ active: scopeMode === 'global' }"
+              @click="scopeMode = 'global'"
+            >
+              Global
+            </button>
+            <button
+              type="button"
+              role="radio"
+              :aria-checked="scopeMode === 'network'"
+              :class="{ active: scopeMode === 'network' }"
+              :disabled="!networkOptions.length"
+              @click="selectNetworkScope"
+            >
+              One network
+            </button>
+          </div>
+          <select v-if="scopeMode === 'network'" v-model.number="scopeNetworkId">
+            <option v-for="opt in networkOptions" :key="opt.id" :value="opt.id">
+              {{ opt.name }}
+            </option>
+          </select>
         </div>
-        <select
-          :value="rule.kind"
-          :disabled="rule.auto_managed || !!rule.mask"
-          @change="onRuleField(rule, 'kind', ($event.target as HTMLSelectElement).value)"
+      </div>
+
+      <!-- What (keyword) -->
+      <div class="field">
+        <span class="field-label"
+          >Highlight word
+          <span class="muted small">(what — blank to match by sender only)</span></span
         >
-          <option value="substr">substr</option>
-          <option value="full">full</option>
-          <option value="glob">glob</option>
-          <option value="regex">regex</option>
-        </select>
-        <label class="ck" title="case sensitive">
+        <div class="row">
           <input
-            type="checkbox"
-            :checked="rule.case_sensitive"
-            :disabled="rule.auto_managed || !!rule.mask"
-            @change="
-              onRuleField(rule, 'case_sensitive', ($event.target as HTMLInputElement).checked)
-            "
+            v-model="form.pattern"
+            type="text"
+            class="grow"
+            placeholder="word or phrase to highlight"
+            spellcheck="false"
           />
-          <span>Aa</span>
+          <select v-model="form.kind">
+            <option value="substr">contains</option>
+            <option value="full">whole word</option>
+            <option value="glob">glob</option>
+            <option value="regex">regex</option>
+          </select>
+        </div>
+        <label class="ck">
+          <input v-model="form.caseSensitive" type="checkbox" />
+          <span>Case-sensitive</span>
         </label>
-        <label class="ck" title="enabled">
-          <input
-            type="checkbox"
-            :checked="rule.enabled"
-            @change="onRuleField(rule, 'enabled', ($event.target as HTMLInputElement).checked)"
-          />
-          <span>{{ rule.enabled ? 'on' : 'off' }}</span>
-        </label>
-        <button
-          class="link danger"
-          :disabled="rule.auto_managed"
-          @click="onRuleDelete(rule)"
-          title="delete rule"
+      </div>
+
+      <!-- Who (mask) -->
+      <label class="field">
+        <span class="field-label"
+          >Sender mask <span class="muted small">(who — blank = anyone)</span></span
         >
-          delete
-        </button>
-      </li>
-    </ul>
-    <div class="rule-add">
-      <input
-        v-model="newPattern"
-        type="text"
-        placeholder="add highlight pattern…"
-        @keydown.enter="onRuleAdd"
-      />
-      <select v-model="newKind">
-        <option value="substr">substr</option>
-        <option value="full">full</option>
-        <option value="glob">glob</option>
-        <option value="regex">regex</option>
-      </select>
-      <label class="ck">
-        <input type="checkbox" v-model="newCaseSensitive" />
-        <span>Aa</span>
+        <input
+          v-model="form.mask"
+          type="text"
+          placeholder="nick or nick!user@host — highlights everything they say"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+        />
       </label>
-      <button class="link" :disabled="!newPattern.trim()" @click="onRuleAdd">add</button>
+
+      <!-- Where (channels) -->
+      <label class="field">
+        <span class="field-label"
+          >Channels <span class="muted small">(where — blank = all buffers)</span></span
+        >
+        <input
+          v-model="form.channels"
+          type="text"
+          placeholder="#chan #other (space-separated)"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+        />
+      </label>
+
+      <!-- Options -->
+      <div class="field">
+        <span class="field-label">Options</span>
+        <label class="ck">
+          <input v-model="form.enabled" type="checkbox" />
+          <span>Enabled</span>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button v-if="editing" class="link" @click="cancelEdit">cancel</button>
+        <button class="link" :disabled="!canSubmit" @click="submit">
+          {{ editing ? 'save' : 'add highlight' }}
+        </button>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
+import { useNetworksStore } from '../../stores/networks.js';
 import { useHighlightRulesStore } from '../../stores/highlightRules.js';
 import type { HighlightRule } from '../../stores/highlightRules.js';
-import { useNetworksStore } from '../../stores/networks.js';
 
 type RuleKind = 'substr' | 'full' | 'glob' | 'regex';
 
-const rulesStore = useHighlightRulesStore();
-const networks = useNetworksStore();
+// Mirrors MAX_PATTERN_LENGTH in server/services/highlightRulesService.ts.
+const MAX_PATTERN_LENGTH = 256;
 
-const rules = computed(() => rulesStore.rules);
+const networksStore = useNetworksStore();
+const rulesStore = useHighlightRulesStore();
 
 const rulesError = ref('');
-const newPattern = ref('');
-const newKind = ref<RuleKind>('substr');
-const newCaseSensitive = ref(false);
-
-// A muted descriptor for a rule's scope: channels and/or the networks it's
-// limited to. Empty for a plain global keyword rule (the common case), so the
-// row stays uncluttered.
-function ruleScopeLabel(rule: HighlightRule): string {
-  const parts: string[] = [];
-  if (rule.channels?.length) parts.push(rule.channels.join(', '));
-  if (rule.networkIds.length) {
-    parts.push(
-      rule.networkIds.map((id) => networks.networkById(id)?.name || `net:${id}`).join(', '),
-    );
-  }
-  return parts.join(' · ');
-}
-
 onMounted(() => {
   if (!rulesStore.loaded) {
     rulesStore.fetchAll().catch((e: any) => {
-      rulesError.value = e.message;
+      rulesError.value = e.message || 'failed to load rules';
     });
   }
 });
 
-async function onRuleField(rule: HighlightRule, field: string, value: string | boolean) {
-  rulesError.value = '';
+interface HighlightGroup {
+  key: string;
+  name: string;
+  entries: HighlightRule[];
+}
+
+function kindLabel(kind: string): string {
+  return kind === 'full'
+    ? 'whole word'
+    : kind === 'glob'
+      ? 'glob'
+      : kind === 'regex'
+        ? 'regex'
+        : 'contains';
+}
+
+// One-line summary of a rule's secondary dimensions for the list (the mask or
+// pattern is the main label rendered separately).
+function describe(entry: HighlightRule): string {
+  const parts: string[] = [];
+  // For a mask rule that ALSO has a keyword, surface the keyword here since the
+  // mask is the main label. For a pure keyword rule, show how it matches.
+  if (entry.mask && entry.pattern) {
+    parts.push(
+      entry.kind === 'regex'
+        ? `/${entry.pattern}/`
+        : `"${entry.pattern}" (${kindLabel(entry.kind)})`,
+    );
+  } else if (!entry.mask) {
+    parts.push(kindLabel(entry.kind));
+  }
+  if (entry.case_sensitive) parts.push('case-sensitive');
+  if (entry.channels?.length) parts.push(entry.channels.join(', '));
+  if (entry.auto_managed) parts.push('auto');
+  if (!entry.enabled) parts.push('disabled');
+  return parts.join(' · ');
+}
+
+// Global group first (no network scope), then per-network groups sorted by name.
+// A multi-network rule (an auto-nick rule spanning networks that share your nick)
+// appears under each of its networks — it genuinely applies to all of them.
+const highlightGroups = computed<HighlightGroup[]>(() => {
+  const globals: HighlightRule[] = [];
+  const byNet = new Map<number, HighlightRule[]>();
+  for (const entry of rulesStore.rules) {
+    if (entry.networkIds.length === 0) {
+      globals.push(entry);
+    } else {
+      for (const nid of entry.networkIds) {
+        const list = byNet.get(nid);
+        if (list) list.push(entry);
+        else byNet.set(nid, [entry]);
+      }
+    }
+  }
+  const groups: HighlightGroup[] = [];
+  if (globals.length)
+    groups.push({ key: 'global', name: 'Global (all networks)', entries: globals });
+  const netGroups: HighlightGroup[] = [];
+  for (const [networkId, entries] of byNet) {
+    netGroups.push({
+      key: `net:${networkId}`,
+      name: networksStore.networkById(networkId)?.name || `net:${networkId}`,
+      entries,
+    });
+  }
+  netGroups.sort((a, b) => a.name.localeCompare(b.name));
+  return [...groups, ...netGroups];
+});
+
+const networkOptions = computed(() =>
+  (networksStore.networks || [])
+    .map((n) => ({ id: n.id, name: n.name }))
+    .toSorted((a, b) => a.name.localeCompare(b.name)),
+);
+
+// ---- form state ----
+const scopeMode = ref<'global' | 'network'>('global');
+const scopeNetworkId = ref<number | null>(null);
+const editing = ref<{ id: number } | null>(null);
+const formError = ref('');
+
+const form = reactive({
+  mask: '',
+  channels: '',
+  pattern: '',
+  kind: 'substr' as RuleKind,
+  caseSensitive: false,
+  enabled: true,
+});
+
+const canSubmit = computed(() => {
+  if (scopeMode.value === 'network' && !scopeNetworkId.value) return false;
+  return !!form.pattern.trim() || !!form.mask.trim();
+});
+
+function selectNetworkScope() {
+  if (!networkOptions.value.length) return;
+  scopeMode.value = 'network';
+  if (!scopeNetworkId.value) scopeNetworkId.value = networkOptions.value[0].id;
+}
+
+function parseChannels(s: string): string[] | null {
+  const list = s
+    .split(/[\s,]+/)
+    .map((c) => c.trim().toLowerCase())
+    .filter(Boolean);
+  return list.length ? list : null;
+}
+
+interface BuiltFields {
+  pattern: string | null;
+  mask: string | null;
+  channels: string[] | null;
+  kind: RuleKind;
+  case_sensitive: boolean;
+  enabled: boolean;
+  networkId: number | null;
+}
+
+function buildFields(): BuiltFields | null {
+  formError.value = '';
+  const pattern = form.pattern.trim();
+  let mask = form.mask.trim();
+  if (mask === '*') mask = '';
+  if (!pattern && !mask) {
+    formError.value = 'enter a highlight word or a sender mask.';
+    return null;
+  }
+  if (pattern.length > MAX_PATTERN_LENGTH) {
+    formError.value = `highlight word is too long (max ${MAX_PATTERN_LENGTH} characters).`;
+    return null;
+  }
+  if (pattern && form.kind === 'regex') {
+    try {
+      void new RegExp(pattern);
+    } catch (e) {
+      formError.value = `invalid regex: ${(e as Error).message}`;
+      return null;
+    }
+  }
+  return {
+    pattern: pattern || null,
+    mask: mask || null,
+    channels: parseChannels(form.channels),
+    kind: form.kind,
+    case_sensitive: form.caseSensitive,
+    enabled: form.enabled,
+    networkId: scopeMode.value === 'network' ? scopeNetworkId.value : null,
+  };
+}
+
+function resetForm() {
+  form.mask = '';
+  form.channels = '';
+  form.pattern = '';
+  form.kind = 'substr';
+  form.caseSensitive = false;
+  form.enabled = true;
+  scopeMode.value = 'global';
+  scopeNetworkId.value = null;
+  editing.value = null;
+}
+
+function startEdit(entry: HighlightRule) {
+  editing.value = { id: entry.id };
+  form.mask = entry.mask ?? '';
+  form.channels = (entry.channels || []).join(' ');
+  form.pattern = entry.pattern ?? '';
+  form.kind = (entry.kind as RuleKind) || 'substr';
+  form.caseSensitive = entry.case_sensitive;
+  form.enabled = entry.enabled;
+  // A user rule is global or scoped to exactly one network (only auto rules span
+  // several, and those aren't editable).
+  if (entry.networkIds.length) {
+    scopeMode.value = 'network';
+    scopeNetworkId.value = entry.networkIds[0];
+  } else {
+    scopeMode.value = 'global';
+    scopeNetworkId.value = null;
+  }
+  formError.value = '';
+}
+
+function cancelEdit() {
+  resetForm();
+  formError.value = '';
+}
+
+// Edit = create the new version, then drop the old one. Create-then-remove (not
+// remove-then-create) so a server-side rejection leaves the original intact
+// rather than losing it. Scope changes can't be done via update (network scope
+// lives in a junction set on create), so an edit is always a replace.
+async function submit() {
+  const fields = buildFields();
+  if (!fields) return;
   try {
-    await rulesStore.update(rule.id, { [field]: value });
+    await rulesStore.create(fields);
+    if (editing.value) await rulesStore.remove(editing.value.id);
+    resetForm();
   } catch (e: any) {
-    rulesError.value = e.message || 'update failed';
+    formError.value = e.message || 'failed to save highlight';
+  }
+}
+
+async function toggleEnabled(entry: HighlightRule, value: boolean) {
+  formError.value = '';
+  try {
+    await rulesStore.update(entry.id, { enabled: value });
+  } catch (e: any) {
+    formError.value = e.message || 'update failed';
     rulesStore.fetchAll().catch(() => {
       /* ignore */
     });
   }
 }
 
-async function onRuleDelete(rule: HighlightRule) {
-  rulesError.value = '';
+async function onRemove(entry: HighlightRule) {
+  if (editing.value?.id === entry.id) cancelEdit();
+  formError.value = '';
   try {
-    await rulesStore.remove(rule.id);
+    await rulesStore.remove(entry.id);
   } catch (e: any) {
-    rulesError.value = e.message || 'delete failed';
-  }
-}
-
-async function onRuleAdd() {
-  const pattern = newPattern.value.trim();
-  if (!pattern) return;
-  rulesError.value = '';
-  try {
-    await rulesStore.create({
-      pattern,
-      kind: newKind.value,
-      case_sensitive: newCaseSensitive.value,
-      enabled: true,
-    });
-    newPattern.value = '';
-    newKind.value = 'substr';
-    newCaseSensitive.value = false;
-  } catch (e: any) {
-    rulesError.value = e.message || 'create failed';
+    formError.value = e.message || 'delete failed';
   }
 }
 </script>
 
 <style src="./panes.css"></style>
 <style scoped>
-.rule-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.hl-detail {
+  margin-left: var(--space-3);
 }
-.rule {
-  display: grid;
-  grid-template-columns: 18px minmax(120px, 1fr) max-content max-content max-content max-content;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) 0;
-  border-top: 1px solid var(--border);
-}
-.rule:first-child {
-  border-top: none;
-}
-.rule:hover {
-  background: var(--bg-soft);
-}
-.rule.auto .pattern {
-  color: var(--fg-muted);
-}
-.pat-cell {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+.device .ua {
   min-width: 0;
-}
-.pat-cell .pattern {
-  width: 100%;
-}
-/* Muted scope descriptor (channels / networks); color, not size, sets hierarchy. */
-.scope {
-  color: var(--fg-muted);
+  overflow-wrap: anywhere;
 }
 .lock {
-  color: var(--fg-muted);
-  text-align: center;
+  margin-right: var(--space-1);
 }
-.rule .ck {
+.ck.inline {
+  margin-left: auto;
+}
+.rule-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-top: var(--space-3);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.field-label {
+  color: var(--fg-muted);
+}
+.row {
   display: flex;
   align-items: center;
+  gap: var(--space-4);
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.rule-form input[type='text'] {
+  background: var(--bg-soft);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+}
+.seg {
+  display: flex;
   gap: var(--space-2);
+}
+.seg button {
+  background: var(--bg-soft);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  cursor: pointer;
+}
+.seg button.active {
+  color: var(--fg);
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+}
+.seg button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ck {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   color: var(--fg-muted);
   cursor: pointer;
 }
-.rule-add {
+.actions {
   display: flex;
-  align-items: center;
+  justify-content: flex-end;
   gap: var(--space-4);
-  padding-top: var(--space-5);
-}
-.rule-add input[type='text'] {
-  flex: 1;
-  min-width: 200px;
+  padding-top: var(--space-2);
 }
 </style>
