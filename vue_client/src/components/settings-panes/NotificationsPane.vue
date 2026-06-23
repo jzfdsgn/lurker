@@ -36,7 +36,13 @@
         <span class="last-seen" :title="sub.last_seen_at"
           >last seen {{ formatRelative(sub.last_seen_at) }}</span
         >
-        <button class="link danger" @click="onRemoveOther(sub)" :disabled="pushBusy">remove</button>
+        <IconButton
+          icon="fa-trash"
+          label="remove"
+          danger
+          :disabled="pushBusy"
+          @click="onRemoveOther(sub)"
+        />
       </li>
     </ul>
     <p v-else-if="pushSubsStore.loaded && thisClientEnabled" class="muted small">
@@ -150,9 +156,14 @@
     <ul v-else class="device-list">
       <li v-for="entry in alwaysNotifyChannelList" :key="entry.key" class="device">
         <span class="ua">{{ entry.networkName }} · {{ entry.target }}</span>
-        <button class="link danger" @click="removeAlwaysNotify(entry.networkId, entry.target)">
-          stop
-        </button>
+        <div class="row-actions">
+          <IconButton
+            icon="fa-trash"
+            label="stop"
+            danger
+            @click="removeAlwaysNotify(entry.networkId, entry.target)"
+          />
+        </div>
       </li>
     </ul>
 
@@ -233,6 +244,7 @@ import { useNetworksStore } from '../../stores/networks.js';
 import { formatRelative } from '../../utils/timestamp.js';
 import { getOption } from '../../utils/settingsRegistry.js';
 import { playSound } from '../../composables/useHighlightNotifier.js';
+import IconButton from '../IconButton.vue';
 import type { SettingValue, EnumOption } from '../../../../shared/settingsRegistry.js';
 import {
   isSupported as isPushSupported,

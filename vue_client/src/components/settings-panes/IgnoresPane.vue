@@ -31,8 +31,10 @@
             {{ entry.mask ?? '*' }}
             <span class="muted small ignore-detail">{{ describe(entry) }}</span>
           </span>
-          <button class="link" @click="startEdit(entry)">edit</button>
-          <button class="link danger" @click="onRemove(entry)">remove</button>
+          <div class="row-actions">
+            <IconButton icon="fa-pen" label="edit" @click="startEdit(entry)" />
+            <IconButton icon="fa-trash" label="remove" danger @click="onRemove(entry)" />
+          </div>
         </li>
       </ul>
     </template>
@@ -43,11 +45,10 @@
       <div class="field">
         <span class="field-label">Scope</span>
         <div class="row">
-          <div class="seg" role="radiogroup" aria-label="Scope">
+          <div class="seg" role="group" aria-label="Scope">
             <button
               type="button"
-              role="radio"
-              :aria-checked="scopeMode === 'global'"
+              :aria-pressed="scopeMode === 'global'"
               :class="{ active: scopeMode === 'global' }"
               @click="scopeMode = 'global'"
             >
@@ -55,8 +56,7 @@
             </button>
             <button
               type="button"
-              role="radio"
-              :aria-checked="scopeMode === 'network'"
+              :aria-pressed="scopeMode === 'network'"
               :class="{ active: scopeMode === 'network' }"
               :disabled="!networkOptions.length"
               @click="selectNetworkScope"
@@ -191,6 +191,7 @@
 import { ref, reactive, computed } from 'vue';
 import { useNetworksStore } from '../../stores/networks.js';
 import { useIgnoresStore, type IgnoreEntryWithNetwork } from '../../stores/ignores.js';
+import IconButton from '../IconButton.vue';
 import type { IgnoreRule } from '../../utils/ignoreMatch.js';
 import { durationToExpiry, type IgnorePatternKind } from '../../../../shared/parseIgnore.js';
 import { CANONICAL_ORDER } from '../../../../shared/ignoreLevels.js';

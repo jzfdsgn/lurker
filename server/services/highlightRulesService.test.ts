@@ -43,13 +43,41 @@ describe('create', () => {
   it('validates kind', () => {
     const res = highlightRulesService.create(user.id, { pattern: 'x', kind: 'fuzzy' });
     expect(res.ok).toBe(false);
-    expect(!res.ok && res.error).toMatch(/plain, glob, or regex/);
+    expect(!res.ok && res.error).toMatch(/substr, full, glob, or regex/);
   });
 
   it('rejects an invalid regex up front', () => {
     const res = highlightRulesService.create(user.id, { pattern: '[bad', kind: 'regex' });
     expect(res.ok).toBe(false);
     expect(!res.ok && res.error).toMatch(/invalid regex/);
+  });
+
+  it('accepts channels as an array or a CSV/space string', () => {
+    const arr = highlightRulesService.create(user.id, { pattern: 'a', channels: ['#Ops', '#dev'] });
+    expect(arr.ok && arr.rule!.channels).toEqual(['#ops', '#dev']);
+    const csv = highlightRulesService.create(user.id, { pattern: 'b', channels: '#ops, #dev' });
+    expect(csv.ok && csv.rule!.channels).toEqual(['#ops', '#dev']);
+  });
+
+  it('scopes to an owned network but rejects an unknown/foreign one', () => {
+    const ok = highlightRulesService.create(user.id, { pattern: 'c', networkId: net.id });
+    expect(ok.ok && ok.rule!.networkIds).toEqual([net.id]);
+    // nonexistent id
+    expect(highlightRulesService.create(user.id, { pattern: 'd', networkId: 999999 }).ok).toBe(
+      false,
+    );
+    // another user's network
+    const bob = createUser('hrs-bob');
+    const bobNet = createNetwork(bob.id, {
+      name: 'oftc',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'b',
+    }) as Network;
+    expect(highlightRulesService.create(user.id, { pattern: 'e', networkId: bobNet.id }).ok).toBe(
+      false,
+    );
   });
 });
 
@@ -60,13 +88,26 @@ describe('update', () => {
     expect(!res.ok && res.status).toBe(404);
   });
 
-  it('refuses to edit pattern/kind/case_sensitive on an auto-managed rule', () => {
+  it('refuses to edit any field (incl. enabled) on an auto-managed rule', () => {
     const auto = highlightRulesService.upsertAutoNickRule(user.id, net.id, 'alice')!;
     expect(highlightRulesService.update(auto.id, user.id, { pattern: 'new' }).ok).toBe(false);
     expect(highlightRulesService.update(auto.id, user.id, { kind: 'regex' }).ok).toBe(false);
     expect(highlightRulesService.update(auto.id, user.id, { case_sensitive: true }).ok).toBe(false);
-    // enabled IS allowed on auto rules.
-    expect(highlightRulesService.update(auto.id, user.id, { enabled: false }).ok).toBe(true);
+    // Auto rules are fully system-managed: enable/disable and re-scope are locked too.
+    expect(highlightRulesService.update(auto.id, user.id, { enabled: false }).ok).toBe(false);
+    expect(highlightRulesService.update(auto.id, user.id, { networkId: null }).ok).toBe(false);
+  });
+
+  it('re-scopes a user rule global↔network in one update', () => {
+    const created = highlightRulesService.create(user.id, { pattern: 'movable' });
+    const id = created.ok ? created.rule!.id : 0;
+    const toNet = highlightRulesService.update(id, user.id, { networkId: net.id });
+    expect(toNet.ok && toNet.rule!.networkIds).toEqual([net.id]);
+    const toGlobal = highlightRulesService.update(id, user.id, { networkId: null });
+    expect(toGlobal.ok && toGlobal.rule!.networkIds).toEqual([]);
+    // re-scope to an unknown network is rejected (not an FK 500)
+    const bad = highlightRulesService.update(id, user.id, { networkId: 999999 });
+    expect(bad.ok).toBe(false);
   });
 
   it('validates regex on update when kind changes to regex', () => {
@@ -92,12 +133,12 @@ describe('remove', () => {
 
 describe('getCompiled (caching)', () => {
   it('returns a compiled engine and caches across calls until invalidated', () => {
-    const before = highlightRulesService.getCompiled(user.id);
-    const cached = highlightRulesService.getCompiled(user.id);
+    const before = highlightRulesService.getCompiled(user.id, net.id);
+    const cached = highlightRulesService.getCompiled(user.id, net.id);
     expect(cached).toBe(before);
     // Create a new rule → cache invalidated.
     highlightRulesService.create(user.id, { pattern: 'fresh' });
-    const after = highlightRulesService.getCompiled(user.id);
+    const after = highlightRulesService.getCompiled(user.id, net.id);
     expect(after).not.toBe(before);
   });
 });

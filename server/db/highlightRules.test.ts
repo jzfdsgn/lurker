@@ -37,7 +37,7 @@ afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
 describe('CRUD basics', () => {
   it('createRule + getRule + updateRule + deleteRule round-trip', () => {
-    const r = mod.createRule(user.id, { pattern: 'review', kind: 'plain' });
+    const r = mod.createRule(user.id, { pattern: 'review', kind: 'full' });
     expect(r).toMatchObject({ pattern: 'review', enabled: true, case_sensitive: false });
     expect(mod.getRule(r!.id, user.id)!.pattern).toBe('review');
     const updated = mod.updateRule(r!.id, user.id, { enabled: false });
@@ -52,11 +52,72 @@ describe('CRUD basics', () => {
     expect(mod.getRule(r!.id, stranger.id)).toBeNull();
     expect(mod.updateRule(r!.id, stranger.id, { enabled: false })).toBeNull();
   });
+
+  it('updateRule re-scopes between global and networks, id-stable', () => {
+    const r = mod.createRule(user.id, { pattern: 'scoped' }); // global
+    const id = r!.id;
+    expect(mod.getRule(id, user.id)!.networkIds).toEqual([]);
+    mod.updateRule(id, user.id, { networkId: net1!.id }); // global → net1
+    expect(mod.getRule(id, user.id)!.networkIds).toEqual([net1!.id]);
+    mod.updateRule(id, user.id, { networkId: net2!.id }); // net1 → net2
+    expect(mod.getRule(id, user.id)!.networkIds).toEqual([net2!.id]);
+    mod.updateRule(id, user.id, { networkId: null }); // net2 → global
+    expect(mod.getRule(id, user.id)!.networkIds).toEqual([]);
+    expect(mod.getRule(id, user.id)!.pattern).toBe('scoped'); // same row throughout
+    mod.deleteRule(id, user.id);
+  });
+
+  it('round-trips a mask + channels rule (no keyword)', () => {
+    const r = mod.createRule(user.id, {
+      mask: 'bob!*@*',
+      channels: ['#ops', '#dev'],
+      kind: 'full',
+    });
+    const got = mod.getRule(r!.id, user.id)!;
+    expect(got.pattern).toBeNull();
+    expect(got.mask).toBe('bob!*@*');
+    expect(got.channels).toEqual(['#ops', '#dev']);
+  });
+});
+
+describe('listScopedRules — network scope', () => {
+  it('returns global rules plus rules attached to the network', () => {
+    const scopeUser = createUser('hr-scope');
+    const nA = createNetwork(scopeUser.id, {
+      name: 'a',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'n',
+    });
+    const nB = createNetwork(scopeUser.id, {
+      name: 'b',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'n',
+    });
+    const globalRule = mod.createRule(scopeUser.id, { pattern: 'global' });
+    const aRule = mod.createRule(scopeUser.id, { pattern: 'onlyA', networkId: nA!.id });
+
+    const scopedA = mod.listScopedRules(scopeUser.id, nA!.id).map((r) => r.pattern);
+    expect(scopedA).toContain('global');
+    expect(scopedA).toContain('onlyA');
+
+    const scopedB = mod.listScopedRules(scopeUser.id, nB!.id).map((r) => r.pattern);
+    expect(scopedB).toContain('global');
+    expect(scopedB).not.toContain('onlyA');
+
+    // networkIds is reported on the scoped/listed rules
+    expect(mod.getRule(globalRule!.id, scopeUser.id)!.networkIds).toEqual([]);
+    expect(mod.getRule(aRule!.id, scopeUser.id)!.networkIds).toEqual([nA!.id]);
+  });
 });
 
 describe('upsertAutoNickRule', () => {
-  it('creates an auto rule and attaches the network', () => {
-    const rule = mod.upsertAutoNickRule(user.id, net1!.id, 'alice');
+  it('creates an auto rule and attaches the network (changed: true)', () => {
+    const { rule, changed } = mod.upsertAutoNickRule(user.id, net1!.id, 'alice');
+    expect(changed).toBe(true);
     expect(rule!.auto_managed).toBe(true);
     expect(rule!.pattern).toBe('alice');
     const links = db
@@ -65,10 +126,16 @@ describe('upsertAutoNickRule', () => {
     expect(links.map((l) => l.network_id)).toEqual([net1!.id]);
   });
 
+  it('is idempotent — re-attaching the same nick reports changed: false', () => {
+    const again = mod.upsertAutoNickRule(user.id, net1!.id, 'alice');
+    expect(again.changed).toBe(false);
+    expect(again.rule!.pattern).toBe('alice');
+  });
+
   it('attaches additional networks that share the same nick', () => {
     // Now set net2's nick to also be 'alice' and call upsert; the existing
     // auto rule should pick up net2.
-    const rule = mod.upsertAutoNickRule(user.id, net2!.id, 'alice');
+    const { rule } = mod.upsertAutoNickRule(user.id, net2!.id, 'alice');
     const links = db
       .prepare(
         `SELECT network_id FROM highlight_rule_networks WHERE rule_id = ? ORDER BY network_id`,
@@ -82,7 +149,7 @@ describe('upsertAutoNickRule', () => {
     // old auto rule for 'alice' loses net1, gains nothing for 'alice', and
     // the new auto rule for 'newbie' should appear.
     mod.upsertAutoNickRule(user.id, net1!.id, 'newbie');
-    const aliceRule = mod.upsertAutoNickRule(user.id, net2!.id, 'alice'); // ensure stable
+    const { rule: aliceRule } = mod.upsertAutoNickRule(user.id, net2!.id, 'alice'); // ensure stable
     const aliceLinks = db
       .prepare(`SELECT network_id FROM highlight_rule_networks WHERE rule_id = ?`)
       .all(aliceRule!.id) as Array<{ network_id: number }>;
@@ -95,22 +162,49 @@ describe('upsertAutoNickRule', () => {
     expect(newbieLinks.map((l) => l.network_id)).toEqual([net1!.id]);
   });
 
-  it('skips auto-creation when a matching manual rule already exists', () => {
+  it('skips auto-creation when a matching manual rule already exists (incl. substr default)', () => {
+    // The manual default is substr — it must still suppress the auto rule.
     const manual = mod.createRule(user.id, {
       pattern: 'override',
-      kind: 'plain',
+      kind: 'substr',
       case_sensitive: false,
     });
     const out = mod.upsertAutoNickRule(user.id, net1!.id, 'override');
-    // upsert returned null because a manual rule covers it.
-    expect(out).toBeNull();
+    // No auto rule (rule null) because the manual substr rule covers it.
+    expect(out.rule).toBeNull();
+    expect(mod.listRules(user.id).some((r) => r.pattern === 'override' && r.auto_managed)).toBe(
+      false,
+    );
     // The manual rule was not converted to auto_managed.
     expect(mod.getRule(manual!.id, user.id)!.auto_managed).toBe(false);
   });
 
   it('null/empty nick returns null', () => {
-    expect(mod.upsertAutoNickRule(user.id, net1!.id, '')).toBeNull();
+    expect(mod.upsertAutoNickRule(user.id, net1!.id, '').rule).toBeNull();
     // The implementation guards !nick at runtime; cast for the type check
-    expect(mod.upsertAutoNickRule(user.id, net1!.id, null as unknown as string)).toBeNull();
+    expect(mod.upsertAutoNickRule(user.id, net1!.id, null as unknown as string).rule).toBeNull();
+  });
+
+  it('a manual glob rule equal to the nick suppresses auto-creation', () => {
+    const u = createUser('hr-glob');
+    const n = createNetwork(u.id, { name: 'g', host: 'h', port: 6697, tls: true, nick: 'glo' });
+    mod.createRule(u.id, { pattern: 'glo', kind: 'glob' });
+    const out = mod.upsertAutoNickRule(u.id, n!.id, 'glo');
+    expect(out.rule).toBeNull();
+    expect(mod.listRules(u.id).some((r) => r.pattern === 'glo' && r.auto_managed)).toBe(false);
+  });
+
+  it('re-enables an auto rule left disabled by a pre-overhaul toggle', () => {
+    const u = createUser('hr-reenable');
+    const n = createNetwork(u.id, { name: 'r', host: 'h', port: 6697, tls: true, nick: 'zed' });
+    const { rule } = mod.upsertAutoNickRule(u.id, n!.id, 'zed');
+    db.prepare('UPDATE highlight_rules SET enabled = 0 WHERE id = ?').run(rule!.id);
+    expect(mod.getRule(rule!.id, u.id)!.enabled).toBe(false);
+    // Re-running the (otherwise no-op) upsert forces it back on and reports change.
+    const again = mod.upsertAutoNickRule(u.id, n!.id, 'zed');
+    expect(again.changed).toBe(true);
+    expect(mod.getRule(rule!.id, u.id)!.enabled).toBe(true);
+    // ...and a subsequent run is a true no-op again.
+    expect(mod.upsertAutoNickRule(u.id, n!.id, 'zed').changed).toBe(false);
   });
 });
