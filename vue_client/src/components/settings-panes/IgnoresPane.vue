@@ -45,11 +45,10 @@
       <div class="field">
         <span class="field-label">Scope</span>
         <div class="row">
-          <div class="seg" role="radiogroup" aria-label="Scope">
+          <div class="seg" role="group" aria-label="Scope">
             <button
               type="button"
-              role="radio"
-              :aria-checked="scopeMode === 'global'"
+              :aria-pressed="scopeMode === 'global'"
               :class="{ active: scopeMode === 'global' }"
               @click="scopeMode = 'global'"
             >
@@ -57,8 +56,7 @@
             </button>
             <button
               type="button"
-              role="radio"
-              :aria-checked="scopeMode === 'network'"
+              :aria-pressed="scopeMode === 'network'"
               :class="{ active: scopeMode === 'network' }"
               :disabled="!networkOptions.length"
               @click="selectNetworkScope"

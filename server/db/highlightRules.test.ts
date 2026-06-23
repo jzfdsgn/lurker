@@ -184,4 +184,27 @@ describe('upsertAutoNickRule', () => {
     // The implementation guards !nick at runtime; cast for the type check
     expect(mod.upsertAutoNickRule(user.id, net1!.id, null as unknown as string).rule).toBeNull();
   });
+
+  it('a manual glob rule equal to the nick suppresses auto-creation', () => {
+    const u = createUser('hr-glob');
+    const n = createNetwork(u.id, { name: 'g', host: 'h', port: 6697, tls: true, nick: 'glo' });
+    mod.createRule(u.id, { pattern: 'glo', kind: 'glob' });
+    const out = mod.upsertAutoNickRule(u.id, n!.id, 'glo');
+    expect(out.rule).toBeNull();
+    expect(mod.listRules(u.id).some((r) => r.pattern === 'glo' && r.auto_managed)).toBe(false);
+  });
+
+  it('re-enables an auto rule left disabled by a pre-overhaul toggle', () => {
+    const u = createUser('hr-reenable');
+    const n = createNetwork(u.id, { name: 'r', host: 'h', port: 6697, tls: true, nick: 'zed' });
+    const { rule } = mod.upsertAutoNickRule(u.id, n!.id, 'zed');
+    db.prepare('UPDATE highlight_rules SET enabled = 0 WHERE id = ?').run(rule!.id);
+    expect(mod.getRule(rule!.id, u.id)!.enabled).toBe(false);
+    // Re-running the (otherwise no-op) upsert forces it back on and reports change.
+    const again = mod.upsertAutoNickRule(u.id, n!.id, 'zed');
+    expect(again.changed).toBe(true);
+    expect(mod.getRule(rule!.id, u.id)!.enabled).toBe(true);
+    // ...and a subsequent run is a true no-op again.
+    expect(mod.upsertAutoNickRule(u.id, n!.id, 'zed').changed).toBe(false);
+  });
 });

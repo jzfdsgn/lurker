@@ -2176,10 +2176,12 @@ function runUnhighlight(argLine: string, networkId: number | null, target: strin
       .catch((e: any) => localInfo(networkId, target, `/unhighlight: ${e?.message || 'failed'}`));
     return true;
   }
-  // Remove by keyword/mask text (case-insensitive, exact match of pattern or mask).
+  // Remove by keyword/mask text (case-insensitive, exact match of pattern OR
+  // mask — check both, since a rule can carry both and `??` would hide the mask).
   const lc = arg.toLowerCase();
   const matches = list.filter(
-    ({ entry }) => (entry.pattern ?? entry.mask ?? '').toLowerCase() === lc,
+    ({ entry }) =>
+      (entry.pattern ?? '').toLowerCase() === lc || (entry.mask ?? '').toLowerCase() === lc,
   );
   const removable = matches.filter(({ entry }) => !entry.auto_managed);
   if (!matches.length) {

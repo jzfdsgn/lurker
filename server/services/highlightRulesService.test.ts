@@ -51,6 +51,13 @@ describe('create', () => {
     expect(res.ok).toBe(false);
     expect(!res.ok && res.error).toMatch(/invalid regex/);
   });
+
+  it('accepts channels as an array or a CSV/space string', () => {
+    const arr = highlightRulesService.create(user.id, { pattern: 'a', channels: ['#Ops', '#dev'] });
+    expect(arr.ok && arr.rule!.channels).toEqual(['#ops', '#dev']);
+    const csv = highlightRulesService.create(user.id, { pattern: 'b', channels: '#ops, #dev' });
+    expect(csv.ok && csv.rule!.channels).toEqual(['#ops', '#dev']);
+  });
 });
 
 describe('update', () => {

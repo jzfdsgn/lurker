@@ -14,7 +14,7 @@ import {
 } from '../db/highlightRules.js';
 import type { CompiledRule } from './highlightEngine.js';
 import { compileRules } from './highlightEngine.js';
-import { normalizeChannelList } from '../../shared/channels.js';
+import { normalizeChannelList, parseChannelList } from '../../shared/channels.js';
 
 // Unified with ignore's pattern kinds; 'glob' is highlight-only and 'plain' is
 // the retired alias for 'full', both still accepted so old rules keep working.
@@ -44,7 +44,13 @@ function validateRegex(pattern: string | null): string | null {
 
 function normalizeChannels(raw: unknown): string[] | null {
   if (raw == null) return null;
-  const out = normalizeChannelList(Array.isArray(raw) ? raw : [raw]);
+  // The pane/command send an array, but a raw REST caller may send a CSV/space
+  // string (the DB column is CSV) — split that with the shared parser rather than
+  // treating the whole string as one channel.
+  const out =
+    typeof raw === 'string'
+      ? parseChannelList(raw)
+      : normalizeChannelList(Array.isArray(raw) ? raw : [raw]);
   return out.length ? out : null;
 }
 

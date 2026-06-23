@@ -237,14 +237,15 @@ export function deleteRule(id: number, userId: number): void {
 // cross-tab refetch on real change, not on every no-op reconnect).
 //
 // A manual rule the user added for their nick suppresses the auto rule entirely.
-// The manual default is 'substr' now, so a substr/full/plain (case-insensitive,
-// no-mask) rule with pattern = nick all count as "covers the nick" — otherwise a
-// manual /highlight <ownnick> wouldn't suppress auto-creation and you'd get a
-// duplicate auto rule on the next reconnect.
+// Any case-insensitive, no-mask rule whose pattern is exactly the nick covers it,
+// regardless of kind: substr/full/plain, and glob too (a glob with no wildcards —
+// pattern literally equal to the nick — matches the nick the same as a literal).
+// Otherwise a manual /highlight <ownnick> wouldn't suppress auto-creation and
+// you'd get a duplicate auto rule on the next reconnect.
 const manualCoveringStmt = db.prepare(`
   SELECT id FROM highlight_rules
   WHERE user_id = ? AND pattern = ? AND mask IS NULL AND auto_managed = 0
-    AND kind IN ('full', 'substr', 'plain') AND case_sensitive = 0
+    AND kind IN ('full', 'substr', 'plain', 'glob') AND case_sensitive = 0
   LIMIT 1
 `);
 const autoForNickStmt = db.prepare(`
@@ -275,6 +276,12 @@ const sweepOrphanedAutoStmt = db.prepare(`
   WHERE user_id = ? AND auto_managed = 1
     AND id NOT IN (SELECT rule_id FROM highlight_rule_networks)
 `);
+// Auto rules are system-managed and (now) can't be toggled by the user, so they
+// must always be enabled. Re-enable one left disabled by a pre-overhaul toggle;
+// .changes is 0 when it was already enabled (so it doesn't count as a change).
+const enableAutoRuleStmt = db.prepare(`
+  UPDATE highlight_rules SET enabled = 1 WHERE id = ? AND auto_managed = 1 AND enabled = 0
+`);
 
 const upsertAutoNickRuleTx = db.transaction(
   (
@@ -296,9 +303,11 @@ const upsertAutoNickRuleTx = db.transaction(
     }
 
     // No manual override: this network should be attached to the auto rule for
-    // `nick`. If it already is, there's nothing to do.
+    // `nick`. If it already is, there's nothing to do — except re-enable a rule
+    // that was left disabled by a pre-overhaul toggle (the user can't anymore).
     if (currentAuto && currentAuto.pattern === nick) {
-      return { ruleId: currentAuto.id, changed: false };
+      const reEnabled = enableAutoRuleStmt.run(currentAuto.id).changes > 0;
+      return { ruleId: currentAuto.id, changed: reEnabled };
     }
     // Re-map: drop a stale auto attachment (old nick), then find-or-create the
     // auto rule for the current nick and attach this network.
@@ -307,6 +316,7 @@ const upsertAutoNickRuleTx = db.transaction(
     const ruleId: number | bigint = auto
       ? auto.id
       : insertAutoRuleStmt.run(userId, nick).lastInsertRowid;
+    if (auto) enableAutoRuleStmt.run(auto.id); // an existing auto rule may have been disabled
     attachNetworkStmt.run(ruleId, networkId);
     sweepOrphanedAutoStmt.run(userId);
     return { ruleId, changed: true };
