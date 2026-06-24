@@ -631,8 +631,10 @@ const selfModes = computed<string[]>(() => {
 // The author's channel modes for the prefix glyph — channel buffers only (DMs
 // and the system buffer carry no modes). Returns undefined (no glyph) when the
 // speaker isn't a current member, e.g. backlog from someone who has since left.
+// Called per message row at render, so short-circuit when the glyph is off (the
+// default) to skip the per-row member-list scan entirely.
 function authorModes(m: ChatMessage | undefined): string[] | undefined {
-  if (!m?.nick) return undefined;
+  if (!showModePrefix.value || !m?.nick) return undefined;
   const b = buffer.value;
   if (!b || !b.target?.startsWith('#')) return undefined;
   return nickMember(m.nick)?.modes;
