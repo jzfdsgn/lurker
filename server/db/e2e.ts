@@ -75,7 +75,7 @@ export class HandleMismatchError extends E2eError {
   readonly expected: string;
   readonly got: string;
   constructor(expected: string, got: string) {
-    super('keyring', `handle mismatch: pinned ${expected}, got ${got}`);
+    super('keyring', `fingerprint changed for this handle+channel: pinned ${expected}, got ${got}`);
     this.name = 'HandleMismatchError';
     this.expected = expected;
     this.got = got;
@@ -297,6 +297,12 @@ const getIncomingFpStmt = db.prepare(
   `SELECT fingerprint FROM e2e_incoming_sessions
    WHERE user_id = ? AND network_id = ? AND handle = ? AND channel = ?`,
 );
+// Rotate just the session key for an established peer, preserving their trust
+// status and original install time.
+const refreshIncomingKeyStmt = db.prepare(
+  `UPDATE e2e_incoming_sessions SET sk = ?
+   WHERE user_id = ? AND network_id = ? AND handle = ? AND channel = ?`,
+);
 const getIncomingStmt = db.prepare(
   `SELECT * FROM e2e_incoming_sessions
    WHERE user_id = ? AND network_id = ? AND handle = ? AND channel = ?`,
@@ -358,9 +364,13 @@ export function setIncomingSession(userId: number, networkId: number, s: Incomin
 }
 
 /**
- * Install under strict TOFU: if a row already exists for `(handle, channel)`
- * with a different fingerprint, throw `HandleMismatchError` and leave the
- * existing row untouched. Same fingerprint (idempotent refresh) upserts.
+ * Install under strict TOFU. If a row already exists for `(handle, channel)`:
+ * a DIFFERENT fingerprint throws `HandleMismatchError` and leaves the row
+ * untouched; the SAME fingerprint (an established peer re-handshaking) rotates
+ * only the session key, preserving the existing trust status and original
+ * install time — a re-handshake must never silently downgrade trust or reset
+ * `created_at` (trust changes only through `updateIncomingStatus`). A brand-new
+ * `(handle, channel)` is inserted with the provided status.
  */
 export function installIncomingSessionStrict(
   userId: number,
@@ -374,6 +384,8 @@ export function installIncomingSessionStrict(
     const pinned = Buffer.from(existing.fingerprint).toString('hex');
     const incoming = Buffer.from(s.fingerprint).toString('hex');
     if (pinned !== incoming) throw new HandleMismatchError(pinned, incoming);
+    refreshIncomingKeyStmt.run(sealKey(s.sk), userId, networkId, s.handle, s.channel);
+    return;
   }
   upsertIncomingStmt.run(incomingBind(userId, networkId, s));
 }
@@ -574,7 +586,8 @@ const listAutotrustStmt = db.prepare(
   `SELECT scope, handle_pattern FROM e2e_autotrust WHERE user_id = ? AND network_id = ?`,
 );
 const removeAutotrustStmt = db.prepare(
-  `DELETE FROM e2e_autotrust WHERE user_id = ? AND network_id = ? AND handle_pattern = ?`,
+  `DELETE FROM e2e_autotrust
+   WHERE user_id = ? AND network_id = ? AND scope = ? AND handle_pattern = ?`,
 );
 const matchAutotrustStmt = db.prepare(
   `SELECT handle_pattern FROM e2e_autotrust
@@ -602,8 +615,16 @@ export function listAutotrust(userId: number, networkId: number): AutotrustRule[
   ).map((r) => ({ scope: r.scope, handlePattern: r.handle_pattern }));
 }
 
-export function removeAutotrust(userId: number, networkId: number, handlePattern: string): void {
-  removeAutotrustStmt.run(userId, networkId, handlePattern);
+/** Remove one autotrust rule, identified by its full (scope, pattern) — the
+ *  same pattern can exist in more than one scope (e.g. global + a channel), so
+ *  scope is required to target a single rule. */
+export function removeAutotrust(
+  userId: number,
+  networkId: number,
+  scope: string,
+  handlePattern: string,
+): void {
+  removeAutotrustStmt.run(userId, networkId, scope, handlePattern);
 }
 
 /**
@@ -717,7 +738,7 @@ const E2E_SEALED_COLUMNS: ReadonlyArray<readonly [string, string]> = [
  * (the documented self-host→hosted migration, or a key added post-hoc). The
  * lazy on-write seal only fires at creation, so without this a privkey/sk
  * written keyless would stay cleartext in SQLite — and Litestream ships that to
- * R2 ([[project_cell_secret_key]] is the whole reason these are sealed). The
+ * R2 (the whole reason these columns are sealed under LURKER_SECRET_KEY). The
  * analog of networks.ts::backfillEncryptNetworkSecrets; run once at boot. No-op
  * without a key (every self-host), and the isEncrypted() guard skips already-
  * sealed rows so a fully-sealed table does zero writes.

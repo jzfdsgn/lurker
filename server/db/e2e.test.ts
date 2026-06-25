@@ -182,6 +182,30 @@ describe('incoming sessions + strict TOFU', () => {
     expect(e2e.deleteIncomingSessionsForHandle(userId, netA, '~multi@h')).toBe(2);
     expect(e2e.getIncomingSession(userId, netA, '~multi@h', '#a')).toBeNull();
   });
+
+  it('a same-fingerprint re-handshake rotates the key but preserves trust + created_at', () => {
+    e2e.setIncomingSession(userId, netA, {
+      handle: '~keep@h',
+      channel: '#keep',
+      fingerprint: fp(80),
+      sk: key(80),
+      status: 'trusted',
+      createdAt: 5,
+    });
+    // Same fingerprint, NEW key, caller passes the default 'pending' + a new ts.
+    e2e.installIncomingSessionStrict(userId, netA, {
+      handle: '~keep@h',
+      channel: '#keep',
+      fingerprint: fp(80),
+      sk: key(81),
+      status: 'pending',
+      createdAt: 999,
+    });
+    const got = e2e.getIncomingSession(userId, netA, '~keep@h', '#keep')!;
+    expect(got.sk).toEqual(key(81)); // key rotated
+    expect(got.status).toBe('trusted'); // trust NOT downgraded
+    expect(got.createdAt).toBe(5); // original install time preserved
+  });
 });
 
 describe('outgoing sessions', () => {
@@ -240,8 +264,14 @@ describe('autotrust', () => {
     expect(e2e.autotrustMatches(userId, netA, '~nope@evil.com', '#secret')).toBe(false);
   });
 
-  it('removes by pattern', () => {
-    e2e.removeAutotrust(userId, netA, '*@trusted.org');
+  it('removes one rule by (scope, pattern), leaving a same-pattern rule in another scope', () => {
+    e2e.addAutotrust(userId, netA, 'global', '~dup@*', 1);
+    e2e.addAutotrust(userId, netA, '#room', '~dup@*', 1);
+    e2e.removeAutotrust(userId, netA, 'global', '~dup@*');
+    // The channel-scoped rule survives; the global one is gone.
+    expect(e2e.autotrustMatches(userId, netA, '~dup@x', '#room')).toBe(true);
+    expect(e2e.autotrustMatches(userId, netA, '~dup@x', '#elsewhere')).toBe(false);
+    e2e.removeAutotrust(userId, netA, 'global', '*@trusted.org');
     expect(e2e.autotrustMatches(userId, netA, '~bob@trusted.org', '#anywhere')).toBe(false);
   });
 });
@@ -314,7 +344,7 @@ describe('review hardening', () => {
     // handle mismatch, not a silent second row.
     expect(() =>
       e2e.installIncomingSessionStrict(userId, netA, sess('~cf@h', '#case', 61, 'pending')),
-    ).toThrow(/handle mismatch/);
+    ).toThrow(/fingerprint changed/);
     // Case-flipped lookup finds the one row.
     expect(e2e.getIncomingSession(userId, netA, '~CF@h', '#CASE')!.fingerprint).toEqual(fp(60));
   });
