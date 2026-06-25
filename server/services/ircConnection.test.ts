@@ -26,7 +26,9 @@ import {
   outgoingAddr,
 } from './ircConnection.js';
 import { createIdentdServer, unregisterIdent } from './identd.js';
+import { getRecent } from './systemLog.js';
 import { createUser } from '../db/users.js';
+import { createNetwork } from '../db/networks.js';
 import { setUserSetting, deleteUserSetting } from '../db/settings.js';
 
 // The bare IrcConnections built below carry user_id: 1, and their join/part
@@ -1032,5 +1034,91 @@ describe('outgoingAddr', () => {
   it('treats a whitespace-only value as unset', () => {
     process.env.LURKER_OUTGOING_ADDR = '   ';
     expect(outgoingAddr()).toBeUndefined();
+  });
+});
+
+describe('capability negotiation (#310)', () => {
+  function makeConn(): IrcConnection {
+    return new IrcConnection({
+      network: {
+        id: 1,
+        user_id: 1,
+        name: 'n',
+        host: 'irc.example.test',
+        port: 6697,
+        tls: 1,
+        trusted_certificates: 1,
+        nick: 'nick',
+        username: null,
+        realname: null,
+        server_password: null,
+        autoconnect: 1,
+        sasl_account: null,
+        sasl_password: null,
+        connect_commands: null,
+        position: 0,
+        created_at: new Date().toISOString(),
+      },
+      onEvent: () => {},
+    });
+  }
+
+  // We request extended-monitor so the server relays away-notify for MONITOR'd
+  // peers even with no shared channel. irc-framework only actually sends a cap
+  // it's asked for via requestCap() if the server advertises it, so the request
+  // is the whole of our change — assert it lands on request_extra_caps.
+  it('requests extended-monitor (and message-tags)', () => {
+    const conn = makeConn();
+    const caps = (conn as unknown as { client: { request_extra_caps: string[] } }).client
+      .request_extra_caps;
+    expect(caps).toContain('extended-monitor');
+    expect(caps).toContain('message-tags');
+  });
+});
+
+describe('away/back presence logging (#310)', () => {
+  // markPeerEvent writes peer_presence_state, which FKs to networks — so unlike
+  // the other suites (which only build bare in-memory connections) this needs a
+  // real network row. Build the connection from the inserted row so the ids line up.
+  function makeConn(name: string): IrcConnection {
+    const network = createNetwork(1, {
+      name,
+      host: 'irc.example.test',
+      port: 6697,
+      tls: 1,
+      trusted_certificates: 1,
+      nick: 'nick',
+      username: null,
+      realname: null,
+      server_password: null,
+      autoconnect: 0,
+      sasl_account: null,
+      sasl_password: null,
+      connect_commands: null,
+    })!;
+    return new IrcConnection({ network, onEvent: () => {} });
+  }
+
+  // extended-monitor delivers away/back for tracked peers via away-notify, which
+  // markPeerEvent mirrors to the system log alongside the existing MONITOR
+  // online/offline 'Presence:' lines.
+  it('logs Presence: away (with reason) and back for a tracked peer', () => {
+    const conn = makeConn('awaylog');
+    conn.trackFriend('awaypal', 7);
+    conn.markPeerEvent('awaypal', 'online'); // online itself isn't logged here
+    conn.markPeerEvent('awaypal', 'away', 'brb');
+    conn.markPeerEvent('awaypal', 'back');
+    const texts = getRecent(1).map((l) => l.text);
+    expect(texts).toContain('Presence: awaypal away (brb)');
+    expect(texts).toContain('Presence: awaypal back');
+  });
+
+  // The eligiblePeer gate keeps a busy channel's /away traffic out of the log
+  // (and short-circuits before any peer_presence_state write).
+  it('does not log away for an untracked nick', () => {
+    const conn = makeConn('awaylog2');
+    conn.markPeerEvent('stranger', 'away', 'nope');
+    const texts = getRecent(1).map((l) => l.text);
+    expect(texts).not.toContain('Presence: stranger away (nope)');
   });
 });

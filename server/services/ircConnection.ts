@@ -240,6 +240,15 @@ export class IrcConnection {
     // tell our traffic apart from generic library bots.
     this.client = new IRC.Client({ version: IRC_VERSION });
     this.client.requestCap('message-tags');
+    // extended-monitor (IRCv3): asks the server to relay away-notify (and the
+    // other notify caps irc-framework already negotiates) for nicks on our
+    // MONITOR list even when we share no channel with them. That gives our DM
+    // peers and friends away/back tracking, not just online/offline — the
+    // 'away'/'back' handlers below already feed markPeerEvent regardless of how
+    // the AWAY arrived. requestCap is a no-op on networks that don't advertise
+    // the cap — irc-framework only emits a CAP REQ for caps the server lists in
+    // CAP LS. (#310)
+    this.client.requestCap('extended-monitor');
     this.state = 'disconnected';
     this.channels = new Map();
     this.userModes = new Set();
@@ -1721,6 +1730,16 @@ export class IrcConnection {
     const stateAt = new Date().toISOString();
     const message = state === 'away' ? awayMessage || null : null;
     const next = writePeerState(this.network.id, canonical, state, stateAt, message);
+    // away/back arrive via away-notify (+extended-monitor), not the MONITOR
+    // numerics, so the 'users online/offline' handlers never log them. Mirror
+    // their 'Presence:' line here — already gated to tracked peers (eligiblePeer)
+    // and to real transitions (the allowed check above), so a busy channel's
+    // /away traffic stays out of the system log. (#310)
+    if (state === 'away') {
+      this.logNet(`Presence: ${canonical} away${message ? ` (${message})` : ''}`);
+    } else if (state === 'back') {
+      this.logNet(`Presence: ${canonical} back`);
+    }
     // A genuine offline→online transition (not first-sight null→online, which
     // covers a freshly-added watch / the MONITOR seed) is the only one that
     // drives the "friend came online" notification. Flag it so wsHub can fire a
