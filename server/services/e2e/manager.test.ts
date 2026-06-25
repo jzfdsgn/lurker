@@ -59,7 +59,7 @@ function fullHandshake(channel: string): void {
   mgr.setChannelConfig(alice, aliceNet, channel, true, 'auto-accept');
   mgr.setChannelConfig(bob, bobNet, channel, true, 'auto-accept');
   // Bob → KEYREQ; Alice → KEYRSP + reciprocal KEYREQ.
-  const req = mgr.buildKeyReq(bob, bobNet, channel);
+  const req = mgr.buildKeyReq(bob, bobNet, channel)!;
   const aOut = mgr.handleHandshakeBody(alice, aliceNet, BOB_H, 'bob', req)!;
   expect(aOut.replies).toHaveLength(2);
   mgr.handleHandshakeBody(bob, bobNet, ALICE_H, 'alice', aOut.replies[0]); // KEYRSP → Bob installs Alice's key
@@ -132,7 +132,7 @@ describe('E2eManager trust modes', () => {
     mgr.setChannelConfig(alice, aliceNet, '#nrm', true, 'normal');
     mgr.setChannelConfig(bob, bobNet, '#nrm', true, 'auto-accept');
 
-    const req = mgr.buildKeyReq(bob, bobNet, '#nrm');
+    const req = mgr.buildKeyReq(bob, bobNet, '#nrm')!;
     const out = mgr.handleHandshakeBody(alice, aliceNet, BOB_H, 'bob', req)!;
     expect(out.replies).toHaveLength(0); // no auto-response in normal mode
     expect(out.notice?.text).toMatch(/wants to start an encrypted session/);
@@ -153,10 +153,19 @@ describe('E2eManager trust modes', () => {
 
   it('quiet mode silently ignores an unknown peer', () => {
     mgr.setChannelConfig(alice, aliceNet, '#qt', true, 'quiet');
-    const req = mgr.buildKeyReq(bob, bobNet, '#qt');
+    const req = mgr.buildKeyReq(bob, bobNet, '#qt')!;
     const out = mgr.handleHandshakeBody(alice, aliceNet, BOB_H, 'bob', req)!;
     expect(out.replies).toHaveLength(0);
     expect(out.notice).toBeUndefined();
+  });
+
+  it('accept folds case — different handle/channel casing still finds the cached KEYREQ', () => {
+    mgr.setChannelConfig(alice, aliceNet, '#NormCase', true, 'normal');
+    const req = mgr.buildKeyReq(bob, bobNet, '#NormCase')!;
+    mgr.handleHandshakeBody(alice, aliceNet, '~Bob@B.Host', 'Bob', req); // cached under one casing
+    // Accept with a different casing of both handle and channel.
+    const accepted = mgr.acceptPending(alice, aliceNet, '~bob@b.host', '#normcase');
+    expect(accepted.replies.length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -173,7 +182,7 @@ describe('E2eManager TOFU + replay + window', () => {
       nick: 'm',
     })!.id;
     mgr.setChannelConfig(mallory, malloryNet, '#tofu', true, 'auto-accept');
-    const impostorReq = mgr.buildKeyReq(mallory, malloryNet, '#tofu');
+    const impostorReq = mgr.buildKeyReq(mallory, malloryNet, '#tofu')!;
 
     const out = mgr.handleHandshakeBody(alice, aliceNet, BOB_H, 'bob', impostorReq)!;
     expect(out.replies).toHaveLength(0); // refused
@@ -202,18 +211,18 @@ describe('E2eManager TOFU + replay + window', () => {
 
 describe('E2eManager identity + verify', () => {
   it('returns a stable per-account identity with a 6-word SAS', () => {
-    const a1 = mgr.getIdentity(alice);
-    const a2 = new mod.E2eManager({ now: () => clock }).getIdentity(alice); // reload from DB
+    const a1 = mgr.getIdentity(alice)!;
+    const a2 = new mod.E2eManager({ now: () => clock }).getIdentity(alice)!; // reload from DB
     expect(a2.fingerprintHex).toBe(a1.fingerprintHex);
     expect(a1.sas.split(' ')).toHaveLength(6);
     // Different account → different identity.
-    expect(mgr.getIdentity(bob).fingerprintHex).not.toBe(a1.fingerprintHex);
+    expect(mgr.getIdentity(bob)!.fingerprintHex).not.toBe(a1.fingerprintHex);
   });
 
   it('verifyInfo returns the peer fingerprint after a handshake', () => {
     fullHandshake('#vf');
     const info = mgr.verifyInfo(alice, aliceNet, BOB_H)!;
-    expect(info.fingerprintHex).toBe(mgr.getIdentity(bob).fingerprintHex);
+    expect(info.fingerprintHex).toBe(mgr.getIdentity(bob)!.fingerprintHex);
     expect(info.status).toBe('trusted');
   });
 
@@ -265,7 +274,7 @@ describe('E2eManager review hardening', () => {
   it('warns rather than silently auto-migrating when a known key reappears under a new handle (#3)', () => {
     fullHandshake('#hc'); // pins Bob's fp under BOB_H for Alice
     const NEW_BOB = '~bob@newhost';
-    const req = mgr.buildKeyReq(bob, bobNet, '#hc'); // Bob's identity, new handshake
+    const req = mgr.buildKeyReq(bob, bobNet, '#hc')!; // Bob's identity, new handshake
     const out = mgr.handleHandshakeBody(alice, aliceNet, NEW_BOB, 'bob', req)!;
     expect(out.replies).toHaveLength(0);
     expect(out.notice?.text).toMatch(/new handle/);
@@ -281,7 +290,7 @@ describe('E2eManager review hardening', () => {
       aliceNet,
       BOB_H,
       'bob',
-      mgr.buildKeyReq(bob, bobNet, '#stale', ALICE_H),
+      mgr.buildKeyReq(bob, bobNet, '#stale', ALICE_H)!,
     )!;
     // Bob answers Alice's reciprocal with his KEYRSP — capture but DON'T deliver.
     const bobRsp = mgr.handleHandshakeBody(bob, bobNet, ALICE_H, 'alice', aOut.replies[1])!

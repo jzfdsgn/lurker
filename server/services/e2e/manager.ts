@@ -142,8 +142,11 @@ export class E2eManager {
     return Math.floor(this.now() / 1000);
   }
 
+  // IRC identifiers are case-insensitive (the DB layer is COLLATE NOCASE), so
+  // fold the handle here too — otherwise a case-varied handle gets its own
+  // rate-limit bucket and the throttle is bypassed for the same peer.
   private rlKey(userId: number, networkId: number, handle: string): string {
-    return `${userId}:${networkId}:${handle}`;
+    return `${userId}:${networkId}:${handle.toLowerCase()}`;
   }
 
   // ─── identity ──────────────────────────────────────────────────────────────
@@ -179,37 +182,63 @@ export class E2eManager {
     return id;
   }
 
-  /** Public identity info for `/e2e fingerprint` / the lock UI. */
-  getIdentity(userId: number): IdentityInfo {
-    const id = this.loadIdentity(userId);
-    const fp = fingerprint(id.publicKey);
-    return {
-      publicKey: id.publicKey,
-      fingerprint: fp,
-      fingerprintHex: fingerprintHex(fp),
-      sas: fingerprintWords(fp),
-    };
+  /** Public identity info for `/e2e fingerprint` / the lock UI. `null` if the
+   *  identity can't be loaded (e.g. an unreadable sealed key after a key
+   *  rotation) — never throws (singleton safety). */
+  getIdentity(userId: number): IdentityInfo | null {
+    try {
+      const id = this.loadIdentity(userId);
+      const fp = fingerprint(id.publicKey);
+      return {
+        publicKey: id.publicKey,
+        fingerprint: fp,
+        fingerprintHex: fingerprintHex(fp),
+        sas: fingerprintWords(fp),
+      };
+    } catch (err) {
+      console.warn(`e2e getIdentity: ${(err as Error).message}`);
+      return null;
+    }
   }
 
   // ─── channel config ──────────────────────────────────────────────────────────
 
+  /** Enable/disable E2E for a channel. Returns false (rather than throwing) if
+   *  the write fails — singleton safety. */
   setChannelConfig(
     userId: number,
     networkId: number,
     channel: string,
     enabled: boolean,
     mode: keyring.ChannelMode,
-  ): void {
-    keyring.setChannelConfig(userId, networkId, { channel, enabled, mode });
+  ): boolean {
+    try {
+      keyring.setChannelConfig(userId, networkId, { channel, enabled, mode });
+      return true;
+    } catch (err) {
+      console.warn(`e2e setChannelConfig ${channel}: ${(err as Error).message}`);
+      return false;
+    }
   }
 
   // ─── outbound handshake ──────────────────────────────────────────────────────
 
   /** Build a KEYREQ to initiate (or extend) an encrypted session on `channel`,
-   *  returning the CTCP body to NOTICE to the peer. Stores the pending ephemeral
-   *  secret so the matching KEYRSP can be unwrapped. */
-  buildKeyReq(userId: number, networkId: number, channel: string, peerHandle?: string): string {
-    return encodeKeyReq(this.buildKeyReqStruct(userId, networkId, channel, peerHandle ?? null));
+   *  returning the CTCP body to NOTICE to the peer (or `null` if the identity /
+   *  crypto failed — never throws). Stores the pending ephemeral secret so the
+   *  matching KEYRSP can be unwrapped. */
+  buildKeyReq(
+    userId: number,
+    networkId: number,
+    channel: string,
+    peerHandle?: string,
+  ): string | null {
+    try {
+      return encodeKeyReq(this.buildKeyReqStruct(userId, networkId, channel, peerHandle ?? null));
+    } catch (err) {
+      console.warn(`e2e buildKeyReq ${channel}: ${(err as Error).message}`);
+      return null;
+    }
   }
 
   private buildKeyReqStruct(
@@ -869,8 +898,10 @@ export class E2eManager {
     }
   }
 
+  // Fold case so `/e2e accept` finds the cached KEYREQ even if the handle/
+  // channel casing differs between the inbound message and the accept command.
   private inboundKey(userId: number, networkId: number, handle: string, channel: string): string {
-    return `${userId}:${networkId}:${handle}:${channel}`;
+    return `${userId}:${networkId}:${handle.toLowerCase()}:${channel.toLowerCase()}`;
   }
 
   private tofuWarning(handle: string, change: ClassifyResult): UserNotice {
