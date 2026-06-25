@@ -46,6 +46,16 @@ function toI64(ts: number | bigint): bigint {
   return ts;
 }
 
+/** Validate a single-byte (u8) field so it can't be silently truncated. The
+ *  1..total relationship is the encoder's job (matching repartee's split); here
+ *  we only guarantee the value fits in the byte the AAD encodes. */
+function u8(n: number, field: string): number {
+  if (!Number.isInteger(n) || n < 0 || n > 0xff) {
+    throw wireError(`${field} must be 0..255, got ${n}`);
+  }
+  return n;
+}
+
 /**
  * Build the AAD for a single chunk. `msgid` must be exactly 8 bytes; `ts` is
  * unix seconds (encoded as a big-endian i64); `part`/`total` are 1-indexed.
@@ -75,8 +85,8 @@ export function buildAad(
     be16(8),
     tsBuf,
     be16(1),
-    Buffer.from([part & 0xff]),
+    Buffer.from([u8(part, 'part')]),
     be16(1),
-    Buffer.from([total & 0xff]),
+    Buffer.from([u8(total, 'total')]),
   ]);
 }

@@ -128,9 +128,21 @@ function b64Fixed(s: string, n: number, field: string): Uint8Array {
   return raw;
 }
 
+/** Fail fast if an encode field is the wrong size — a public wire codec should
+ *  never silently serialize a non-interoperable handshake line. */
+function assertLen(bytes: Uint8Array, n: number, field: string): void {
+  if (bytes.length !== n) {
+    throw handshakeError(`${field}: expected ${n} bytes, got ${bytes.length}`);
+  }
+}
+
 // ─── encode ──────────────────────────────────────────────────────────────────
 
 export function encodeKeyReq(req: KeyReq): string {
+  assertLen(req.pubkey, 32, 'p');
+  assertLen(req.ephX25519, 32, 'e');
+  assertLen(req.nonce, 16, 'n');
+  assertLen(req.sig, 64, 's');
   return (
     `${CTCP_TAG} KEYREQ v=${PROTO_VERSION} c=${req.channel} ` +
     `p=${b64(req.pubkey)} e=${b64(req.ephX25519)} n=${b64(req.nonce)} s=${b64(req.sig)}`
@@ -138,6 +150,11 @@ export function encodeKeyReq(req: KeyReq): string {
 }
 
 export function encodeKeyRsp(rsp: KeyRsp): string {
+  assertLen(rsp.pubkey, 32, 'p');
+  assertLen(rsp.ephemeralPub, 32, 'e');
+  assertLen(rsp.wrapNonce, NONCE_LEN, 'wn');
+  assertLen(rsp.nonce, 16, 'n');
+  assertLen(rsp.sig, 64, 's');
   return (
     `${CTCP_TAG} KEYRSP v=${PROTO_VERSION} c=${rsp.channel} ` +
     `p=${b64(rsp.pubkey)} e=${b64(rsp.ephemeralPub)} wn=${b64(rsp.wrapNonce)} ` +
@@ -146,6 +163,11 @@ export function encodeKeyRsp(rsp: KeyRsp): string {
 }
 
 export function encodeKeyRekey(rk: KeyRekey): string {
+  assertLen(rk.pubkey, 32, 'p');
+  assertLen(rk.ephPub, 32, 'e');
+  assertLen(rk.wrapNonce, NONCE_LEN, 'wn');
+  assertLen(rk.nonce, 16, 'n');
+  assertLen(rk.sig, 64, 's');
   return (
     `${CTCP_TAG} REKEY v=${PROTO_VERSION} c=${rk.channel} ` +
     `p=${b64(rk.pubkey)} e=${b64(rk.ephPub)} wn=${b64(rk.wrapNonce)} ` +
@@ -226,7 +248,14 @@ export function parseHandshake(body: string): HandshakeMsg | null {
   }
 }
 
-/** Parse `k=v` fields, rejecting any duplicate key. */
+/**
+ * Parse `k=v` fields, rejecting any duplicate key. The duplicate-key error is
+ * intentionally `wireError` (kind `'wire'`), not `handshakeError`, to mirror
+ * repartee's `parse_kv`, which returns `E2eError::Wire` here — a structural
+ * key/value parse failure, conceptually shared with the chunk parser. Keeping
+ * the kind aligned with the reference is deliberate; do not "fix" it to
+ * `'handshake'`.
+ */
 function parseKv(fields: string[]): Map<string, string> {
   const out = new Map<string, string>();
   for (const f of fields) {

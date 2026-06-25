@@ -59,6 +59,11 @@ describe('buildAad', () => {
     expect(() => buildAad('#chan', new Uint8Array(5), 100, 1, 3)).toThrow(/msgid must be/);
   });
 
+  it('rejects an out-of-range part/total instead of silently truncating', () => {
+    expect(() => buildAad('#chan', msgid(1), 100, 300, 3)).toThrow(/part must be 0\.\.255/);
+    expect(() => buildAad('#chan', msgid(1), 100, 1, 300)).toThrow(/total must be 0\.\.255/);
+  });
+
   // Rust clamps the u16 length prefix to 0xFFFF and appends the full channel;
   // a >65535-byte channel must not throw a RangeError from writeUInt16BE.
   it('clamps an over-long channel length prefix instead of throwing', () => {

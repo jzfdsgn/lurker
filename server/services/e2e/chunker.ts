@@ -30,8 +30,10 @@ export function splitPlaintext(plaintext: string): Uint8Array[] {
 
   while (cursor < bytes.length) {
     let end = Math.min(cursor + MAX_PLAINTEXT_PER_CHUNK, bytes.length);
-    // Walk back to a UTF-8 boundary if we landed mid-sequence.
-    while (end > cursor && isContinuation(bytes[end])) {
+    // Walk back to a UTF-8 boundary if we landed mid-sequence. `end < length`
+    // is explicit (the end of the buffer is always a boundary) rather than
+    // relying on `bytes[length]` coercing to `undefined`.
+    while (end > cursor && end < bytes.length && isContinuation(bytes[end])) {
       end -= 1;
     }
     if (end === cursor) {

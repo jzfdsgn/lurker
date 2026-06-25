@@ -107,6 +107,11 @@ describe('handshake codec', () => {
     expect(() => parseHandshake(line)).toThrow(/invalid base64/);
   });
 
+  it('fails fast on a wrong-length field at encode time', () => {
+    expect(() => encodeKeyReq({ ...sampleReq(), pubkey: fill(16, 1) })).toThrow(/p: expected 32/);
+    expect(() => encodeKeyRsp({ ...sampleRsp(), sig: fill(10, 1) })).toThrow(/s: expected 64/);
+  });
+
   it('binds the ephemeral X25519 into the KEYREQ signed payload', () => {
     const p1 = sigPayloadKeyReq('#x', fill(32, 1), fill(32, 9), fill(16, 2));
     const p2 = sigPayloadKeyReq('#x', fill(32, 1), fill(32, 8), fill(16, 2));
