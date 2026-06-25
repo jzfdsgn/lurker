@@ -1034,3 +1034,42 @@ describe('outgoingAddr', () => {
     expect(outgoingAddr()).toBeUndefined();
   });
 });
+
+describe('capability negotiation (#310)', () => {
+  function makeConn(): IrcConnection {
+    return new IrcConnection({
+      network: {
+        id: 1,
+        user_id: 1,
+        name: 'n',
+        host: 'irc.example.test',
+        port: 6697,
+        tls: 1,
+        trusted_certificates: 1,
+        nick: 'nick',
+        username: null,
+        realname: null,
+        server_password: null,
+        autoconnect: 1,
+        sasl_account: null,
+        sasl_password: null,
+        connect_commands: null,
+        position: 0,
+        created_at: new Date().toISOString(),
+      },
+      onEvent: () => {},
+    });
+  }
+
+  // We request extended-monitor so the server relays away-notify for MONITOR'd
+  // peers even with no shared channel. irc-framework only actually sends a cap
+  // it's asked for via requestCap() if the server advertises it, so the request
+  // is the whole of our change — assert it lands on request_extra_caps.
+  it('requests extended-monitor (and message-tags)', () => {
+    const conn = makeConn();
+    const caps = (conn as unknown as { client: { request_extra_caps: string[] } }).client
+      .request_extra_caps;
+    expect(caps).toContain('extended-monitor');
+    expect(caps).toContain('message-tags');
+  });
+});
