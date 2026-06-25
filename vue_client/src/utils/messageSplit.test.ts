@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   chunkCountForSay,
   chunkCountForAction,
+  multilineMessageCount,
   MESSAGE_MAX_BYTES,
   ACTION_MAX_BYTES,
 } from './messageSplit.js';
@@ -81,5 +82,50 @@ describe('chunkCountForAction', () => {
 
   it('returns 0 for empty', () => {
     expect(chunkCountForAction('')).toBe(0);
+  });
+});
+
+describe('multilineMessageCount', () => {
+  const limits = { maxBytes: 4096, maxLines: 24 };
+
+  it('is 0 without negotiated limits', () => {
+    expect(multilineMessageCount('a\nb', null)).toBe(0);
+    expect(multilineMessageCount('a\nb', undefined)).toBe(0);
+  });
+
+  it('is 0 for a single-line body (not a multiline send)', () => {
+    expect(multilineMessageCount('just one line', limits)).toBe(0);
+    expect(multilineMessageCount('a'.repeat(1000), limits)).toBe(0);
+  });
+
+  it('is 1 for a multi-line body within the limits', () => {
+    expect(multilineMessageCount('line one\nline two', limits)).toBe(1);
+    expect(multilineMessageCount('a\n\nb', limits)).toBe(1); // blank line counts
+  });
+
+  it('counts the batches when the body exceeds the line budget', () => {
+    // 25 single-line entries, max-lines 24 → 2 batches (24 + 1).
+    const lines = Array.from({ length: 25 }, (_, i) => `l${i}`).join('\n');
+    expect(multilineMessageCount(lines, { maxBytes: 4096, maxLines: 24 })).toBe(2);
+    // 49 entries → 3 batches.
+    const more = Array.from({ length: 49 }, (_, i) => `l${i}`).join('\n');
+    expect(multilineMessageCount(more, { maxBytes: 4096, maxLines: 24 })).toBe(3);
+  });
+
+  it('counts the batches when the body exceeds the byte budget', () => {
+    // Two 60-byte lines, max-bytes 100 → 2 batches (one line each).
+    expect(
+      multilineMessageCount(`${'a'.repeat(60)}\n${'b'.repeat(60)}`, {
+        maxBytes: 100,
+        maxLines: 24,
+      }),
+    ).toBe(2);
+  });
+
+  it('counts utf-8 bytes, not characters, for the byte budget', () => {
+    // 15 × 4-byte emoji per line = 60 bytes each.
+    const body = `${'🔥'.repeat(15)}\n${'🔥'.repeat(15)}`;
+    expect(multilineMessageCount(body, { maxBytes: 100, maxLines: 24 })).toBe(2); // 120 > 100
+    expect(multilineMessageCount(body, { maxBytes: 200, maxLines: 24 })).toBe(1); // 120 ≤ 200
   });
 });

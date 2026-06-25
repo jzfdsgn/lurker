@@ -273,6 +273,19 @@ class IrcManager extends EventEmitter {
   send(userId: number, networkId: number, target: string, text: string): boolean {
     const conn = this.getConnection(userId, networkId);
     if (!conn) return false;
+    // A multi-line compose rides draft/multiline batches where the server
+    // supports the cap: it lands as one logical message per batch (the body is
+    // partitioned to the server's limits, so a big paste is N messages, not N
+    // raw lines), and the sender echoes one bubble per batch to match. Networks
+    // without the cap fall through to the per-line split that mirrors what
+    // irc-framework actually puts on the wire. (#381)
+    if (/\r\n|\n|\r/.test(text) && conn.supportsMultiline()) {
+      const nick = conn.client.user?.nick;
+      for (const echo of conn.sendMultiline(target, text)) {
+        conn.publish({ type: 'message', target, nick, text: echo, kind: 'privmsg', self: true });
+      }
+      return true;
+    }
     const chunks = splitSay(text);
     for (const chunk of chunks) {
       conn.say(target, chunk);

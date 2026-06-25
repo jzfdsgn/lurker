@@ -98,3 +98,47 @@ export function chunkCountForAction(text: string | null | undefined): number {
   if (!text) return 0;
   return chunksForLine(text, ACTION_MAX_BYTES);
 }
+
+export interface MultilineLimits {
+  maxBytes: number;
+  maxLines: number;
+}
+
+// How many draft/multiline batches a plain multi-line body will produce on a
+// network that negotiated the cap — i.e. how many logical messages the channel
+// will see. Returns 0 when the send won't be multiline at all (no embedded
+// newline, or the network lacks the cap), so callers treat 0 as "fall back to
+// the wire-chunk estimate". 1 = a single batch (no flood); ≥2 = that many
+// messages, NOT N raw lines.
+//
+// This mirrors the server's partitionMultiline (server/services/messageSplit):
+// pack logical lines into batches under max-lines (count of wire PRIVMSGs) and
+// max-bytes (utf-8 content bytes). The per-line wire count is approximated as
+// ceil(bytes / MESSAGE_MAX_BYTES) rather than the word-greedy split — exact for
+// the common case (lines under the wire limit) and close enough otherwise; the
+// hint is guidance, the wire-level partition still happens server-side.
+export function multilineMessageCount(
+  text: string | null | undefined,
+  limits: MultilineLimits | null | undefined,
+): number {
+  if (!text || !limits) return 0;
+  if (!/\r\n|\n|\r/.test(text)) return 0;
+  let batches = 1;
+  let curLines = 0;
+  let curBytes = 0;
+  for (const line of text.split(/\r\n|\n|\r/)) {
+    const lineBytes = byteLen(line);
+    const wireLines = Math.max(1, Math.ceil(lineBytes / MESSAGE_MAX_BYTES));
+    if (
+      curLines > 0 &&
+      (curLines + wireLines > limits.maxLines || curBytes + lineBytes > limits.maxBytes)
+    ) {
+      batches += 1;
+      curLines = 0;
+      curBytes = 0;
+    }
+    curLines += wireLines;
+    curBytes += lineBytes;
+  }
+  return batches;
+}

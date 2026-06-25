@@ -44,6 +44,10 @@ export interface NetworkState {
   away?: AwayState | null;
   peerPresence?: Record<string, PeerPresenceEntry>;
   lagMs?: number | null;
+  // Advertised draft/multiline limits when the network negotiated the cap,
+  // else null/absent. Drives the composer's multiline-aware SPLIT/FLOOD hint
+  // and upload-as-.txt gate. Refreshed by the snapshot pushed on connect. (#381)
+  multilineLimits?: { maxBytes: number; maxLines: number } | null;
 }
 
 export interface ActiveBuffer {

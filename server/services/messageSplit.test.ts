@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { describe, it, expect } from 'vitest';
-import { splitSay, splitAction } from './messageSplit.js';
+import {
+  splitSay,
+  splitAction,
+  splitMultiline,
+  partitionMultiline,
+  reassembleMultiline,
+} from './messageSplit.js';
 
 const MESSAGE_MAX_BYTES = 350;
 const ACTION_MAX_BYTES = 341;
@@ -112,5 +118,128 @@ describe('splitAction', () => {
   it('returns [] for empty input', () => {
     expect(splitAction('')).toEqual([]);
     expect(splitAction(null)).toEqual([]);
+  });
+});
+
+describe('splitMultiline', () => {
+  it('returns [] for empty / null input', () => {
+    expect(splitMultiline('')).toEqual([]);
+    expect(splitMultiline(null)).toEqual([]);
+    expect(splitMultiline(undefined)).toEqual([]);
+  });
+
+  it('emits one non-concat message per line', () => {
+    expect(splitMultiline('one\ntwo\nthree')).toEqual([
+      { content: 'one', concat: false },
+      { content: 'two', concat: false },
+      { content: 'three', concat: false },
+    ]);
+    expect(splitMultiline('one\r\ntwo\rthree')).toEqual([
+      { content: 'one', concat: false },
+      { content: 'two', concat: false },
+      { content: 'three', concat: false },
+    ]);
+  });
+
+  it('PRESERVES interior blank lines (unlike splitSay, which drops them)', () => {
+    // A blank line round-trips as an empty PRIVMSG, so a pasted paragraph break
+    // survives. splitSay('a\n\nb') would be ['a','b']; multiline keeps the gap.
+    expect(splitMultiline('a\n\nb')).toEqual([
+      { content: 'a', concat: false },
+      { content: '', concat: false },
+      { content: 'b', concat: false },
+    ]);
+  });
+
+  it('byte-splits an over-long line and marks the continuations concat', () => {
+    // One logical line over the per-message budget: the 2nd+ chunks carry
+    // concat so the receiver rejoins them without inserting a newline.
+    const long = 'a'.repeat(MESSAGE_MAX_BYTES * 2 + 50);
+    const parts = splitMultiline(long);
+    expect(parts.length).toBeGreaterThanOrEqual(3);
+    expect(parts[0].concat).toBe(false);
+    expect(parts.slice(1).every((p) => p.concat)).toBe(true);
+    for (const p of parts) {
+      expect(byteLen(p.content)).toBeLessThanOrEqual(MESSAGE_MAX_BYTES);
+    }
+    // Joining the content back (concat = no separator) reconstructs the line.
+    expect(parts.map((p) => p.content).join('')).toBe(long);
+  });
+
+  it('only the first chunk of each line is non-concat', () => {
+    // Two over-long lines: each line restarts with a non-concat head, then
+    // concat continuations — so reassembly inserts exactly one newline between.
+    const a = 'a'.repeat(MESSAGE_MAX_BYTES + 10);
+    const b = 'b'.repeat(MESSAGE_MAX_BYTES + 10);
+    const parts = splitMultiline(`${a}\n${b}`);
+    const heads = parts.filter((p) => !p.concat);
+    expect(heads).toHaveLength(2);
+    expect(heads[0].content.startsWith('a')).toBe(true);
+    expect(heads[1].content.startsWith('b')).toBe(true);
+  });
+});
+
+describe('partitionMultiline', () => {
+  const big = { maxBytes: 4096, maxLines: 24 };
+
+  it('returns [] for empty input', () => {
+    expect(partitionMultiline('', big)).toEqual([]);
+    expect(partitionMultiline(null, big)).toEqual([]);
+  });
+
+  it('keeps a body within the limits as a single batch', () => {
+    expect(partitionMultiline('one\ntwo\nthree', big)).toEqual([
+      [
+        { content: 'one', concat: false },
+        { content: 'two', concat: false },
+        { content: 'three', concat: false },
+      ],
+    ]);
+  });
+
+  it('splits into multiple batches past the line budget', () => {
+    const batches = partitionMultiline('a\nb\nc\nd\ne', { maxBytes: 4096, maxLines: 2 });
+    expect(batches.map((b) => b.map((w) => w.content))).toEqual([['a', 'b'], ['c', 'd'], ['e']]);
+  });
+
+  it('splits into multiple batches past the byte budget', () => {
+    // Three ~60-byte lines, max-bytes 100 → one line per batch.
+    const body = `${'a'.repeat(60)}\n${'b'.repeat(60)}\n${'c'.repeat(60)}`;
+    const batches = partitionMultiline(body, { maxBytes: 100, maxLines: 24 });
+    expect(batches).toHaveLength(3);
+  });
+
+  it('never tears a byte-split (concat) logical line across batches', () => {
+    // 'a'*400 → [350 + 50(concat)] = 2 wire messages, one logical line. Even at
+    // max-lines 1 it stays together in one batch; the next line opens a new one.
+    const batches = partitionMultiline(`${'a'.repeat(400)}\nb`, { maxBytes: 4096, maxLines: 1 });
+    expect(batches).toHaveLength(2);
+    expect(batches[0]).toEqual([
+      { content: 'a'.repeat(350), concat: false },
+      { content: 'a'.repeat(50), concat: true },
+    ]);
+    expect(batches[1]).toEqual([{ content: 'b', concat: false }]);
+  });
+});
+
+describe('reassembleMultiline', () => {
+  it('joins with newlines except across concat continuations', () => {
+    expect(
+      reassembleMultiline([
+        { content: 'line one', concat: false },
+        { content: 'line two', concat: false },
+      ]),
+    ).toBe('line one\nline two');
+    expect(
+      reassembleMultiline([
+        { content: 'hello ', concat: false },
+        { content: 'world', concat: true },
+      ]),
+    ).toBe('hello world');
+  });
+
+  it('round-trips a partitioned batch back to its source text', () => {
+    const [batch] = partitionMultiline('a\n\nb', { maxBytes: 4096, maxLines: 24 });
+    expect(reassembleMultiline(batch)).toBe('a\n\nb');
   });
 });
