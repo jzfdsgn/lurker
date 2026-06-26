@@ -267,6 +267,30 @@ export class E2eManager {
     }
   }
 
+  /** Auto-initiate a handshake with `peerHandle` after we received ciphertext we
+   *  couldn't read (a missing key), mirroring repartee's auto-KEYREQ on
+   *  DecryptOutcome::MissingKey (events.rs). Returns the KEYREQ body to NOTICE to
+   *  the sender, or null when the OUTGOING rate limiter says wait, when the peer
+   *  is revoked (don't chase someone we cut off), or on a crypto/identity error.
+   *  Rate-limiting here is what stops a multi-chunk message from firing N KEYREQs. */
+  autoHandshakeBody(
+    userId: number,
+    networkId: number,
+    channel: string,
+    peerHandle: string,
+  ): string | null {
+    try {
+      if (keyring.getPeerByHandle(userId, networkId, peerHandle)?.globalStatus === 'revoked') {
+        return null;
+      }
+      if (!this.rateLimiter.allowOutgoing(this.rlKey(userId, networkId, peerHandle))) return null;
+      return encodeKeyReq(this.buildKeyReqStruct(userId, networkId, channel, peerHandle));
+    } catch (err) {
+      console.warn(`e2e autoHandshake ${channel}: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
   private buildKeyReqStruct(
     userId: number,
     networkId: number,

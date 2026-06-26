@@ -1121,7 +1121,25 @@ export class IrcConnection {
           bodyText = outcome.text;
           e2eFlag = true;
         } else {
-          this.surfaceE2eDecryptIssue(eventTarget as string, eventNick, outcome.kind);
+          // A peer is talking to us encrypted on a channel we've enabled but have
+          // no session for yet — auto-initiate the handshake (rate-limited),
+          // matching repartee, so an encrypted channel "just works" once both
+          // sides turn it on, with no manual /e2e handshake. The KEYREQ goes back
+          // to the sender's nick as a CTCP NOTICE.
+          let handshaking = false;
+          if (outcome.kind === 'missing-key' && handle && eventNick) {
+            const body = e2eManager.autoHandshakeBody(
+              this.network.user_id,
+              this.network.id,
+              contextKey(eventTarget as string, handle),
+              handle,
+            );
+            if (body) {
+              this.sendHandshakeReply(eventNick, body);
+              handshaking = true;
+            }
+          }
+          this.surfaceE2eDecryptIssue(eventTarget as string, eventNick, outcome.kind, handshaking);
           if (eventNick) this.markPeerEvent(eventNick, 'online');
           return;
         }
@@ -2307,6 +2325,7 @@ export class IrcConnection {
     channel: string,
     nick: string | undefined,
     kind: 'missing-key' | 'rejected' | 'replay' | 'cleartext',
+    handshaking = false,
   ): void {
     if (kind === 'replay' || kind === 'cleartext') return;
     const who = nick || 'peer';
@@ -2318,7 +2337,9 @@ export class IrcConnection {
     this.e2eHintAt.set(key, now);
     const text =
       kind === 'missing-key'
-        ? `encrypted message from ${who} — no session key yet (try /e2e handshake ${who})`
+        ? handshaking
+          ? `establishing an encrypted session with ${who}…`
+          : `encrypted message from ${who} — no session key yet (try /e2e handshake ${who})`
         : `could not decrypt a message from ${who}`;
     this.publishEphemeral({
       type: 'e2e',

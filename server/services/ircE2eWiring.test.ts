@@ -147,29 +147,37 @@ describe('inbound decrypt (c.on message)', () => {
     vi.restoreAllMocks();
   });
 
-  it('surfaces a missing-key hint and never persists raw ciphertext', () => {
+  it('auto-initiates a handshake on a missing key and never persists ciphertext (repartee parity)', () => {
     const conn = makeConn();
     const publish = vi.fn<(event: unknown) => void>();
     const publishEphemeral = vi.fn<(event: unknown) => void>();
+    const notice = vi.fn<(target: string, text: string) => void>();
     conn.publish = publish;
     conn.publishEphemeral = publishEphemeral;
+    conn.client.notice = notice;
     vi.spyOn(e2eManager, 'decryptIncoming').mockReturnValue({ kind: 'missing-key' });
 
+    // Fresh handle so the outgoing rate limiter (shared singleton) lets the
+    // auto-KEYREQ through deterministically.
     conn.client.emit('message', {
-      nick: 'bob',
-      ident: 'b',
+      nick: 'autopeer',
+      ident: 'ap',
       hostname: 'h',
       target: '#in',
       type: 'privmsg',
       message: `${WIRE} 00112233aabbccdd 0 1/1 nonce:ct`,
     });
 
-    expect(publish).not.toHaveBeenCalled();
-    expect(publishEphemeral).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'e2e', level: 'info', target: '#in' }),
-    );
+    expect(publish).not.toHaveBeenCalled(); // ciphertext never persisted as a message
+    // A KEYREQ NOTICE was auto-fired back to the sender's nick.
+    expect(notice).toHaveBeenCalled();
+    expect(notice.mock.calls[0][0]).toBe('autopeer');
+    expect(notice.mock.calls[0][1]).toContain('RPEE2E KEYREQ');
+    // …and the hint reflects that we're establishing, not telling the user to do it.
     expect(publishEphemeral.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('no session key'),
+      type: 'e2e',
+      level: 'info',
+      text: expect.stringContaining('establishing an encrypted session'),
     });
     vi.restoreAllMocks();
   });
@@ -228,6 +236,7 @@ describe('inbound decrypt (c.on message)', () => {
     conn.publish = vi.fn<(event: unknown) => void>();
     const publishEphemeral = vi.fn<(event: unknown) => void>();
     conn.publishEphemeral = publishEphemeral;
+    conn.client.notice = vi.fn<(target: string, text: string) => void>(); // auto-handshake fires
     vi.spyOn(e2eManager, 'decryptIncoming').mockReturnValue({ kind: 'missing-key' });
     const emit = (part: number) =>
       conn.client.emit('message', {
