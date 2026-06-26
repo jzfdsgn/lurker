@@ -909,7 +909,23 @@ export class E2eManager {
       );
       keyring.deleteIncomingSession(userId, networkId, handle, channel);
       keyring.removeOutgoingRecipient(userId, networkId, channel, handle);
-      return hadSession || hadPending;
+      // Also drop any outbound handshake we initiated to this peer on this
+      // channel, so a late KEYRSP can't complete and silently recreate the
+      // session we just forgot.
+      let hadOutbound = false;
+      for (const [k, ph] of this.pending) {
+        if (
+          ph.userId === userId &&
+          ph.networkId === networkId &&
+          eqLower(ph.channel, channel) &&
+          ph.peerHandle &&
+          eqLower(ph.peerHandle, handle)
+        ) {
+          this.pending.delete(k);
+          hadOutbound = true;
+        }
+      }
+      return hadSession || hadPending || hadOutbound;
     } catch (err) {
       console.warn(`e2e forget ${handle} on ${channel}: ${(err as Error).message}`);
       return false;
@@ -923,10 +939,15 @@ export class E2eManager {
    *  a clean forget so the next handshake re-pins from scratch. Never throws. */
   reverifyPeer(userId: number, networkId: number, handle: string): ReverifyOutcome {
     try {
-      const stash = this.pendingKeyChange.get(this.keyChangeKey(userId, networkId, handle));
+      const stashKey = this.keyChangeKey(userId, networkId, handle);
+      const stash = this.pendingKeyChange.get(stashKey);
       if (stash && this.now() - stash.createdAt <= KEYCHANGE_TTL_MS) {
         return this.applyStashedKeyChange(userId, networkId, handle, stash);
       }
+      // An expired (or absent) stash → drop it now so the map stays TTL-bounded
+      // even if the forget below short-circuits on a DB error (forgetPeer also
+      // clears it on the happy path).
+      this.pendingKeyChange.delete(stashKey);
       const cleared = this.forgetPeer(userId, networkId, handle);
       return cleared > 0 ? { kind: 'cleared', cleared } : { kind: 'not-found' };
     } catch (err) {

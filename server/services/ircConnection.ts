@@ -2611,12 +2611,11 @@ export class IrcConnection {
           return;
         }
         const mode = parseE2eMode(token);
-        info(
-          e2eManager.setChannelMode(uid, nid, chan, mode)
-            ? `${chan} mode set to ${mode}`
-            : `failed to set mode on ${chan}`,
-          'info',
-        );
+        if (e2eManager.setChannelMode(uid, nid, chan, mode)) {
+          info(`${chan} mode set to ${mode}`);
+        } else {
+          info(`failed to set mode on ${chan}`, 'warn');
+        }
         return;
       }
       case 'list': {

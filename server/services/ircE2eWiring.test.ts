@@ -619,6 +619,18 @@ describe('E2eManager 1d management methods', () => {
     // …and a second forget now has nothing to clear.
     expect(e2eManager.forgetPeerOnChannel(1, 1, '~pim@h', '#fp')).toBe(false);
   });
+
+  it('forgetPeerOnChannel drops our outbound handshake so a late KEYRSP cannot recreate the session', () => {
+    const out = createUser('e2e-out').id;
+    e2eManager.setChannelConfig(out, out, '#out', true, 'normal');
+    // We initiate a handshake to a specific peer on this channel (outbound pending).
+    expect(e2eManager.buildKeyReq(out, out, '#out', '~op@h')).toBeTruthy();
+    // Forget reports it cleared the pending outbound handshake (so a stray KEYRSP
+    // can no longer be consumed into a fresh session)…
+    expect(e2eManager.forgetPeerOnChannel(out, out, '~op@h', '#out')).toBe(true);
+    // …and a second forget has nothing left to clear.
+    expect(e2eManager.forgetPeerOnChannel(out, out, '~op@h', '#out')).toBe(false);
+  });
 });
 
 describe('/e2e forget + literal-handle resolution (departed peers)', () => {
