@@ -295,9 +295,10 @@ class IrcManager extends EventEmitter {
       );
       if (outcome.kind === 'error') {
         conn.publishEphemeral({
-          type: 'error',
+          type: 'e2e',
+          level: 'warn',
           target,
-          text: `🔒 not sent — encryption failed: ${outcome.reason}`,
+          text: `not sent — encryption failed: ${outcome.reason}`,
         });
         // Return false so the composer surfaces a send-failure toast and KEEPS
         // the text (vs clearing it), instead of relying only on the easily-missed
@@ -367,9 +368,10 @@ class IrcManager extends EventEmitter {
     if (!isChannelContext(target)) return false;
     if (!e2eManager.isChannelEnabled(userId, networkId, contextKey(target, ''))) return false;
     conn.publishEphemeral({
-      type: 'error',
+      type: 'e2e',
+      level: 'warn',
       target,
-      text: `🔒 ${kind === 'action' ? '/me actions' : 'notices'} aren't encrypted yet — not sent on this E2E channel`,
+      text: `${kind === 'action' ? '/me actions' : 'notices'} aren't encrypted yet — not sent on this E2E channel`,
     });
     return true;
   }

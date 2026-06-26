@@ -147,29 +147,37 @@ describe('inbound decrypt (c.on message)', () => {
     vi.restoreAllMocks();
   });
 
-  it('surfaces a missing-key hint and never persists raw ciphertext', () => {
+  it('auto-initiates a handshake on a missing key and never persists ciphertext (repartee parity)', () => {
     const conn = makeConn();
     const publish = vi.fn<(event: unknown) => void>();
     const publishEphemeral = vi.fn<(event: unknown) => void>();
+    const notice = vi.fn<(target: string, text: string) => void>();
     conn.publish = publish;
     conn.publishEphemeral = publishEphemeral;
+    conn.client.notice = notice;
     vi.spyOn(e2eManager, 'decryptIncoming').mockReturnValue({ kind: 'missing-key' });
 
+    // Fresh handle so the outgoing rate limiter (shared singleton) lets the
+    // auto-KEYREQ through deterministically.
     conn.client.emit('message', {
-      nick: 'bob',
-      ident: 'b',
+      nick: 'autopeer',
+      ident: 'ap',
       hostname: 'h',
       target: '#in',
       type: 'privmsg',
       message: `${WIRE} 00112233aabbccdd 0 1/1 nonce:ct`,
     });
 
-    expect(publish).not.toHaveBeenCalled();
-    expect(publishEphemeral).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'system', target: '#in' }),
-    );
+    expect(publish).not.toHaveBeenCalled(); // ciphertext never persisted as a message
+    // A KEYREQ NOTICE was auto-fired back to the sender's nick.
+    expect(notice).toHaveBeenCalled();
+    expect(notice.mock.calls[0][0]).toBe('autopeer');
+    expect(notice.mock.calls[0][1]).toContain('RPEE2E KEYREQ');
+    // …and the hint reflects that we're establishing, not telling the user to do it.
     expect(publishEphemeral.mock.calls[0][0]).toMatchObject({
-      text: expect.stringContaining('no session key'),
+      type: 'e2e',
+      level: 'info',
+      text: expect.stringContaining('establishing an encrypted session'),
     });
     vi.restoreAllMocks();
   });
@@ -228,6 +236,7 @@ describe('inbound decrypt (c.on message)', () => {
     conn.publish = vi.fn<(event: unknown) => void>();
     const publishEphemeral = vi.fn<(event: unknown) => void>();
     conn.publishEphemeral = publishEphemeral;
+    conn.client.notice = vi.fn<(target: string, text: string) => void>(); // auto-handshake fires
     vi.spyOn(e2eManager, 'decryptIncoming').mockReturnValue({ kind: 'missing-key' });
     const emit = (part: number) =>
       conn.client.emit('message', {
@@ -274,7 +283,7 @@ describe('egress refuses cleartext actions/notices on an E2E channel (#2)', () =
     expect(ok).toBe(true);
     expect(action).not.toHaveBeenCalled(); // never reached the wire
     expect(publishEphemeral).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'error', target: '#secret' }),
+      expect.objectContaining({ type: 'e2e', level: 'warn', target: '#secret' }),
     );
     vi.restoreAllMocks();
   });
@@ -288,7 +297,7 @@ describe('egress refuses cleartext actions/notices on an E2E channel (#2)', () =
 
     expect(notice).not.toHaveBeenCalled();
     expect(publishEphemeral).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'error', target: '#secret' }),
+      expect.objectContaining({ type: 'e2e', level: 'warn', target: '#secret' }),
     );
     vi.restoreAllMocks();
   });
@@ -340,12 +349,12 @@ describe('handshake transport (c.on ctcp response)', () => {
 
     conn.surfaceE2eNotice({ level: 'info', text: 'hi' }, '#rt');
     expect(publishEphemeral).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: 'system', target: '#rt', text: 'hi' }),
+      expect.objectContaining({ type: 'e2e', level: 'info', target: '#rt', text: 'hi' }),
     );
 
     conn.surfaceE2eNotice({ level: 'warn', text: 'bye' }, '#notjoined');
     expect(publishEphemeral).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: 'error', target: ':server:1' }),
+      expect.objectContaining({ type: 'e2e', level: 'warn', target: ':server:1' }),
     );
   });
 
@@ -402,6 +411,261 @@ describe('/e2e command dispatch (runE2eCommand)', () => {
     const publishEphemeral = vi.fn<(event: unknown) => void>();
     conn.publishEphemeral = publishEphemeral;
     conn.runE2eCommand(':server:1', 'on');
-    expect(publishEphemeral).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+    expect(publishEphemeral).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'e2e', level: 'warn' }),
+    );
+  });
+});
+
+// ─── Phase 1d: the expanded /e2e command surface (repartee parity) ───────────
+
+describe('/e2e command surface — 1d', () => {
+  const texts = (m: ReturnType<typeof vi.fn>) =>
+    m.mock.calls.map((c) => (c[0] as { text: string }).text);
+
+  it('mode changes a channel mode while preserving enabled', () => {
+    const conn = makeConn();
+    conn.publishEphemeral = vi.fn<(event: unknown) => void>();
+    conn.runE2eCommand('#mode1', 'on #mode1 normal');
+    conn.runE2eCommand('#mode1', 'mode auto');
+    expect(keyring.getChannelConfig(1, 1, '#mode1')?.mode).toBe('auto-accept');
+    expect(keyring.getChannelConfig(1, 1, '#mode1')?.enabled).toBe(true);
+  });
+
+  it('mode rejects an unknown mode', () => {
+    const conn = makeConn();
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+    conn.runE2eCommand('#mode2', 'mode bogus');
+    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'e2e', level: 'warn' }));
+  });
+
+  it('on rejects an unknown mode token instead of silently falling back to normal', () => {
+    const conn = makeConn();
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+    conn.runE2eCommand('#onbad', 'on #onbad quite'); // typo for "quiet"
+    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'e2e', level: 'warn' }));
+    expect(keyring.getChannelConfig(1, 1, '#onbad')).toBeNull(); // not enabled
+  });
+
+  it('list reports no trusted peers on a fresh channel', () => {
+    const conn = makeConn();
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+    conn.runE2eCommand('#list1', 'list');
+    expect(texts(pe).some((t) => t.includes('no trusted peers'))).toBe(true);
+  });
+
+  it('autotrust add / list / remove round-trips through the keyring', () => {
+    const conn = makeConn();
+    conn.publishEphemeral = vi.fn<(event: unknown) => void>();
+    conn.runE2eCommand(':server:1', 'autotrust add global *@trusted.example');
+    expect(
+      e2eManager.listAutotrust(1, 1).some((r) => r.handlePattern === '*@trusted.example'),
+    ).toBe(true);
+    conn.runE2eCommand(':server:1', 'autotrust remove *@trusted.example');
+    expect(
+      e2eManager.listAutotrust(1, 1).some((r) => r.handlePattern === '*@trusted.example'),
+    ).toBe(false);
+  });
+
+  it('autotrust remove matches case-insensitively (rules apply case-insensitively)', () => {
+    const conn = makeConn();
+    conn.publishEphemeral = vi.fn<(event: unknown) => void>();
+    conn.runE2eCommand(':server:1', 'autotrust add global *@CaseHost.Example');
+    // Remove with different casing — must still find + delete the rule.
+    conn.runE2eCommand(':server:1', 'autotrust remove *@casehost.example');
+    expect(
+      e2eManager.listAutotrust(1, 1).some((r) => r.handlePattern === '*@CaseHost.Example'),
+    ).toBe(false);
+  });
+
+  it('autotrust add rejects a scope that is neither global nor a #channel', () => {
+    const conn = makeConn();
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+    conn.runE2eCommand(':server:1', 'autotrust add globl *@x'); // typo for "global"
+    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'e2e', level: 'warn' }));
+    expect(e2eManager.listAutotrust(1, 1).some((r) => r.scope === 'globl')).toBe(false);
+  });
+
+  it('help lists the command surface', () => {
+    const conn = makeConn();
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+    conn.runE2eCommand(':server:1', 'help');
+    const joined = texts(pe).join('\n');
+    expect(joined).toContain('/e2e commands');
+    expect(joined).toContain('autotrust');
+  });
+
+  it('an empty /e2e shows help, an unknown sub warns', () => {
+    const conn = makeConn();
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+    conn.runE2eCommand(':server:1', '');
+    expect(texts(pe).join('\n')).toContain('/e2e commands');
+    pe.mockClear();
+    conn.runE2eCommand(':server:1', 'frobnicate');
+    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'e2e', level: 'warn' }));
+  });
+});
+
+describe('E2eManager 1d management methods', () => {
+  it('decline drops a PENDING inbound prompt channel-scoped, without globally revoking the peer', () => {
+    // A fresh identity (zed = user 3) so its fingerprint isn't already pinned by
+    // another test under a different handle (which would TOFU-block the KEYREQ).
+    const zed = createUser('e2e-zed').id;
+    e2eManager.setChannelConfig(1, 1, '#dz', true, 'normal'); // normal mode → caches a prompt
+    const req = e2eManager.buildKeyReq(zed, zed, '#dz')!;
+    const out = e2eManager.handleHandshakeBody(1, 1, '~zed@h', 'zed', req)!;
+    expect(out.notice?.text).toMatch(/accept/); // the normal-mode prompt was cached
+
+    // Decline drops the cached prompt — but must NOT globally revoke the peer
+    // (that would cut them off on every other channel, and a later /e2e unrevoke
+    // could then launder this never-verified peer into 'trusted').
+    expect(e2eManager.declinePeer(1, 1, '~zed@h', '#dz')).toBe(true);
+    expect(keyring.getPeerByHandle(1, 1, '~zed@h')?.globalStatus).not.toBe('revoked');
+    // Declining again with nothing pending is a no-op.
+    expect(e2eManager.declinePeer(1, 1, '~zed@h', '#dz')).toBe(false);
+    // unrevoke can't promote a peer that was never revoked.
+    expect(e2eManager.unrevokePeer(1, 1, '~zed@h')).toBe(false);
+  });
+
+  it('unrevoke restores a peer that was revoked via /e2e revoke', () => {
+    const fp = new Uint8Array(16).fill(31);
+    keyring.upsertPeer(1, 1, {
+      fingerprint: fp,
+      pubkey: new Uint8Array(32).fill(32),
+      lastHandle: '~rv@h',
+      lastNick: 'rv',
+      firstSeen: 1,
+      lastSeen: 1,
+      globalStatus: 'trusted',
+    });
+    expect(e2eManager.revokePeer(1, 1, '~rv@h')).toBe(true);
+    expect(keyring.getPeerByHandle(1, 1, '~rv@h')?.globalStatus).toBe('revoked');
+    expect(e2eManager.unrevokePeer(1, 1, '~rv@h')).toBe(true);
+    expect(keyring.getPeerByHandle(1, 1, '~rv@h')?.globalStatus).toBe('trusted');
+    expect(e2eManager.unrevokePeer(1, 1, '~rv@h')).toBe(false); // already trusted
+  });
+
+  it('decline with nothing pending does NOT revoke an established peer (review #408)', () => {
+    const fp = new Uint8Array(16).fill(21);
+    keyring.upsertPeer(1, 1, {
+      fingerprint: fp,
+      pubkey: new Uint8Array(32).fill(22),
+      lastHandle: '~steady@h',
+      lastNick: 'steady',
+      firstSeen: 1,
+      lastSeen: 1,
+      globalStatus: 'trusted',
+    });
+    expect(e2eManager.declinePeer(1, 1, '~steady@h', '#nope')).toBe(false);
+    expect(keyring.getPeerByHandle(1, 1, '~steady@h')?.globalStatus).toBe('trusted');
+  });
+
+  it('channelStatus reports enabled, mode, and peer count', () => {
+    e2eManager.setChannelConfig(1, 1, '#cs', true, 'quiet');
+    expect(e2eManager.channelStatus(1, 1, '#cs')).toMatchObject({
+      enabled: true,
+      mode: 'quiet',
+      peers: 0,
+    });
+  });
+
+  it('listKeyring returns remembered peers without unsealing keys', () => {
+    const fp = new Uint8Array(16).fill(3);
+    const pub = new Uint8Array(32).fill(4);
+    keyring.upsertPeer(1, 1, {
+      fingerprint: fp,
+      pubkey: pub,
+      lastHandle: '~kit@h',
+      lastNick: 'kit',
+      firstSeen: 1,
+      lastSeen: 1,
+      globalStatus: 'trusted',
+    });
+    const { peers } = e2eManager.listKeyring(1, 1);
+    expect(peers.some((p) => p.handle === '~kit@h' && p.status === 'trusted')).toBe(true);
+  });
+
+  it('forgetPeer wipes the identity pin + sessions for a handle', () => {
+    const fp = new Uint8Array(16).fill(5);
+    const pub = new Uint8Array(32).fill(6);
+    keyring.upsertPeer(1, 1, {
+      fingerprint: fp,
+      pubkey: pub,
+      lastHandle: '~gone@oldhost',
+      lastNick: 'gone',
+      firstSeen: 1,
+      lastSeen: 1,
+      globalStatus: 'trusted',
+    });
+    expect(e2eManager.forgetPeer(1, 1, '~gone@oldhost')).toBeGreaterThan(0);
+    expect(keyring.getPeerByHandle(1, 1, '~gone@oldhost')).toBeNull();
+  });
+
+  it('forgetPeerOnChannel reports cleared when it only drops a pending prompt (no session yet)', () => {
+    // A fresh identity so its fp isn't pinned elsewhere (would TOFU-block the KEYREQ).
+    const pim = createUser('e2e-pim').id;
+    e2eManager.setChannelConfig(1, 1, '#fp', true, 'normal'); // normal mode → caches a prompt
+    const req = e2eManager.buildKeyReq(pim, pim, '#fp')!;
+    const out = e2eManager.handleHandshakeBody(1, 1, '~pim@h', 'pim', req)!;
+    expect(out.notice?.text).toMatch(/accept/); // a prompt was cached, no session installed
+    // Forgetting the channel must report it cleared the prompt, not "nothing remembered".
+    expect(e2eManager.forgetPeerOnChannel(1, 1, '~pim@h', '#fp')).toBe(true);
+    // …and a second forget now has nothing to clear.
+    expect(e2eManager.forgetPeerOnChannel(1, 1, '~pim@h', '#fp')).toBe(false);
+  });
+
+  it('forgetPeerOnChannel drops our outbound handshake so a late KEYRSP cannot recreate the session', () => {
+    const out = createUser('e2e-out').id;
+    e2eManager.setChannelConfig(out, out, '#out', true, 'normal');
+    // We initiate a handshake to a specific peer on this channel (outbound pending).
+    expect(e2eManager.buildKeyReq(out, out, '#out', '~op@h')).toBeTruthy();
+    // Forget reports it cleared the pending outbound handshake (so a stray KEYRSP
+    // can no longer be consumed into a fresh session)…
+    expect(e2eManager.forgetPeerOnChannel(out, out, '~op@h', '#out')).toBe(true);
+    // …and a second forget has nothing left to clear.
+    expect(e2eManager.forgetPeerOnChannel(out, out, '~op@h', '#out')).toBe(false);
+  });
+});
+
+describe('/e2e forget + literal-handle resolution (departed peers)', () => {
+  it('forget -all <ident@host> clears a peer who is NOT in the channel', () => {
+    const fp = new Uint8Array(16).fill(8);
+    const pub = new Uint8Array(32).fill(8);
+    keyring.upsertPeer(1, 1, {
+      fingerprint: fp,
+      pubkey: pub,
+      lastHandle: '~left@somehost',
+      lastNick: 'left',
+      firstSeen: 1,
+      lastSeen: 1,
+      globalStatus: 'trusted',
+    });
+    const conn = makeConn(); // no channel membership for the peer
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+
+    // Passed as a literal handle (contains '@') — no nick resolution needed.
+    conn.runE2eCommand('#fgt', 'forget -all ~left@somehost');
+
+    expect(keyring.getPeerByHandle(1, 1, '~left@somehost')).toBeNull();
+    const joined = pe.mock.calls.map((c) => (c[0] as { text: string }).text).join('\n');
+    expect(joined).toContain('forgot ~left@somehost everywhere');
+  });
+
+  it('a bare nick that is not in the channel warns to pass the handle', () => {
+    const conn = makeConn();
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+    conn.runE2eCommand('#fgt', 'forget -all nobodyhere');
+    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'e2e', level: 'warn' }));
+    expect(pe.mock.calls.map((c) => (c[0] as { text: string }).text).join('\n')).toContain(
+      'ident@host',
+    );
   });
 });

@@ -106,13 +106,6 @@
             /></span>
           </div>
           <span class="body" :class="bodyClass(row.m)">
-            <i
-              v-if="isE2e(row.m)"
-              class="fa-solid fa-lock e2e-lock"
-              role="img"
-              aria-label="End-to-end encrypted"
-              title="End-to-end encrypted"
-            />
             <RenderSegments
               :segments="textSegments(row.m)"
               :self-color="selfColor"
@@ -140,13 +133,6 @@
             ><template v-else>{{ row.continuationAuthor ? '' : prefixText(row.m) }}</template></span
           >
           <span class="body" :class="bodyClass(row.m)">
-            <i
-              v-if="isE2e(row.m)"
-              class="fa-solid fa-lock e2e-lock"
-              role="img"
-              aria-label="End-to-end encrypted"
-              title="End-to-end encrypted"
-            />
             <RenderSegments
               v-if="hasInlineText(row.m)"
               :segments="textSegments(row.m)"
@@ -235,7 +221,10 @@
                 v-if="row.m.text"
                 >: <LinkedText :text="row.m.text" /></template
             ></template>
-            <template v-else-if="row.m?.type === 'motd' || row.m?.type === 'system'"
+            <template
+              v-else-if="
+                row.m?.type === 'motd' || row.m?.type === 'system' || row.m?.type === 'e2e'
+              "
               ><LinkedText :text="row.m.text ?? ''"
             /></template>
             <template v-else-if="row.m?.type === 'error'"
@@ -339,8 +328,11 @@ interface ChatMessage {
   // System-buffer lines (#355): the network this line is about, when any. The
   // prefix column resolves the network's current name from it.
   originNetworkId?: number | null;
-  // RPE2E (#382): this line was end-to-end encrypted on the wire — render a 🔒.
+  // RPE2E (#382): this line rode the wire encrypted. Carried through from the
+  // server (extra JSON) for a future indicator — not rendered right now.
   e2e?: boolean;
+  // Severity for `type: 'e2e'` status lines — drives the tag color.
+  level?: 'info' | 'warn';
   [key: string]: unknown;
 }
 
@@ -1051,6 +1043,10 @@ function prefixText(m: ChatMessage | undefined): string {
       // current name; other app-level lines (away/back, server lifecycle,
       // node, …) → "System".
       return systemNetworkName(m) ?? 'System';
+    case 'e2e':
+      // RPE2E status echoes get their own tag (not the generic "System") so the
+      // user can tell encryption lines apart at a glance (#382).
+      return 'E2E';
     case 'error':
       return '!!';
     default:
@@ -1083,6 +1079,9 @@ function prefixClass(m: ChatMessage | undefined) {
     'action-marker': m?.type === 'action',
     italic: m?.type === 'action' && actionItalic.value,
     self: m?.self,
+    // A warn-level E2E line (TOFU warning, refused send) colors its tag like an
+    // error; info-level stays the calm E2E color.
+    'e2e-warn': m?.type === 'e2e' && m?.level === 'warn',
     [`p-${m?.type}`]: true,
   };
 }
@@ -1117,11 +1116,6 @@ function bodyClass(m: ChatMessage | undefined) {
 // at the start of the body, with `m.text` after.
 function hasInlineText(m: ChatMessage | undefined): boolean {
   return m?.type === 'message' || m?.type === 'notice' || m?.type === 'action';
-}
-
-// RPE2E (#382): show the 🔒 lock on a line that rode the wire encrypted.
-function isE2e(m: ChatMessage | undefined): boolean {
-  return !!m?.e2e;
 }
 
 function textSegments(m: ChatMessage | undefined): RenderSegment[] {
@@ -1323,8 +1317,19 @@ watch(
     // yet replaces that tail. Use the surviving tail to tell them apart, so a
     // capped buffer isn't misread as a re-snapshot (and force-scrolled to the
     // bottom) on every single message.
+    // ID-less (ephemeral) rows — /e2e and other server command echoes surfaced
+    // via publishEphemeral — carry `id === undefined`, so the id-presence test
+    // can't anchor on them. Fall back to structural signals around them:
+    //   • growth that isn't a prepend is an append — covers a new ephemeral tail
+    //     AND a real message arriving right after an ephemeral one (the latter
+    //     would otherwise match neither branch and fail to stick to bottom); and
+    //   • a same-length cap-evict whose OLD tail was id-less is still an append,
+    //     not a wholesale replace, so a reader scrolled up isn't yanked down.
+    const oldTailPresent = oldLastId != null && messages.value.some((m) => m.id === oldLastId);
     const appended =
-      lastChanged && oldLastId != null && messages.value.some((m) => m.id === oldLastId);
+      (lastChanged && oldTailPresent) ||
+      (grew && !firstChanged) ||
+      (lastChanged && oldLastId == null && newLen >= prevLen);
     // Pure prepend: anchor by element ID so re-flow from changing column
     // widths or differing message heights doesn't drift the math. With the
     // loading notice gone from the template, the OLD DOM and NEW DOM share
@@ -1407,7 +1412,9 @@ watch(
             type: tail.type,
             isDm: !tail.target.startsWith('#') && !tail.target.startsWith(':server:'),
           });
-        if (!tailIgnored) bumpNewBelow();
+        // Don't let an id-less ephemeral status echo (a /e2e line, the user's
+        // own command output) inflate the "N new ↓" unread count.
+        if (!tailIgnored && tail?.id != null) bumpNewBelow();
       }
     }
     ensureViewportFilled();
@@ -1790,6 +1797,14 @@ watch(
 .prefix.p-error {
   color: var(--bad);
 }
+/* RPE2E status tag (#382): the calm "E2E" lock-green for info, error-red when a
+   line is a warning (TOFU change, refused send). */
+.prefix.p-e2e {
+  color: var(--good);
+}
+.prefix.p-e2e.e2e-warn {
+  color: var(--bad);
+}
 .prefix.p-nick,
 .prefix.p-mode,
 .prefix.p-topic,
@@ -1831,13 +1846,6 @@ watch(
 }
 .body.italic {
   font-style: italic;
-}
-/* RPE2E lock (#382): a muted inline marker that a line rode the wire encrypted.
-   Hierarchy via color/opacity, not font-size (house rule). */
-.e2e-lock {
-  margin-right: 0.5ch;
-  color: var(--good);
-  opacity: 0.75;
 }
 /* .msg-link styling lives in src/assets/main.css (shared with the topic bar). */
 
