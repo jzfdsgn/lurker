@@ -2352,8 +2352,13 @@ export class IrcConnection {
       .split(/\s+/)
       .filter((t) => t.length > 0);
     const sub = (tokens.shift() || 'status').toLowerCase();
-    // A channel arg must be more than a bare prefix — `/e2e on #` would otherwise
-    // persist a junk config row keyed on '#' (#382, review #6).
+    // `#`-prefixed channels only — INCLUDING double-hash names like `##anime`
+    // (the `length > 1` guard rejects only a bare lone `#`, which would otherwise
+    // persist a junk config row; #382 review #6). This is intentionally narrower
+    // than isChannelContext's `# & ! +`: Lurker's message routing treats `&`/`!`/
+    // `+` targets as DMs (see `targetIsChannel` in the message handler), so they
+    // can never be E2E channels here — accepting them would only enable a config
+    // whose inbound ciphertext would mis-route to a DM buffer (review #1 on #407).
     const channelToken = tokens.find((t) => t.startsWith('#') && t.length > 1);
     const nonChannel = tokens.filter((t) => !t.startsWith('#'));
     // The channel an op targets: an explicit #arg wins, else the issuing buffer

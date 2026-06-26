@@ -106,7 +106,13 @@
             /></span>
           </div>
           <span class="body" :class="bodyClass(row.m)">
-            <i v-if="isE2e(row.m)" class="fa-solid fa-lock e2e-lock" title="End-to-end encrypted" />
+            <i
+              v-if="isE2e(row.m)"
+              class="fa-solid fa-lock e2e-lock"
+              role="img"
+              aria-label="End-to-end encrypted"
+              title="End-to-end encrypted"
+            />
             <RenderSegments
               :segments="textSegments(row.m)"
               :self-color="selfColor"
@@ -134,7 +140,13 @@
             ><template v-else>{{ row.continuationAuthor ? '' : prefixText(row.m) }}</template></span
           >
           <span class="body" :class="bodyClass(row.m)">
-            <i v-if="isE2e(row.m)" class="fa-solid fa-lock e2e-lock" title="End-to-end encrypted" />
+            <i
+              v-if="isE2e(row.m)"
+              class="fa-solid fa-lock e2e-lock"
+              role="img"
+              aria-label="End-to-end encrypted"
+              title="End-to-end encrypted"
+            />
             <RenderSegments
               v-if="hasInlineText(row.m)"
               :segments="textSegments(row.m)"
