@@ -348,3 +348,149 @@ describe('E2eManager review hardening', () => {
     expect(mgr.verifyInfo(alice, aliceNet, BOB_H)).toBeNull();
   });
 });
+
+// ─── Phase 2: channel key rotation / REKEY distribution ──────────────────────
+describe('E2eManager key rotation (Phase 2)', () => {
+  // A third account so rotation can target one peer while keeping another.
+  let carol: number;
+  let carolNet: number;
+  const CAROL_H = '~carol@c.host';
+
+  beforeAll(() => {
+    carol = createUser('mgr-carol').id;
+    carolNet = createNetwork(carol, {
+      name: 'libera',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'n',
+    })!.id;
+  });
+
+  // Bidirectional handshake of (uid,net,handle,nick) with Alice on `channel`,
+  // both auto-accept — leaves Alice holding `handle` as an outgoing recipient
+  // (the precondition for rotation to target them).
+  function handshakeWithAlice(
+    uid: number,
+    net: number,
+    handle: string,
+    nick: string,
+    channel: string,
+  ): void {
+    // The keyring (DB) is shared across tests; clear any pin/session a prior
+    // test left (e.g. a revoke) so this is a clean first-contact handshake
+    // regardless of test order.
+    mgr.forgetPeer(alice, aliceNet, handle);
+    mgr.forgetPeer(uid, net, ALICE_H);
+    mgr.setChannelConfig(alice, aliceNet, channel, true, 'auto-accept');
+    mgr.setChannelConfig(uid, net, channel, true, 'auto-accept');
+    const aOut = mgr.handleHandshakeBody(
+      alice,
+      aliceNet,
+      handle,
+      nick,
+      mgr.buildKeyReq(uid, net, channel)!,
+    )!;
+    expect(aOut.replies).toHaveLength(2); // KEYRSP + reciprocal KEYREQ
+    mgr.handleHandshakeBody(uid, net, ALICE_H, 'alice', aOut.replies[0]); // installs Alice's key
+    const peerOut = mgr.handleHandshakeBody(uid, net, ALICE_H, 'alice', aOut.replies[1])!;
+    if (peerOut.replies.length) {
+      mgr.handleHandshakeBody(alice, aliceNet, handle, nick, peerOut.replies[0]); // Alice installs theirs
+    }
+  }
+
+  it('lazy-rotates on revoke and distributes a REKEY to the remaining recipient only', () => {
+    const ch = '#rot-revoke';
+    handshakeWithAlice(bob, bobNet, BOB_H, 'bob', ch);
+    handshakeWithAlice(carol, carolNet, CAROL_H, 'carol', ch);
+
+    // Before any rotation: both peers read Alice's message, nothing queued.
+    const first = encLines(alice, aliceNet, ch, 'before revoke');
+    expect(mgr.decryptIncoming(bob, bobNet, ALICE_H, ch, first[0])).toMatchObject({
+      kind: 'plaintext',
+    });
+    expect(mgr.decryptIncoming(carol, carolNet, ALICE_H, ch, first[0])).toMatchObject({
+      kind: 'plaintext',
+    });
+    expect(mgr.takePendingRekeySends(alice, aliceNet)).toEqual([]);
+
+    // Revoke Bob → the next send rotates the key and ships a REKEY to Carol ONLY.
+    expect(mgr.revokePeer(alice, aliceNet, BOB_H)).toBe(true);
+    const second = encLines(alice, aliceNet, ch, 'after revoke');
+    const sends = mgr.takePendingRekeySends(alice, aliceNet);
+    expect(sends).toHaveLength(1);
+    expect(sends[0]).toMatchObject({ channel: ch, targetHandle: CAROL_H });
+    // Draining is one-shot.
+    expect(mgr.takePendingRekeySends(alice, aliceNet)).toEqual([]);
+
+    // Carol applies the REKEY (installs silently) and reads the new message;
+    // Bob, cut off, can no longer decrypt Alice's post-revoke traffic.
+    expect(mgr.handleHandshakeBody(carol, carolNet, ALICE_H, 'alice', sends[0].body)).toEqual({
+      replies: [],
+    });
+    expect(mgr.decryptIncoming(carol, carolNet, ALICE_H, ch, second[0])).toMatchObject({
+      kind: 'plaintext',
+      text: 'after revoke',
+    });
+    expect(mgr.decryptIncoming(bob, bobNet, ALICE_H, ch, second[0]).kind).not.toBe('plaintext');
+  });
+
+  it('rotateChannel queues a REKEY for every current recipient on the next send', () => {
+    const ch = '#rot-manual';
+    handshakeWithAlice(bob, bobNet, BOB_H, 'bob', ch);
+    handshakeWithAlice(carol, carolNet, CAROL_H, 'carol', ch);
+
+    expect(mgr.rotateChannel(alice, aliceNet, ch)).toBe(true);
+    const lines = encLines(alice, aliceNet, ch, 'rotated');
+    const sends = mgr.takePendingRekeySends(alice, aliceNet);
+    expect(sends.map((s) => s.targetHandle).sort()).toEqual([BOB_H, CAROL_H].sort());
+
+    // Every peer applies its REKEY and reads the message under the fresh key.
+    for (const s of sends) {
+      const peer =
+        s.targetHandle === BOB_H ? { uid: bob, net: bobNet } : { uid: carol, net: carolNet };
+      mgr.handleHandshakeBody(peer.uid, peer.net, ALICE_H, 'alice', s.body);
+      expect(mgr.decryptIncoming(peer.uid, peer.net, ALICE_H, ch, lines[0])).toMatchObject({
+        kind: 'plaintext',
+        text: 'rotated',
+      });
+    }
+  });
+
+  it('rotateChannel is a no-op (false) when there is no outgoing session yet', () => {
+    expect(mgr.rotateChannel(alice, aliceNet, '#rot-never')).toBe(false);
+    expect(mgr.takePendingRekeySends(alice, aliceNet)).toEqual([]);
+  });
+
+  it('rejects a replayed REKEY (nonce-LRU) so a superseded key cannot be reinstalled', () => {
+    const ch = '#rot-replay';
+    handshakeWithAlice(carol, carolNet, CAROL_H, 'carol', ch);
+
+    // First rotation → REKEY #1 to Carol; she installs it.
+    mgr.rotateChannel(alice, aliceNet, ch);
+    encLines(alice, aliceNet, ch, 'r1');
+    const rekey1 = mgr.takePendingRekeySends(alice, aliceNet)[0].body;
+    mgr.handleHandshakeBody(carol, carolNet, ALICE_H, 'alice', rekey1);
+
+    // Second rotation → REKEY #2; Carol now reads under the newest key.
+    mgr.rotateChannel(alice, aliceNet, ch);
+    const msg2 = encLines(alice, aliceNet, ch, 'r2');
+    const rekey2 = mgr.takePendingRekeySends(alice, aliceNet)[0].body;
+    mgr.handleHandshakeBody(carol, carolNet, ALICE_H, 'alice', rekey2);
+    expect(mgr.decryptIncoming(carol, carolNet, ALICE_H, ch, msg2[0])).toMatchObject({
+      kind: 'plaintext',
+      text: 'r2',
+    });
+
+    // Replaying the FIRST REKEY is ignored (nonce already seen) and must NOT
+    // reinstall the superseded key — Carol still reads Alice's current traffic.
+    expect(mgr.handleHandshakeBody(carol, carolNet, ALICE_H, 'alice', rekey1)).toEqual({
+      replies: [],
+    });
+    const msg3 = encLines(alice, aliceNet, ch, 'r3');
+    expect(mgr.decryptIncoming(carol, carolNet, ALICE_H, ch, msg3[0])).toMatchObject({
+      kind: 'plaintext',
+      text: 'r3',
+    });
+  });
+});

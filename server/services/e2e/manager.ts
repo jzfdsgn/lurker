@@ -26,10 +26,16 @@ import { buildAad } from './aad.js';
 import * as aead from './aead.js';
 import { splitPlaintext } from './chunker.js';
 import { DEFAULT_TS_TOLERANCE_SECS, rekeyInfo, wrapInfo } from './constants.js';
-import { deriveWrapKey, ed25519SeedToX25519, generateEphemeral } from './ecdh.js';
+import {
+  deriveWrapKey,
+  ed25519PubToX25519,
+  ed25519SeedToX25519,
+  generateEphemeral,
+} from './ecdh.js';
 import { utf8 } from './encoding.js';
 import { fingerprint, fingerprintHex, fingerprintWords } from './fingerprint.js';
 import {
+  encodeKeyRekey,
   encodeKeyReq,
   encodeKeyRsp,
   type KeyRekey,
@@ -55,8 +61,19 @@ const PENDING_INBOUND_TTL_MS = 30 * 60_000; // normal-mode prompts await /e2e ac
 const PENDING_INBOUND_MAX = 4096;
 const KEYCHANGE_TTL_MS = 30 * 60_000; // a remembered key/handle change awaits /e2e reverify
 const KEYCHANGE_MAX = 4096;
+// A REKEY carries a signed 16-byte nonce but no timestamp. We remember each
+// nonce we've accepted so a captured REKEY can't be re-injected to re-install a
+// superseded key (a DoS, not a confidentiality break — the key is authentic).
+// Generous TTL since REKEYs are infrequent; bounded so a churn of peers can't
+// grow it unbounded. Resets on cell restart (same exposure the reference has,
+// which tracks nothing at all).
+const REKEY_REPLAY_TTL_MS = 24 * 60 * 60_000;
+const REKEY_REPLAY_MAX = 10_000;
 
 const eqLower = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+// Compact, stable string form of raw bytes for use as an in-memory map key.
+const b64 = (b: Uint8Array): string => Buffer.from(b).toString('base64');
 
 // ─── public result shapes ────────────────────────────────────────────────────
 
@@ -111,6 +128,15 @@ export type EncryptOutcome =
   | { kind: 'disabled' } // E2E off for this channel — caller MAY send plaintext
   | { kind: 'encrypted'; lines: string[] }
   | { kind: 'error'; reason: string }; // enabled but failed — caller must NOT send plaintext
+
+/** A REKEY CTCP produced by a lazy rotation, waiting for the IRC layer to ship.
+ *  `body` is UNFRAMED (the IRC layer wraps it in `\x01..\x01` and resolves
+ *  `targetHandle` → a current nick on `channel` before sending it as a NOTICE). */
+export interface PendingRekeySend {
+  channel: string;
+  targetHandle: string;
+  body: string;
+}
 
 export type DecryptOutcome =
   | { kind: 'plaintext'; text: string }
@@ -169,14 +195,19 @@ export class E2eManager {
   private readonly pending = new Map<string, PendingHandshake>();
   private readonly pendingInbound = new Map<string, PendingInbound>();
   private readonly pendingKeyChange = new Map<string, PendingKeyChange>();
+  // REKEY CTCPs queued by a lazy rotation, keyed by tenant (`userId:networkId`).
+  // The IRC layer drains this right after each send (see takePendingRekeySends).
+  private readonly pendingRekey = new Map<string, PendingRekeySend[]>();
   private readonly rateLimiter: RateLimiter;
   private readonly replay: ReplayCache;
+  private readonly rekeyReplay: ReplayCache;
 
   constructor(opts: E2eManagerOptions = {}) {
     this.now = opts.now ?? Date.now;
     this.tsToleranceSecs = opts.tsToleranceSecs ?? DEFAULT_TS_TOLERANCE_SECS;
     this.rateLimiter = new RateLimiter(this.now);
     this.replay = new ReplayCache(100_000, this.now);
+    this.rekeyReplay = new ReplayCache(REKEY_REPLAY_MAX, this.now);
   }
 
   private nowUnix(): number {
@@ -193,6 +224,10 @@ export class E2eManager {
 
   private rlKey(userId: number, networkId: number, handle: string): string {
     return this.peerKey(userId, networkId, handle);
+  }
+
+  private tenantKey(userId: number, networkId: number): string {
+    return `${userId}:${networkId}`;
   }
 
   // ─── identity ──────────────────────────────────────────────────────────────
@@ -541,10 +576,18 @@ export class E2eManager {
     );
     if (!verify(rekey.pubkey, payload, rekey.sig)) return { replies: [] };
 
-    // NOTE: REKEY carries a signed 16-byte nonce but we don't yet track it, and
-    // there's no ts window on this path — a captured REKEY from a known peer is
-    // replayable (re-installs an old key). Latent for now (no REKEY distribution
-    // is wired); add nonce-LRU + ts-skew here when Phase-2 channel rotation ships.
+    // Replay guard: the REKEY nonce is signed, so it can't be tampered with;
+    // reject a repeat so a captured REKEY can't be re-injected to re-install a
+    // superseded key. Checked AFTER signature verify (an unsigned packet can't
+    // poison the cache) and BEFORE any state change. There's no ts field on a
+    // REKEY, so this is a nonce-LRU, not a skew window. Scoped by CHANNEL too: a
+    // REKEY only installs a key for its own channel (the channel is in the signed
+    // payload + the HKDF wrap info), so replay only matters per-channel and the
+    // scope avoids a cross-channel nonce collision dropping a legit REKEY. See
+    // REKEY_REPLAY_TTL_MS.
+    const replayKey = `${this.peerKey(userId, networkId, senderHandle)}:${rekey.channel.toLowerCase()}:${b64(rekey.nonce)}`;
+    if (!this.rekeyReplay.observe(replayKey, REKEY_REPLAY_TTL_MS)) return { replies: [] };
+
     const fp = fingerprint(rekey.pubkey);
     const change = this.classifyPeerChange(userId, networkId, fp, senderHandle);
     // A REKEY from a peer we've never handshaked with is illegitimate.
@@ -1207,16 +1250,139 @@ export class E2eManager {
     }
   }
 
+  // ─── key rotation ────────────────────────────────────────────────────────────
+
+  /** Flag `channel`'s outgoing key for rotation (the `/e2e rotate` command). The
+   *  fresh key is generated AND distributed lazily on the next send to the
+   *  channel — matching the reference's lazy-rotate model, and the same path
+   *  `/e2e revoke` already uses. Returns false if there's no outgoing session yet
+   *  (nothing to rotate — the first send generates a fresh key regardless). */
+  rotateChannel(userId: number, networkId: number, channel: string): boolean {
+    try {
+      if (!keyring.getOutgoingSession(userId, networkId, channel)) return false;
+      keyring.markOutgoingPendingRotation(userId, networkId, channel);
+      return true;
+    } catch (err) {
+      console.warn(`e2e rotate ${channel}: ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  /** Drain the REKEY CTCPs queued by a lazy rotation for this tenant. The IRC
+   *  layer calls this right after each send: it resolves each entry's
+   *  `targetHandle` → a current nick on `channel` and ships `body` as a framed
+   *  NOTICE. Never throws (shared singleton). */
+  takePendingRekeySends(userId: number, networkId: number): PendingRekeySend[] {
+    try {
+      const key = this.tenantKey(userId, networkId);
+      const queue = this.pendingRekey.get(key);
+      if (!queue || queue.length === 0) return [];
+      this.pendingRekey.delete(key);
+      return queue;
+    } catch (err) {
+      console.warn(`e2e takePendingRekeySends: ${(err as Error).message}`);
+      return [];
+    }
+  }
+
   // ─── private helpers ─────────────────────────────────────────────────────────
 
   private getOrGenerateOutgoingKey(userId: number, networkId: number, channel: string): Uint8Array {
     const sess = keyring.getOutgoingSession(userId, networkId, channel);
     if (sess && !sess.pendingRotation) return sess.sk;
-    // No session yet, or a rotation is pending — generate a fresh key. (REKEY
-    // distribution to existing recipients is a Phase-2 channel feature.)
+    // No session yet, or a rotation is pending — generate a fresh key. When this
+    // is a ROTATION (an existing session flagged pendingRotation by /e2e revoke
+    // or /e2e rotate) we must hand the new key to every remaining recipient via a
+    // REKEY CTCP so they can keep decrypting us. Capture the rotation flag BEFORE
+    // setOutgoingSession clears it. Distribution is queued for the IRC layer to
+    // drain + ship (it owns handle → nick resolution and the wire).
+    const rotating = sess?.pendingRotation === true;
     const fresh = aead.generateSessionKey();
+    if (rotating) this.queueRekeyDistribution(userId, networkId, channel, fresh);
     keyring.setOutgoingSession(userId, networkId, channel, fresh, this.nowUnix());
     return fresh;
+  }
+
+  // Build a REKEY CTCP for every remaining recipient of our outgoing key on
+  // `channel`, delivering `freshSk`, and queue them for the IRC layer. The
+  // recipients table is kept in lock-step with consent (recordOutgoingRecipient
+  // on KEYRSP-build, removeOutgoingRecipient on revoke/forget), so a revoked
+  // peer is already gone from it and never gets the new key. A recipient with no
+  // peer pin (shouldn't happen) or whose key won't build is skipped, not fatal.
+  private queueRekeyDistribution(
+    userId: number,
+    networkId: number,
+    channel: string,
+    freshSk: Uint8Array,
+  ): void {
+    const recipients = keyring.listOutgoingRecipients(userId, networkId, channel);
+    if (recipients.length === 0) return;
+    const sends: PendingRekeySend[] = [];
+    for (const r of recipients) {
+      const peer = keyring.getPeerByFingerprint(userId, networkId, r.fingerprint);
+      if (!peer) {
+        console.warn(`e2e rekey: no peer pin for recipient ${r.handle} on ${channel}; skipping`);
+        continue;
+      }
+      try {
+        const body = this.buildRekeyBody(userId, networkId, channel, peer.pubkey, freshSk);
+        // Address the REKEY to the peer's CURRENT pinned handle (peer is looked up
+        // by the stable fingerprint), not the recipient row's snapshot handle —
+        // the row handle can lag a handle change and fail nickForHandle, orphaning
+        // the peer. They're in sync today (a reverify drops stale recipient rows),
+        // but this is the right semantic and survives future drift. Fall back to
+        // the row handle.
+        sends.push({ channel, targetHandle: peer.lastHandle ?? r.handle, body });
+      } catch (err) {
+        console.warn(`e2e rekey build for ${r.handle} on ${channel}: ${(err as Error).message}`);
+      }
+    }
+    if (sends.length === 0) return;
+    const key = this.tenantKey(userId, networkId);
+    const queue = this.pendingRekey.get(key);
+    if (queue) queue.push(...sends);
+    else this.pendingRekey.set(key, sends);
+  }
+
+  // Encode a single KeyRekey delivering `freshSk` for `channel` to `recipientEdPub`.
+  // Fresh ephemeral X25519 → ECDH against the recipient's static identity (their
+  // Ed25519 pubkey mapped to X25519), HKDF under the REKEY domain separator, AEAD
+  // seal, sign with our identity. Mirrors buildKeyRspAndReciprocal's wrap, but
+  // wrapping to a STATIC peer key (not a per-handshake ephemeral) — that's why
+  // the recipient unwraps with their long-term key in handleRekey.
+  private buildRekeyBody(
+    userId: number,
+    networkId: number,
+    channel: string,
+    recipientEdPub: Uint8Array,
+    freshSk: Uint8Array,
+  ): string {
+    const id = this.loadIdentity(userId);
+    const ourEph = generateEphemeral();
+    const recipientX = ed25519PubToX25519(recipientEdPub);
+    const info = utf8.encode(rekeyInfo(channel));
+    const wrapKey = deriveWrapKey(ourEph.secretKey, recipientX, info);
+    const sealed = aead.encrypt(wrapKey, info, freshSk);
+
+    const nonce = new Uint8Array(randomBytes(16));
+    const payload = sigPayloadKeyRekey(
+      channel,
+      id.publicKey,
+      ourEph.publicKey,
+      sealed.nonce,
+      sealed.ciphertext,
+      nonce,
+    );
+    const rk: KeyRekey = {
+      channel,
+      pubkey: id.publicKey,
+      ephPub: ourEph.publicKey,
+      wrapNonce: sealed.nonce,
+      wrapCt: sealed.ciphertext,
+      nonce,
+      sig: sign(id.secretKey, payload),
+    };
+    return encodeKeyRekey(rk);
   }
 
   private effectiveMode(

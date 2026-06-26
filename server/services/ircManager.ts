@@ -293,6 +293,11 @@ class IrcManager extends EventEmitter {
           `outbound ${target}: ${outcome.kind}` +
           (outcome.kind === 'encrypted' ? ` (${outcome.lines.length} line(s))` : ''),
       );
+      // A lazy rotation (from /e2e revoke or /e2e rotate) regenerates the key
+      // inside encryptOutgoing and queues a REKEY for each remaining trusted
+      // peer; ship them now, while this channel's membership is current. Safe on
+      // every outcome kind — the queue is empty unless a rotation actually fired.
+      conn.flushE2eRekeys();
       if (outcome.kind === 'error') {
         conn.publishEphemeral({
           type: 'e2e',
