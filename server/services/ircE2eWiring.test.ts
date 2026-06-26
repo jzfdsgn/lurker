@@ -166,7 +166,7 @@ describe('inbound decrypt (c.on message)', () => {
 
     expect(publish).not.toHaveBeenCalled();
     expect(publishEphemeral).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'system', target: '#in' }),
+      expect.objectContaining({ type: 'e2e', level: 'info', target: '#in' }),
     );
     expect(publishEphemeral.mock.calls[0][0]).toMatchObject({
       text: expect.stringContaining('no session key'),
@@ -274,7 +274,7 @@ describe('egress refuses cleartext actions/notices on an E2E channel (#2)', () =
     expect(ok).toBe(true);
     expect(action).not.toHaveBeenCalled(); // never reached the wire
     expect(publishEphemeral).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'error', target: '#secret' }),
+      expect.objectContaining({ type: 'e2e', level: 'warn', target: '#secret' }),
     );
     vi.restoreAllMocks();
   });
@@ -288,7 +288,7 @@ describe('egress refuses cleartext actions/notices on an E2E channel (#2)', () =
 
     expect(notice).not.toHaveBeenCalled();
     expect(publishEphemeral).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'error', target: '#secret' }),
+      expect.objectContaining({ type: 'e2e', level: 'warn', target: '#secret' }),
     );
     vi.restoreAllMocks();
   });
@@ -340,12 +340,12 @@ describe('handshake transport (c.on ctcp response)', () => {
 
     conn.surfaceE2eNotice({ level: 'info', text: 'hi' }, '#rt');
     expect(publishEphemeral).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: 'system', target: '#rt', text: 'hi' }),
+      expect.objectContaining({ type: 'e2e', level: 'info', target: '#rt', text: 'hi' }),
     );
 
     conn.surfaceE2eNotice({ level: 'warn', text: 'bye' }, '#notjoined');
     expect(publishEphemeral).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: 'error', target: ':server:1' }),
+      expect.objectContaining({ type: 'e2e', level: 'warn', target: ':server:1' }),
     );
   });
 
@@ -402,7 +402,9 @@ describe('/e2e command dispatch (runE2eCommand)', () => {
     const publishEphemeral = vi.fn<(event: unknown) => void>();
     conn.publishEphemeral = publishEphemeral;
     conn.runE2eCommand(':server:1', 'on');
-    expect(publishEphemeral).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+    expect(publishEphemeral).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'e2e', level: 'warn' }),
+    );
   });
 });
 
@@ -426,7 +428,7 @@ describe('/e2e command surface — 1d', () => {
     const pe = vi.fn<(event: unknown) => void>();
     conn.publishEphemeral = pe;
     conn.runE2eCommand('#mode2', 'mode bogus');
-    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'e2e', level: 'warn' }));
   });
 
   it('list reports no trusted peers on a fresh channel', () => {
@@ -468,7 +470,7 @@ describe('/e2e command surface — 1d', () => {
     expect(texts(pe).join('\n')).toContain('/e2e commands');
     pe.mockClear();
     conn.runE2eCommand(':server:1', 'frobnicate');
-    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'e2e', level: 'warn' }));
   });
 });
 

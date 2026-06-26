@@ -1483,10 +1483,11 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
         const ok = ircManager.e2eCommand(userId, networkId, target, args);
         if (!ok) {
           const evt = {
-            type: 'error',
+            type: 'e2e',
+            level: 'warn',
             networkId,
             target,
-            text: '🔒 /e2e: this network isn’t connected',
+            text: '/e2e: this network isn’t connected',
             time: new Date().toISOString(),
             self: false,
           } as unknown as MessageEvent;

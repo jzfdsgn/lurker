@@ -64,6 +64,9 @@ const NON_PERSISTED_TYPES = new Set([
   'channel-modes',
   'lag',
   'peer-presence',
+  // RPE2E status lines are transient echoes (like /help output), surfaced via
+  // publishEphemeral — never write them to history (#382).
+  'e2e',
 ]);
 
 // How recently the user must have sent a real message to a target for a send
@@ -146,7 +149,7 @@ function extractExtras(event: IrcEvent): Record<string, unknown> | null {
       extras = { modes: event.modes };
       break;
   }
-  // RPE2E: persist the lock flag for message/action/notice so the 🔒 indicator
+  // RPE2E: persist the lock flag for message/action/notice so the indicator
   // survives a reload and reaches late-attaching clients (round-trips through the
   // `extra` JSON column → rowToEvent's Object.assign).
   if (event.e2e) extras = { ...extras, e2e: true };
@@ -1079,7 +1082,7 @@ export class IrcConnection {
       const nick = eventNick || eventHostname || 'server';
 
       // RPE2E: a `+RPE2E01` chunk on an encryption channel is decrypted to its
-      // plaintext (rendered with the 🔒 flag) before persistence. A
+      // plaintext (rendered with the flag) before persistence. A
       // missing-key/rejected/replay outcome means we can't read it — never
       // persist the raw ciphertext as a message; surface a transient hint
       // instead, then fall through to presence tracking only.
@@ -2287,7 +2290,8 @@ export class IrcConnection {
   surfaceE2eNotice(notice: UserNotice, channel?: string): void {
     const inChannel = !!channel && this.channels.has(channel.toLowerCase());
     this.publishEphemeral({
-      type: notice.level === 'warn' ? 'error' : 'system',
+      type: 'e2e',
+      level: notice.level,
       target: inChannel ? (channel as string) : this.serverTarget(),
       text: notice.text,
     });
@@ -2314,10 +2318,11 @@ export class IrcConnection {
     this.e2eHintAt.set(key, now);
     const text =
       kind === 'missing-key'
-        ? `🔒 encrypted message from ${who} — no session key yet (try /e2e handshake ${who})`
-        : `🔒 could not decrypt a message from ${who}`;
+        ? `encrypted message from ${who} — no session key yet (try /e2e handshake ${who})`
+        : `could not decrypt a message from ${who}`;
     this.publishEphemeral({
-      type: kind === 'missing-key' ? 'system' : 'error',
+      type: 'e2e',
+      level: kind === 'missing-key' ? 'info' : 'warn',
       target: channel,
       text,
     });
@@ -2341,11 +2346,7 @@ export class IrcConnection {
     const uid = this.network.user_id;
     const nid = this.network.id;
     const info = (text: string, level: 'info' | 'warn' = 'info') =>
-      this.publishEphemeral({
-        type: level === 'warn' ? 'error' : 'system',
-        target: issuingTarget,
-        text,
-      });
+      this.publishEphemeral({ type: 'e2e', level, target: issuingTarget, text });
 
     const tokens = argLine
       .trim()
@@ -2366,7 +2367,7 @@ export class IrcConnection {
     const channel = channelToken ?? (issuingTarget.startsWith('#') ? issuingTarget : null);
     const needChannel = (): string | null => {
       if (!channel) {
-        info('🔒 /e2e: run this from a channel, or name one (e.g. /e2e on #chan)', 'warn');
+        info('/e2e: run this from a channel, or name one (e.g. /e2e on #chan)', 'warn');
         return null;
       }
       return channel;
@@ -2374,15 +2375,14 @@ export class IrcConnection {
     const peer = nonChannel[0];
     const needPeer = (): string | null => {
       if (!peer) {
-        info(`🔒 /e2e ${sub}: needs a nick (e.g. /e2e ${sub} alice)`, 'warn');
+        info(`/e2e ${sub}: needs a nick (e.g. /e2e ${sub} alice)`, 'warn');
         return null;
       }
       return peer;
     };
     const resolveOrWarn = (chan: string, nick: string): string | null => {
       const handle = this.resolvePeerHandle(chan, nick);
-      if (!handle)
-        info(`🔒 couldn't resolve ${nick} on ${chan} — are they in the channel?`, 'warn');
+      if (!handle) info(`couldn't resolve ${nick} on ${chan} — are they in the channel?`, 'warn');
       return handle;
     };
     // The accept/verify/revoke/reverify subcommands all need the same triple:
@@ -2407,10 +2407,10 @@ export class IrcConnection {
         const mode = parseE2eMode(nonChannel[0]);
         if (e2eManager.setChannelConfig(uid, nid, chan, true, mode)) {
           info(
-            `🔒 encryption enabled on ${chan} (mode: ${mode}). Start a session: /e2e handshake <nick>`,
+            `encryption enabled on ${chan} (mode: ${mode}). Start a session: /e2e handshake <nick>`,
           );
         } else {
-          info(`🔒 failed to enable encryption on ${chan}`, 'warn');
+          info(`failed to enable encryption on ${chan}`, 'warn');
         }
         return;
       }
@@ -2421,9 +2421,9 @@ export class IrcConnection {
         const existing = getE2eChannelConfig(uid, nid, chan);
         const mode: ChannelMode = existing?.mode ?? 'normal';
         if (e2eManager.setChannelConfig(uid, nid, chan, false, mode)) {
-          info(`🔓 encryption disabled on ${chan}`);
+          info(`encryption disabled on ${chan}`);
         } else {
-          info(`🔒 failed to disable encryption on ${chan}`, 'warn');
+          info(`failed to disable encryption on ${chan}`, 'warn');
         }
         return;
       }
@@ -2436,11 +2436,11 @@ export class IrcConnection {
         const peerHandle = this.resolvePeerHandle(chan, nick) ?? undefined;
         const body = e2eManager.buildKeyReq(uid, nid, chan, peerHandle);
         if (!body) {
-          info(`🔒 couldn't build a handshake (is your identity available?)`, 'warn');
+          info(`couldn't build a handshake (is your identity available?)`, 'warn');
           return;
         }
         this.sendHandshakeReply(nick, body);
-        info(`🔒 handshake sent to ${nick} on ${chan} — waiting for their key…`);
+        info(`handshake sent to ${nick} on ${chan} — waiting for their key…`);
         return;
       }
       case 'accept': {
@@ -2449,17 +2449,17 @@ export class IrcConnection {
         const outcome = e2eManager.acceptPending(uid, nid, r.handle, r.chan);
         for (const reply of outcome.replies) this.sendHandshakeReply(r.nick, reply);
         if (outcome.notice) info(outcome.notice.text, outcome.notice.level);
-        else info(`🔒 accepted ${r.nick} — encrypted session set up on ${r.chan}`);
+        else info(`accepted ${r.nick} — encrypted session set up on ${r.chan}`);
         return;
       }
       case 'fingerprint':
       case 'fp': {
         const id = e2eManager.getIdentity(uid);
         if (!id) {
-          info('🔒 your encryption identity is unavailable', 'warn');
+          info('your encryption identity is unavailable', 'warn');
           return;
         }
-        info(`🔒 your fingerprint: ${id.fingerprintHex}`);
+        info(`your fingerprint: ${id.fingerprintHex}`);
         info(`   verify words: ${id.sas}`);
         return;
       }
@@ -2469,12 +2469,12 @@ export class IrcConnection {
         const me = e2eManager.getIdentity(uid);
         const v = e2eManager.verifyInfo(uid, nid, r.handle);
         if (!v) {
-          info(`🔒 no known encryption key for ${r.nick}`, 'warn');
+          info(`no known encryption key for ${r.nick}`, 'warn');
           return;
         }
         // Side-by-side so the user can read both out-of-band and compare, with the
         // MitM remediation spelled out (mirrors repartee's verify block).
-        info(`🔒 verify ${r.nick} — compare BOTH out-of-band (call/Signal), then trust:`);
+        info(`verify ${r.nick} — compare BOTH out-of-band (call/Signal), then trust:`);
         if (me) info(`   you:  ${me.fingerprintHex.slice(0, 16)}…  ${me.sas}`);
         info(`   ${r.nick}:  ${v.fingerprintHex.slice(0, 16)}…  ${v.sas}  (${v.status})`);
         info(`   if they DON'T match, a MitM may be in progress — /e2e revoke ${r.nick}`, 'warn');
@@ -2486,8 +2486,8 @@ export class IrcConnection {
         const ok = e2eManager.revokePeer(uid, nid, r.handle);
         info(
           ok
-            ? `🔒 revoked ${r.nick} — they can't read your future messages`
-            : `🔒 nothing to revoke for ${r.nick}`,
+            ? `revoked ${r.nick} — they can't read your future messages`
+            : `nothing to revoke for ${r.nick}`,
         );
         return;
       }
@@ -2495,21 +2495,21 @@ export class IrcConnection {
         const r = chanNickHandle();
         if (!r) return;
         const ok = e2eManager.unrevokePeer(uid, nid, r.handle);
-        info(ok ? `🔒 unrevoked ${r.nick} — trust restored` : `🔒 ${r.nick} isn't revoked`);
+        info(ok ? `unrevoked ${r.nick} — trust restored` : `${r.nick} isn't revoked`);
         return;
       }
       case 'decline': {
         const r = chanNickHandle();
         if (!r) return;
         const ok = e2eManager.declinePeer(uid, nid, r.handle, r.chan);
-        info(ok ? `🔒 declined ${r.nick} on ${r.chan}` : `🔒 nothing pending from ${r.nick}`);
+        info(ok ? `declined ${r.nick} on ${r.chan}` : `nothing pending from ${r.nick}`);
         return;
       }
       case 'reverify': {
         const r = chanNickHandle();
         if (!r) return;
         const cleared = e2eManager.reverifyPeer(uid, nid, r.handle);
-        info(`🔒 forgot ${cleared} record(s) for ${r.nick} — the next handshake re-pins their key`);
+        info(`forgot ${cleared} record(s) for ${r.nick} — the next handshake re-pins their key`);
         return;
       }
       case 'mode': {
@@ -2517,14 +2517,14 @@ export class IrcConnection {
         if (!chan) return;
         const token = (nonChannel[0] || '').toLowerCase();
         if (!['auto', 'auto-accept', 'normal', 'quiet'].includes(token)) {
-          info(`🔒 /e2e mode <auto|normal|quiet>`, 'warn');
+          info(`/e2e mode <auto|normal|quiet>`, 'warn');
           return;
         }
         const mode = parseE2eMode(token);
         info(
           e2eManager.setChannelMode(uid, nid, chan, mode)
-            ? `🔒 ${chan} mode set to ${mode}`
-            : `🔒 failed to set mode on ${chan}`,
+            ? `${chan} mode set to ${mode}`
+            : `failed to set mode on ${chan}`,
           'info',
         );
         return;
@@ -2532,7 +2532,7 @@ export class IrcConnection {
       case 'list': {
         if (nonChannel.some((t) => t.toLowerCase() === '-all')) {
           const { peers, sessions } = e2eManager.listKeyring(uid, nid);
-          info(`🔒 E2E keyring — ${peers.length} peer(s), ${sessions.length} session(s)`);
+          info(`E2E keyring — ${peers.length} peer(s), ${sessions.length} session(s)`);
           if (!peers.length) info('   (no remembered peers)');
           for (const p of peers) {
             info(`   ${p.handle}  [${p.status}]  ${p.fingerprintHex.slice(0, 16)}…`);
@@ -2544,10 +2544,10 @@ export class IrcConnection {
         if (!chan) return;
         const peers = e2eManager.listChannelPeers(uid, nid, chan);
         if (!peers.length) {
-          info(`🔒 ${chan}: no trusted peers yet — /e2e accept <nick> after a handshake`);
+          info(`${chan}: no trusted peers yet — /e2e accept <nick> after a handshake`);
           return;
         }
-        info(`🔒 ${chan}: ${peers.length} trusted peer(s)`);
+        info(`${chan}: ${peers.length} trusted peer(s)`);
         for (const p of peers) {
           info(`   ${p.handle}  [${p.status}]  ${p.fingerprintHex.slice(0, 16)}…`);
         }
@@ -2558,10 +2558,10 @@ export class IrcConnection {
         if (op === 'list') {
           const rules = e2eManager.listAutotrust(uid, nid);
           if (!rules.length) {
-            info('🔒 no autotrust rules');
+            info('no autotrust rules');
             return;
           }
-          info(`🔒 autotrust rules (${rules.length}):`);
+          info(`autotrust rules (${rules.length}):`);
           for (const ru of rules) info(`   ${ru.scope}  ${ru.handlePattern}`);
           return;
         }
@@ -2569,13 +2569,13 @@ export class IrcConnection {
           const scope = tokens[1];
           const pattern = tokens[2];
           if (!scope || !pattern) {
-            info('🔒 /e2e autotrust add <scope> <pattern>  (scope = global or #chan)', 'warn');
+            info('/e2e autotrust add <scope> <pattern>  (scope = global or #chan)', 'warn');
             return;
           }
           info(
             e2eManager.addAutotrust(uid, nid, scope, pattern)
-              ? `🔒 autotrust added: ${scope} ${pattern}`
-              : '🔒 failed to add autotrust rule',
+              ? `autotrust added: ${scope} ${pattern}`
+              : 'failed to add autotrust rule',
             'info',
           );
           return;
@@ -2583,34 +2583,34 @@ export class IrcConnection {
         if (op === 'remove') {
           const pattern = tokens[1];
           if (!pattern) {
-            info('🔒 /e2e autotrust remove <pattern>', 'warn');
+            info('/e2e autotrust remove <pattern>', 'warn');
             return;
           }
           const removed = e2eManager.removeAutotrust(uid, nid, pattern);
           info(
             removed > 0
-              ? `🔒 removed ${removed} autotrust rule(s) matching ${pattern}`
-              : `🔒 no autotrust rule matching ${pattern}`,
+              ? `removed ${removed} autotrust rule(s) matching ${pattern}`
+              : `no autotrust rule matching ${pattern}`,
           );
           return;
         }
-        info('🔒 /e2e autotrust <list|add|remove>', 'warn');
+        info('/e2e autotrust <list|add|remove>', 'warn');
         return;
       }
       case 'status': {
         const id = e2eManager.getIdentity(uid);
         if (id) {
-          info(`🔒 your fingerprint: ${id.fingerprintHex}`);
+          info(`your fingerprint: ${id.fingerprintHex}`);
           info(`   verify words: ${id.sas}`);
         } else {
-          info('🔒 encryption identity unavailable', 'warn');
+          info('encryption identity unavailable', 'warn');
         }
         if (channel) {
           const st = e2eManager.channelStatus(uid, nid, channel);
           info(
             st?.enabled
-              ? `🔒 ${channel}: encryption ON (mode: ${st.mode}, peers: ${st.peers})`
-              : `🔓 ${channel}: encryption off`,
+              ? `${channel}: encryption ON (mode: ${st.mode}, peers: ${st.peers})`
+              : `${channel}: encryption off`,
           );
         }
         return;
@@ -2618,7 +2618,7 @@ export class IrcConnection {
       case 'help':
       case '?': {
         for (const line of [
-          '🔒 /e2e commands:',
+          '/e2e commands:',
           '   on [#chan] [auto|normal|quiet] · off [#chan] · mode <auto|normal|quiet>',
           '   handshake <nick> · accept <nick> · decline <nick>',
           '   revoke <nick> · unrevoke <nick> · reverify <nick>',
@@ -2630,7 +2630,7 @@ export class IrcConnection {
         return;
       }
       default:
-        info(`🔒 /e2e: unknown subcommand '${sub}' — try /e2e help`, 'warn');
+        info(`/e2e: unknown subcommand '${sub}' — try /e2e help`, 'warn');
     }
   }
 

@@ -269,6 +269,7 @@ function applyEvent(event: any): void {
       buffers.pushMessage(event);
       break;
     }
+    case 'e2e': // RPE2E status line (#382) — same routing as a server notice.
     case 'motd':
     case 'error': {
       const decorated = { ...event, target: event.target || `:server:${event.networkId}` };

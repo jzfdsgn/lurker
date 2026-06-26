@@ -235,7 +235,10 @@
                 v-if="row.m.text"
                 >: <LinkedText :text="row.m.text" /></template
             ></template>
-            <template v-else-if="row.m?.type === 'motd' || row.m?.type === 'system'"
+            <template
+              v-else-if="
+                row.m?.type === 'motd' || row.m?.type === 'system' || row.m?.type === 'e2e'
+              "
               ><LinkedText :text="row.m.text ?? ''"
             /></template>
             <template v-else-if="row.m?.type === 'error'"
@@ -341,6 +344,8 @@ interface ChatMessage {
   originNetworkId?: number | null;
   // RPE2E (#382): this line was end-to-end encrypted on the wire — render a 🔒.
   e2e?: boolean;
+  // Severity for `type: 'e2e'` status lines — drives the tag color.
+  level?: 'info' | 'warn';
   [key: string]: unknown;
 }
 
@@ -1051,6 +1056,10 @@ function prefixText(m: ChatMessage | undefined): string {
       // current name; other app-level lines (away/back, server lifecycle,
       // node, …) → "System".
       return systemNetworkName(m) ?? 'System';
+    case 'e2e':
+      // RPE2E status echoes get their own tag (not the generic "System") so the
+      // user can tell encryption lines apart at a glance (#382).
+      return 'E2E';
     case 'error':
       return '!!';
     default:
@@ -1083,6 +1092,9 @@ function prefixClass(m: ChatMessage | undefined) {
     'action-marker': m?.type === 'action',
     italic: m?.type === 'action' && actionItalic.value,
     self: m?.self,
+    // A warn-level E2E line (TOFU warning, refused send) colors its tag like an
+    // error; info-level stays the calm E2E color.
+    'e2e-warn': m?.type === 'e2e' && m?.level === 'warn',
     [`p-${m?.type}`]: true,
   };
 }
@@ -1790,6 +1802,14 @@ watch(
 .prefix.p-error {
   color: var(--bad);
 }
+/* RPE2E status tag (#382): the calm "E2E" lock-green for info, error-red when a
+   line is a warning (TOFU change, refused send). */
+.prefix.p-e2e {
+  color: var(--good);
+}
+.prefix.p-e2e.e2e-warn {
+  color: var(--bad);
+}
 .prefix.p-nick,
 .prefix.p-mode,
 .prefix.p-topic,
@@ -1832,12 +1852,21 @@ watch(
 .body.italic {
   font-style: italic;
 }
-/* RPE2E lock (#382): a muted inline marker that a line rode the wire encrypted.
-   Hierarchy via color/opacity, not font-size (house rule). */
+/* RPE2E lock (#382): a subtle marker that a line rode the wire encrypted. Floated
+   to the far-right gutter of the row (the .body cell is position:relative and
+   fills the last grid column, so right:0 there is the right edge of the list)
+   and kept faint so it reads as a quiet status dot, not a glyph competing with
+   the text. Yields to the hover action bar, which shares that corner. */
 .e2e-lock {
-  margin-right: 0.5ch;
-  color: var(--good);
-  opacity: 0.75;
+  position: absolute;
+  right: var(--space-2);
+  top: 0;
+  color: var(--fg-muted);
+  opacity: 0.4;
+  pointer-events: none;
+}
+.line:hover .e2e-lock {
+  opacity: 0;
 }
 /* .msg-link styling lives in src/assets/main.css (shared with the topic bar). */
 

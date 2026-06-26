@@ -446,7 +446,7 @@ export class E2eManager {
       replies: [],
       notice: {
         level: 'info',
-        text: `🔒 encrypted session established with ${senderHandle} on ${rsp.channel}`,
+        text: `encrypted session established with ${senderHandle} on ${rsp.channel}`,
       },
       channel: rsp.channel,
     };
