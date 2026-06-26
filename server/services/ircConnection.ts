@@ -2360,6 +2360,37 @@ export class IrcConnection {
     return `${m.user}@${m.host}`;
   }
 
+  // The reverse of resolvePeerHandle: a peer's keyring handle (ident@host) → their
+  // CURRENT nick on `channel`, via channel membership. Needed because a REKEY is
+  // addressed to a handle but a NOTICE is sent to a nick. Null if they aren't a
+  // visible member (e.g. they left between handshake and rotation).
+  nickForHandle(channel: string, handle: string): string | null {
+    const ch = this.channels.get(channel.toLowerCase());
+    if (!ch) return null;
+    const want = handle.toLowerCase();
+    for (const m of ch.members.values()) {
+      if (m.user && m.host && `${m.user}@${m.host}`.toLowerCase() === want) return m.nick;
+    }
+    return null;
+  }
+
+  // Ship any REKEY CTCPs a lazy rotation queued during the just-completed send
+  // (see E2eManager.getOrGenerateOutgoingKey). Each goes out as a framed NOTICE to
+  // the recipient's current nick on the rotated channel; a recipient who has left
+  // is dropped (they re-handshake on next ciphertext if they return).
+  flushE2eRekeys(): void {
+    if (this.disposed) return;
+    const sends = e2eManager.takePendingRekeySends(this.network.user_id, this.network.id);
+    for (const s of sends) {
+      const nick = this.nickForHandle(s.channel, s.targetHandle);
+      if (!nick) {
+        e2eDbg(() => `rekey drop: no nick for ${s.targetHandle} on ${s.channel}`);
+        continue;
+      }
+      this.sendHandshakeReply(nick, s.body);
+    }
+  }
+
   // Dispatch a `/e2e …` subcommand. All output is ephemeral status routed to the
   // issuing buffer; handshake/accept put real CTCP NOTICEs on the wire. Channels
   // only this phase (#382) — DM contexts are rejected with a hint.
@@ -2543,6 +2574,17 @@ export class IrcConnection {
         info(ok ? `unrevoked ${r.nick} — trust restored` : `${r.nick} isn't revoked`);
         return;
       }
+      case 'rotate': {
+        const chan = needChannel();
+        if (!chan) return;
+        const ok = e2eManager.rotateChannel(uid, nid, chan);
+        info(
+          ok
+            ? `rotating ${chan}'s key — your trusted peers get the fresh key on your next message`
+            : `nothing to rotate on ${chan} (no encrypted session yet)`,
+        );
+        return;
+      }
       case 'decline': {
         const r = chanNickHandle();
         if (!r) return;
@@ -2721,7 +2763,7 @@ export class IrcConnection {
           '/e2e commands:',
           '   on [#chan] [auto|normal|quiet] · off [#chan] · mode <auto|normal|quiet>',
           '   handshake <nick> · accept <nick> · decline <nick>',
-          '   revoke <nick> · unrevoke <nick> · reverify <nick>',
+          '   revoke <nick> · unrevoke <nick> · reverify <nick> · rotate [#chan]',
           '   forget [-all] <nick|handle> · verify <nick> · fingerprint',
           '   status · list [-all]',
           '   autotrust <list | add <scope> <pattern> | remove <pattern>>',

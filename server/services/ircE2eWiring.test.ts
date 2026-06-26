@@ -69,6 +69,7 @@ describe('outbound encrypt (ircManager.send)', () => {
       publish,
       client: { user: { nick: 'alice' } },
       supportsMultiline: () => false,
+      flushE2eRekeys: () => {},
     } as unknown as IrcConnection;
     vi.spyOn(ircManager, 'getConnection').mockReturnValue(fakeConn);
     e2eManager.setChannelConfig(1, 1, '#enc', true, 'normal');
@@ -105,6 +106,7 @@ describe('outbound encrypt (ircManager.send)', () => {
       publish,
       client: { user: { nick: 'alice' } },
       supportsMultiline: () => false,
+      flushE2eRekeys: () => {},
     } as unknown as IrcConnection;
     vi.spyOn(ircManager, 'getConnection').mockReturnValue(fakeConn);
 
@@ -115,6 +117,42 @@ describe('outbound encrypt (ircManager.send)', () => {
       expect.objectContaining({ type: 'message', target: '#plain', text: 'hello world' }),
     );
     expect(publish.mock.calls[0][0]).not.toHaveProperty('e2e', true);
+    vi.restoreAllMocks();
+  });
+});
+
+describe('rekey distribution ship (flushE2eRekeys)', () => {
+  it('ships a queued REKEY as a framed NOTICE to the nick resolved from its handle', () => {
+    const conn = makeConn();
+    conn.publish = vi.fn<(event: unknown) => void>();
+    const notice = vi.fn<(target: string, text: string) => void>();
+    conn.client.notice = notice;
+    // A JOIN populates membership so the recipient handle resolves to a nick.
+    conn.client.emit('join', { channel: '#x', nick: 'carol', ident: 'c', hostname: 'c.host' });
+    vi.spyOn(e2eManager, 'takePendingRekeySends').mockReturnValue([
+      { channel: '#x', targetHandle: 'c@c.host', body: 'RPEE2E REKEY v=1 c=#x' },
+    ]);
+
+    conn.flushE2eRekeys();
+
+    expect(notice).toHaveBeenCalledTimes(1);
+    expect(notice).toHaveBeenCalledWith('carol', `${CTCP}RPEE2E REKEY v=1 c=#x${CTCP}`);
+    vi.restoreAllMocks();
+  });
+
+  it('drops a REKEY whose recipient is no longer a visible member (no NOTICE)', () => {
+    const conn = makeConn();
+    conn.publish = vi.fn<(event: unknown) => void>();
+    const notice = vi.fn<(target: string, text: string) => void>();
+    conn.client.notice = notice;
+    // No JOIN for the target handle → it can't be resolved to a nick.
+    vi.spyOn(e2eManager, 'takePendingRekeySends').mockReturnValue([
+      { channel: '#gone', targetHandle: 'x@left.host', body: 'RPEE2E REKEY v=1 c=#gone' },
+    ]);
+
+    conn.flushE2eRekeys();
+
+    expect(notice).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });
 });
