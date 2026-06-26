@@ -824,9 +824,11 @@ export class E2eManager {
     }
   }
 
-  /** Forget a peer entirely so the next handshake re-pins (TOFU reset). Returns
-   *  the number of rows / pending entries cleared. */
-  reverifyPeer(userId: number, networkId: number, handle: string): number {
+  /** Forget a peer entirely (pinned key + all sessions + recipients + pending) so
+   *  the next handshake re-pins from scratch. `handle` is the ident@host. Returns
+   *  the number of rows / pending entries cleared. Works for a peer who has LEFT
+   *  the channel — there's no nick resolution here, just the handle. */
+  forgetPeer(userId: number, networkId: number, handle: string): number {
     try {
       let cleared = 0;
       const peer = keyring.getPeerByHandle(userId, networkId, handle);
@@ -839,9 +841,31 @@ export class E2eManager {
       cleared += this.clearPendingForHandle(userId, networkId, handle);
       return cleared;
     } catch (err) {
-      console.warn(`e2e reverify ${handle}: ${(err as Error).message}`);
+      console.warn(`e2e forget ${handle}: ${(err as Error).message}`);
       return 0;
     }
+  }
+
+  /** Forget a peer's state on ONE channel only (the session + recipient + any
+   *  cached prompt), leaving their identity pin intact for other channels —
+   *  repartee's `/e2e forget` without `-all`. */
+  forgetPeerOnChannel(userId: number, networkId: number, handle: string, channel: string): boolean {
+    try {
+      const had = keyring.getIncomingSession(userId, networkId, handle, channel) !== null;
+      keyring.deleteIncomingSession(userId, networkId, handle, channel);
+      keyring.removeOutgoingRecipient(userId, networkId, channel, handle);
+      this.pendingInbound.delete(this.inboundKey(userId, networkId, handle, channel));
+      return had;
+    } catch (err) {
+      console.warn(`e2e forget ${handle} on ${channel}: ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  /** TOFU reset — currently the same full delete as forget (a smarter
+   *  accept-the-changed-key-in-place reverify is a follow-up). */
+  reverifyPeer(userId: number, networkId: number, handle: string): number {
+    return this.forgetPeer(userId, networkId, handle);
   }
 
   // ─── listing + management (the /e2e list/mode/decline/unrevoke surface) ──────
@@ -1144,14 +1168,16 @@ export class E2eManager {
       return { level: 'warn', text: `Ignoring encrypted handshake from revoked peer ${handle}` };
     }
     if (change === 'handle-changed') {
+      // The key is pinned under a DIFFERENT (prior) handle, so forgetting by
+      // `${handle}` won't find it — point at /e2e list to locate the pinned one.
       return {
         level: 'warn',
-        text: `⚠ a known encryption key appeared under a new handle (${handle}) — verify, then /e2e reverify ${handle}`,
+        text: `⚠ a known encryption key appeared under a new handle (${handle}) — verify out-of-band, then reset: /e2e list -all, /e2e forget -all <the pinned handle>, and re-handshake`,
       };
     }
     return {
       level: 'warn',
-      text: `⚠ encryption key changed for ${handle} — verify out-of-band, then /e2e reverify ${handle} to accept`,
+      text: `⚠ encryption key changed for ${handle} — verify out-of-band, then /e2e forget -all ${handle} and re-handshake`,
     };
   }
 }

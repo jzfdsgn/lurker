@@ -2000,7 +2000,7 @@ const COMMANDS_LINES = [
   '      on [#chan] [auto|normal|quiet]   ·   off [#chan]   ·   mode <auto|normal|quiet>',
   '      handshake <nick>   ·   accept <nick>   ·   decline <nick>',
   '      revoke <nick>   ·   unrevoke <nick>   ·   reverify <nick>   ·   verify <nick>',
-  '      fingerprint   ·   status   ·   list [-all]',
+  '      forget [-all] <nick|handle>   ·   fingerprint   ·   status   ·   list [-all]',
   '      autotrust <list | add <scope> <pattern> | remove <pattern>>',
   '  /commands              — this list',
   '  //text                 — send literal "/text" as a message (escape)',

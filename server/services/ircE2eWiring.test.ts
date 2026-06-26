@@ -528,4 +528,57 @@ describe('E2eManager 1d management methods', () => {
     const { peers } = e2eManager.listKeyring(1, 1);
     expect(peers.some((p) => p.handle === '~kit@h' && p.status === 'trusted')).toBe(true);
   });
+
+  it('forgetPeer wipes the identity pin + sessions for a handle', () => {
+    const fp = new Uint8Array(16).fill(5);
+    const pub = new Uint8Array(32).fill(6);
+    keyring.upsertPeer(1, 1, {
+      fingerprint: fp,
+      pubkey: pub,
+      lastHandle: '~gone@oldhost',
+      lastNick: 'gone',
+      firstSeen: 1,
+      lastSeen: 1,
+      globalStatus: 'trusted',
+    });
+    expect(e2eManager.forgetPeer(1, 1, '~gone@oldhost')).toBeGreaterThan(0);
+    expect(keyring.getPeerByHandle(1, 1, '~gone@oldhost')).toBeNull();
+  });
+});
+
+describe('/e2e forget + literal-handle resolution (departed peers)', () => {
+  it('forget -all <ident@host> clears a peer who is NOT in the channel', () => {
+    const fp = new Uint8Array(16).fill(8);
+    const pub = new Uint8Array(32).fill(8);
+    keyring.upsertPeer(1, 1, {
+      fingerprint: fp,
+      pubkey: pub,
+      lastHandle: '~left@somehost',
+      lastNick: 'left',
+      firstSeen: 1,
+      lastSeen: 1,
+      globalStatus: 'trusted',
+    });
+    const conn = makeConn(); // no channel membership for the peer
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+
+    // Passed as a literal handle (contains '@') — no nick resolution needed.
+    conn.runE2eCommand('#fgt', 'forget -all ~left@somehost');
+
+    expect(keyring.getPeerByHandle(1, 1, '~left@somehost')).toBeNull();
+    const joined = pe.mock.calls.map((c) => (c[0] as { text: string }).text).join('\n');
+    expect(joined).toContain('forgot ~left@somehost everywhere');
+  });
+
+  it('a bare nick that is not in the channel warns to pass the handle', () => {
+    const conn = makeConn();
+    const pe = vi.fn<(event: unknown) => void>();
+    conn.publishEphemeral = pe;
+    conn.runE2eCommand('#fgt', 'forget -all nobodyhere');
+    expect(pe).toHaveBeenCalledWith(expect.objectContaining({ type: 'e2e', level: 'warn' }));
+    expect(pe.mock.calls.map((c) => (c[0] as { text: string }).text).join('\n')).toContain(
+      'ident@host',
+    );
+  });
 });

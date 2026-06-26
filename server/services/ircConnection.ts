@@ -2401,9 +2401,19 @@ export class IrcConnection {
       }
       return peer;
     };
-    const resolveOrWarn = (chan: string, nick: string): string | null => {
-      const handle = this.resolvePeerHandle(chan, nick);
-      if (!handle) info(`couldn't resolve ${nick} on ${chan} — are they in the channel?`, 'warn');
+    const resolveOrWarn = (chan: string, nickOrHandle: string): string | null => {
+      // A literal ident@host (from a TOFU warning or /e2e list) is the keyring
+      // identity itself — use it as-is so you can act on a peer who has LEFT the
+      // channel (and so nick→handle resolution isn't required). A bare nick is
+      // still resolved against current channel membership.
+      if (nickOrHandle.includes('@')) return nickOrHandle;
+      const handle = this.resolvePeerHandle(chan, nickOrHandle);
+      if (!handle) {
+        info(
+          `couldn't resolve ${nickOrHandle} on ${chan} — pass their ident@host instead (see /e2e list -all)`,
+          'warn',
+        );
+      }
       return handle;
     };
     // The accept/verify/revoke/reverify subcommands all need the same triple:
@@ -2533,6 +2543,41 @@ export class IrcConnection {
         info(`forgot ${cleared} record(s) for ${r.nick} — the next handshake re-pins their key`);
         return;
       }
+      case 'forget': {
+        // Accepts a nick OR a literal ident@host, so you can clear a peer who has
+        // LEFT the channel (the case nick→handle resolution can't reach). `-all`
+        // forgets them everywhere (drops the identity pin); without it, just this
+        // channel's session. Mirrors repartee's /e2e forget [-all].
+        const all = nonChannel.some((t) => t.toLowerCase() === '-all');
+        const target = nonChannel.find((t) => t.toLowerCase() !== '-all');
+        if (!target) {
+          info(
+            '/e2e forget [-all] <nick|handle> — pass the ident@host for a peer who left; -all clears every channel',
+            'warn',
+          );
+          return;
+        }
+        const handle = resolveOrWarn(channel ?? '', target);
+        if (!handle) return;
+        if (all) {
+          const cleared = e2eManager.forgetPeer(uid, nid, handle);
+          info(
+            cleared > 0
+              ? `forgot ${handle} everywhere — cleared ${cleared} record(s); re-handshake to start fresh`
+              : `nothing remembered for ${handle}`,
+          );
+        } else {
+          const chan = needChannel();
+          if (!chan) return;
+          const had = e2eManager.forgetPeerOnChannel(uid, nid, handle, chan);
+          info(
+            had
+              ? `forgot ${handle} on ${chan} — re-handshake to start fresh`
+              : `nothing remembered for ${handle} on ${chan} (try -all for the identity pin)`,
+          );
+        }
+        return;
+      }
       case 'mode': {
         const chan = needChannel();
         if (!chan) return;
@@ -2643,7 +2688,8 @@ export class IrcConnection {
           '   on [#chan] [auto|normal|quiet] · off [#chan] · mode <auto|normal|quiet>',
           '   handshake <nick> · accept <nick> · decline <nick>',
           '   revoke <nick> · unrevoke <nick> · reverify <nick>',
-          '   verify <nick> · fingerprint · status · list [-all]',
+          '   forget [-all] <nick|handle> · verify <nick> · fingerprint',
+          '   status · list [-all]',
           '   autotrust <list | add <scope> <pattern> | remove <pattern>>',
         ]) {
           info(line);
