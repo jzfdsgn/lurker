@@ -46,6 +46,11 @@ function parseMode(s: string): ChannelMode {
 /** Current schema version. Bump when a field is added or semantics change. */
 export const EXPORT_VERSION = 1;
 
+/** Hard ceiling on an import payload (bytes), enforced before parsing. Generous
+ *  vs a realistic keyring (≈ a few hundred KB even with hundreds of peers) — an
+ *  abuse backstop against an event-loop-blocking parse, not a usage limit. */
+export const MAX_IMPORT_BYTES = 4 * 1024 * 1024;
+
 // ─── on-disk document shapes (JSON, hex-encoded binary) ──────────────────────
 
 export interface PortableIdentity {
@@ -195,6 +200,12 @@ export function countsOf(doc: Portable): PortableCounts {
  *  strings) before returning decoded bytes — so a malformed import is rejected
  *  before the keyring is touched. Every failure is an `E2eError('keyring')`. */
 export function parseAndValidate(json: string): ValidatedKeyring {
+  // Bound the input BEFORE JSON.parse so a pathological payload can't block the
+  // event loop / spike memory. A real keyring is well under this (hundreds of
+  // peers ≈ a few hundred KB); the cap is an abuse backstop, not a usage limit.
+  if (json.length > MAX_IMPORT_BYTES) {
+    throw new E2eError('keyring', `import too large (max ${MAX_IMPORT_BYTES} bytes)`);
+  }
   let doc: Portable;
   try {
     doc = JSON.parse(json) as Portable;
@@ -233,8 +244,8 @@ export function parseAndValidate(json: string): ValidatedKeyring {
   const peers: PeerRecord[] = doc.peers.map((p, i) => ({
     fingerprint: parseHex(`peers[${i}].fingerprint`, p.fingerprint, 16),
     pubkey: parseHex(`peers[${i}].pubkey`, p.pubkey, 32),
-    lastHandle: nullableStr(p.lastHandle),
-    lastNick: nullableStr(p.lastNick),
+    lastHandle: nullableStr(`peers[${i}].lastHandle`, p.lastHandle),
+    lastNick: nullableStr(`peers[${i}].lastNick`, p.lastNick),
     firstSeen: intField(`peers[${i}].firstSeen`, p.firstSeen),
     lastSeen: intField(`peers[${i}].lastSeen`, p.lastSeen),
     globalStatus: parseStatus(strField(`peers[${i}].globalStatus`, p.globalStatus)),
@@ -292,13 +303,21 @@ function strField(field: string, s: unknown): string {
   return s;
 }
 
-function nullableStr(s: unknown): string | null {
-  return typeof s === 'string' ? s : null;
+/** A `string | null` field: null/absent → null, a string passes through, but any
+ *  other type (number/object/bool) is REJECTED rather than silently coerced to
+ *  null — a malformed export shouldn't import and quietly lose data. */
+function nullableStr(field: string, s: unknown): string | null {
+  if (s === null || s === undefined) return null;
+  if (typeof s === 'string') return s;
+  throw new E2eError('keyring', `${field}: expected a string or null`);
 }
 
+/** A strictly-integer field. Reject non-integers rather than `Math.trunc`-ing
+ *  them — the schema round-trips exact values, so a fractional timestamp is
+ *  malformed input, not something to silently rewrite. */
 function intField(field: string, n: unknown): number {
-  if (typeof n !== 'number' || !Number.isFinite(n)) {
-    throw new E2eError('keyring', `${field}: expected a number`);
+  if (typeof n !== 'number' || !Number.isInteger(n)) {
+    throw new E2eError('keyring', `${field}: expected an integer`);
   }
-  return Math.trunc(n);
+  return n;
 }

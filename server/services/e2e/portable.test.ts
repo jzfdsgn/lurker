@@ -8,6 +8,7 @@ import {
   countsOf,
   EXPORT_VERSION,
   type ExportInput,
+  MAX_IMPORT_BYTES,
   parseAndValidate,
   serializePortable,
 } from './portable.js';
@@ -134,6 +135,24 @@ describe('portable keyring export/import', () => {
   it('rejects malformed JSON and non-object documents', () => {
     expect(() => parseAndValidate('{not json')).toThrow(/parse json/);
     expect(() => parseAndValidate('42')).toThrow(/not a JSON object/);
+  });
+
+  it('rejects a non-string (non-null) nullable field instead of coercing to null', () => {
+    const doc = buildPortable(sampleInput()) as unknown as {
+      peers: Array<Record<string, unknown>>;
+    };
+    doc.peers[0].lastHandle = 123; // a number, not a string|null
+    expect(() => parseAndValidate(JSON.stringify(doc))).toThrow(/lastHandle.*string or null/);
+  });
+
+  it('rejects a non-integer numeric field instead of truncating it', () => {
+    const doc = buildPortable(sampleInput());
+    doc.identity.createdAt = 1.5;
+    expect(() => parseAndValidate(serializePortable(doc))).toThrow(/createdAt.*integer/);
+  });
+
+  it('rejects an oversized payload before parsing', () => {
+    expect(() => parseAndValidate('x'.repeat(MAX_IMPORT_BYTES + 1))).toThrow(/too large/);
   });
 
   it('rejects a non-array collection field', () => {

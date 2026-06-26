@@ -12,6 +12,7 @@ import cookie from 'cookie';
 import cookieParser from 'cookie-parser';
 import ircManager from './ircManager.js';
 import { e2eManager } from './e2e/manager.js';
+import { MAX_IMPORT_BYTES } from './e2e/portable.js';
 import settingsService from './settingsService.js';
 import highlightRulesService from './highlightRulesService.js';
 import draftsService from './draftsService.js';
@@ -1525,6 +1526,12 @@ export function attachWsHub(httpServer: HttpServer, sessionSecret: string) {
             ok: false,
             reason: 'run /e2e import from a network buffer',
           });
+          break;
+        }
+        // Reject an oversized payload at the boundary, before the parse/replace
+        // work (defence-in-depth; parseAndValidate guards the same limit too).
+        if (json.length > MAX_IMPORT_BYTES) {
+          send(ws, { kind: 'e2eImport', ok: false, reason: 'import file too large' });
           break;
         }
         send(ws, {

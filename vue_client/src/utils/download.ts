@@ -11,6 +11,10 @@ export function downloadTextFile(filename: string, text: string, mime = 'applica
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  // Defer cleanup to the next tick: revoking the object URL synchronously after
+  // click() can cancel an in-flight download in some browsers.
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 0);
 }

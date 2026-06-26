@@ -1700,6 +1700,16 @@ function onE2eImportFile(e: Event): void {
   const networkId = e2eImportNetworkId.value;
   e2eImportNetworkId.value = null;
   if (!file || networkId == null) return;
+  // Reject an oversized file before reading it (the server enforces the same cap;
+  // this just fails fast without freezing the tab on a huge/wrong file).
+  if (file.size > 4 * 1024 * 1024) {
+    toasts.push({
+      kind: 'error',
+      title: 'E2E import failed',
+      body: 'that file is too large to be a keyring export',
+    });
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => {
     const json = String(reader.result ?? '');
