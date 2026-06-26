@@ -1317,8 +1317,14 @@ watch(
     // yet replaces that tail. Use the surviving tail to tell them apart, so a
     // capped buffer isn't misread as a re-snapshot (and force-scrolled to the
     // bottom) on every single message.
+    // ID-less (ephemeral) rows — /e2e and other server command echoes surfaced
+    // via publishEphemeral — keep the tail id `undefined`, so the id test can't
+    // see two of them in a row appended (oldLastId === newLastId === undefined).
+    // A length growth that isn't a prepend and ends in an id-less row IS an
+    // append; fall back to that so a multi-line /e2e help still sticks to bottom.
     const appended =
-      lastChanged && oldLastId != null && messages.value.some((m) => m.id === oldLastId);
+      (lastChanged && oldLastId != null && messages.value.some((m) => m.id === oldLastId)) ||
+      (grew && !firstChanged && messages.value[newLen - 1]?.id == null);
     // Pure prepend: anchor by element ID so re-flow from changing column
     // widths or differing message heights doesn't drift the math. With the
     // loading notice gone from the template, the OLD DOM and NEW DOM share
