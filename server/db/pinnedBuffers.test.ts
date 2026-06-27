@@ -64,9 +64,74 @@ describe('reorderPins', () => {
     expect(pinned.listPinnedForUserNetwork(user.id, net!.id)).toEqual(['#d', '#c']);
   });
 
-  it('returns null on a mismatched set', () => {
-    expect(pinned.reorderPins(user.id, net!.id, ['#d'])).toBeNull();
+  it('returns null when a requested target is not pinned', () => {
     expect(pinned.reorderPins(user.id, net!.id, ['#d', '#c', '#missing'])).toBeNull();
+  });
+
+  it('returns null on a duplicated target', () => {
+    expect(pinned.reorderPins(user.id, net!.id, ['#d', '#d'])).toBeNull();
+  });
+
+  // The client drops pins it can't render (closed/parted buffers, friend
+  // primary DMs), so a drag legitimately reorders only a subset of the pinned
+  // set. The reorder must still apply, keeping the unmentioned ("hidden") pins
+  // after the visible ones rather than snapping back (issue #405).
+  it('accepts a subset, reordering the supplied targets and keeping hidden pins after them', () => {
+    // Fresh user/network so the suite-wide ordering above stays intact.
+    const carol = createUser('pin-carol');
+    const netC = createNetwork(carol.id, {
+      name: 'c',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'c',
+    });
+    pinned.pinBuffer(carol.id, netC!.id, '#visibleA'); // pos 0
+    pinned.pinBuffer(carol.id, netC!.id, 'hiddenDM'); // pos 1 (invisible to the client)
+    pinned.pinBuffer(carol.id, netC!.id, '#visibleB'); // pos 2
+
+    // Client only sees the two channels and drags B above A.
+    const next = pinned.reorderPins(carol.id, netC!.id, ['#visibleB', '#visibleA']);
+    expect(next).toEqual(['#visibleB', '#visibleA', 'hiddenDM']);
+    expect(pinned.listPinnedForUserNetwork(carol.id, netC!.id)).toEqual([
+      '#visibleB',
+      '#visibleA',
+      'hiddenDM',
+    ]);
+  });
+});
+
+describe('unpinBufferCaseInsensitive', () => {
+  it('removes a pin whose stored casing differs from the requested target', () => {
+    const dave = createUser('pin-dave');
+    const netD = createNetwork(dave.id, {
+      name: 'd',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'd',
+    });
+    pinned.pinBuffer(dave.id, netD!.id, '#Channel'); // stored with a capital C
+    pinned.pinBuffer(dave.id, netD!.id, '#other');
+
+    // close-buffer arrives with the server's lowercased casing.
+    const next = pinned.unpinBufferCaseInsensitive(dave.id, netD!.id, '#channel');
+    expect(next).toEqual(['#other']);
+    expect(pinned.listPinnedForUserNetwork(dave.id, netD!.id)).toEqual(['#other']);
+  });
+
+  it('returns null when nothing matches so the caller can skip the broadcast', () => {
+    const erin = createUser('pin-erin');
+    const netE = createNetwork(erin.id, {
+      name: 'e',
+      host: 'h',
+      port: 6697,
+      tls: true,
+      nick: 'e',
+    });
+    pinned.pinBuffer(erin.id, netE!.id, '#kept');
+    expect(pinned.unpinBufferCaseInsensitive(erin.id, netE!.id, '#nope')).toBeNull();
+    expect(pinned.listPinnedForUserNetwork(erin.id, netE!.id)).toEqual(['#kept']);
   });
 });
 
