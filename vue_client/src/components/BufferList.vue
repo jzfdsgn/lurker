@@ -797,14 +797,25 @@ function scrollActiveIntoZone(behavior: ScrollBehavior): void {
   const elRect = el.getBoundingClientRect();
   const rowH = elRect.height;
   if (rowH <= 0) return;
+  // The LURKER row (.system-net) is sticky-pinned to the top on desktop, so
+  // buffers scroll *under* it — the usable top of the viewport is below it, not
+  // at scRect.top. Without this inset, upward nav parks the active row 3 rows
+  // below scRect.top but the sticky header hides the topmost ~row, so the top
+  // stays cramped while the (unobstructed) bottom looks fine (#388). The formula
+  // also covers mobile, where .system-net is inline: it insets only by however
+  // much the row actually overlaps the top, and clamps to 0 once it scrolls off.
+  const sticky = sc.querySelector<HTMLElement>('.system-net');
+  const topInset = sticky ? Math.max(0, sticky.getBoundingClientRect().bottom - scRect.top) : 0;
+  const topEdge = scRect.top + topInset;
+  const bottomEdge = scRect.bottom;
   // Never demand more room than centering would, so a viewport too short for the
   // full zone degrades to "centered" instead of fighting between the two edges.
-  const margin = Math.min(SCROLLOFF_ROWS * rowH, Math.max(0, (scRect.height - rowH) / 2));
+  const margin = Math.min(SCROLLOFF_ROWS * rowH, Math.max(0, (bottomEdge - topEdge - rowH) / 2));
   let delta = 0;
-  if (elRect.top < scRect.top + margin) {
-    delta = elRect.top - (scRect.top + margin); // negative → scroll up
-  } else if (elRect.bottom > scRect.bottom - margin) {
-    delta = elRect.bottom - (scRect.bottom - margin); // positive → scroll down
+  if (elRect.top < topEdge + margin) {
+    delta = elRect.top - (topEdge + margin); // negative → scroll up
+  } else if (elRect.bottom > bottomEdge - margin) {
+    delta = elRect.bottom - (bottomEdge - margin); // positive → scroll down
   }
   // Already comfortably inside the zone — don't jitter the list on a click or a
   // same-row reactivation. The browser clamps the target to the scroll range.
